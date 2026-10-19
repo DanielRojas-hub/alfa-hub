@@ -37,6 +37,13 @@ public static class Shot
         mouse_event(0x4, 0, 0, 0, UIntPtr.Zero);  // arriba
     }
 
+    public static void Wheel(int x, int y, int notches)
+    {
+        SetCursorPos(x, y);
+        System.Threading.Thread.Sleep(100);
+        mouse_event(0x0800, 0, 0, unchecked((uint)(notches * 120)), UIntPtr.Zero);  // rueda (negativo: hacia abajo)
+    }
+
     // Captura la ventana completa aunque se salga de la pantalla.
     public static void Window(IntPtr h, string path)
     {
@@ -140,6 +147,10 @@ Start-Sleep -Seconds 1
 Capture-Hub '01-hub-ciclo-y-sonido.png'
 Click 'Overlay'
 Capture-Hub '02-hub-overlay.png'
+$r = $script:hub.Current.BoundingRectangle
+[Shot]::Wheel([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height - 120), -15)
+Start-Sleep -Milliseconds 800
+Capture-Hub '02b-hub-overlay-colores.png'
 Click 'Atajos'
 Capture-Hub '03-hub-atajos.png'
 Click 'Ciclo y sonido'

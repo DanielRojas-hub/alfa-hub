@@ -11,18 +11,22 @@ using System.Windows.Forms;
 
 namespace AlfaHub
 {
+    /// Colores tomados de la versión de macOS (docs/DISENO-REFERENCIA.md).
     static class Theme
     {
-        public static readonly Color Back = Color.FromArgb(30, 30, 34);
-        public static readonly Color Card = Color.FromArgb(44, 44, 50);
-        public static readonly Color Fore = Color.FromArgb(235, 235, 240);
-        public static readonly Color Muted = Color.FromArgb(150, 150, 160);
+        public static readonly Color Back = Color.FromArgb(50, 48, 48);         // fondo de la ventana
+        public static readonly Color HeroCard = Color.FromArgb(65, 62, 62);     // tarjeta del timer
+        public static readonly Color Row = Color.FromArgb(59, 58, 57);          // filas de las secciones
+        public static readonly Color Segment = Color.FromArgb(63, 61, 61);      // fondo de las pestañas
+        public static readonly Color ControlFill = Color.FromArgb(82, 80, 79);  // botones grises
+        public static readonly Color Field = Color.FromArgb(34, 33, 33);        // campos numéricos
+        public static readonly Color Fore = Color.FromArgb(240, 240, 242);
+        public static readonly Color Muted = Color.FromArgb(160, 158, 158);
         /// Contador del hub en blanco hueso; botones y selección en azul.
         public static readonly Color Accent = Color.FromArgb(237, 237, 239);
         public static readonly Color Blue = Color.FromArgb(10, 132, 255);
         public static readonly Color Amber = Color.FromArgb(217, 120, 5);
-        public static readonly Color Green = Color.FromArgb(70, 200, 110);
-        public static readonly Color TibiaYellow = Color.FromArgb(255, 242, 51);
+        public static readonly Color Green = Color.FromArgb(48, 209, 88);
     }
 
     /// Recursos incrustados en el .exe.
@@ -48,31 +52,32 @@ namespace AlfaHub
         }
     }
 
-    /// Ventana principal: cabecera con el personaje y el timer, y los ajustes en tres pestañas.
+    /// Ventana principal: personaje, tarjeta del timer y los ajustes en tres pestañas.
     sealed class HubForm : Form
     {
         readonly Model model;
         bool syncing;
 
         readonly HeroPanel hero;
-        readonly Panel[] pages = new Panel[3];
-        readonly Button[] tabButtons = new Button[3];
+        readonly StackPanel[] pages = new StackPanel[3];
         readonly PreviewPanel preview;
 
         // Ciclo
-        readonly NumericUpDown minutes = Number(0, 60), seconds = Number(0, 59), warning = Number(0, 3600), beeps = Number(0, 30);
-        readonly CheckBox cycleBeep = Check("Tono al empezar cada ciclo");
-        readonly List<Button> presetButtons = new List<Button>();
+        readonly NumberField minutes = new NumberField { Maximum = 60 }, seconds = new NumberField { Maximum = 59 };
+        readonly StepperArrows cycleStepper = new StepperArrows(), warningStepper = new StepperArrows(), beepsStepper = new StepperArrows();
+        FormRow warningRow, beepsRow;
+        readonly ToggleSwitch cycleBeep = new ToggleSwitch();
+        readonly List<PillButton> presetButtons = new List<PillButton>();
         static readonly int[] Presets = { 60, 90, 120, 150, 180 };
         // Sonido
-        readonly CheckBox muted = Check("Silenciar");
-        readonly TrackBar volume = Slider(0, 100);
+        readonly ToggleSwitch muted = new ToggleSwitch();
+        readonly FlatSlider volume = new FlatSlider { Maximum = 100, Width = 150 };
         // Overlay
-        readonly CheckBox overlayVisible = Check("Mostrar overlay"), unlocked = Check("Desbloquear para moverlo");
-        readonly CheckBox previewAlert = Check("Ver en alerta");
-        readonly TrackBar scale = Slider(60, 300), opacity = Slider(20, 100), backgroundAlpha = Slider(0, 100);
+        readonly ToggleSwitch overlayVisible = new ToggleSwitch(), unlocked = new ToggleSwitch(), previewAlert = new ToggleSwitch();
+        readonly FlatSlider scale = new FlatSlider { Minimum = 60, Maximum = 300 }, opacity = new FlatSlider { Minimum = 20, Maximum = 100 };
+        readonly FlatSlider backgroundAlpha = new FlatSlider { Maximum = 100 };
         // Colores
-        readonly Button counterColor = Swatch(), alertColor = Swatch(), backgroundColor = Swatch();
+        readonly ColorSwatch counterColor = new ColorSwatch(), alertColor = new ColorSwatch(), backgroundColor = new ColorSwatch();
         // Atajos
         readonly Dictionary<HotKeyAction, ShortcutButton> shortcutButtons = new Dictionary<HotKeyAction, ShortcutButton>();
 
@@ -91,42 +96,32 @@ namespace AlfaHub
             Text = "Alfa Hub";
             BackColor = Theme.Back;
             ForeColor = Theme.Fore;
-            Font = new Font("Segoe UI", 9.5f);
+            Font = new Font("Segoe UI", 9.75f);
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(440, 780);
+            ClientSize = new Size(440, 800);
             MinimumSize = new Size(456, 560);
-            Padding = new Padding(12, 12, 12, 0);
+            Padding = new Padding(16, 10, 16, 0);
 
-            var mascot = new MascotPanel { Dock = DockStyle.Top, Height = 80 };
+            var mascot = new MascotPanel { Dock = DockStyle.Top, Height = 78 };
             hero = new HeroPanel(model) { Dock = DockStyle.Top, Height = 184 };
             hero.ToggleClicked += () => { model.Toggle(); RefreshTimer(); };
             hero.ResetClicked += () => { model.Reset(); RefreshTimer(); };
 
-            var tabs = new TableLayoutPanel { Dock = DockStyle.Top, Height = 34, ColumnCount = 3, Margin = Padding.Empty, Padding = new Padding(0, 0, 0, 0) };
-            for (int i = 0; i < 3; i++) tabs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            string[] titles = { "Ciclo y sonido", "Overlay", "Atajos" };
-            for (int i = 0; i < 3; i++)
-            {
-                int index = i;
-                var b = new Button { Text = titles[i], Dock = DockStyle.Fill, Margin = new Padding(i == 0 ? 0 : 2, 0, i == 2 ? 0 : 2, 0) };
-                StyleButton(b, Theme.Card);
-                b.Click += (s, e) => SelectTab(index);
-                tabButtons[i] = b;
-                tabs.Controls.Add(b, i, 0);
-            }
-            var spacer = new Panel { Dock = DockStyle.Top, Height = 10 };
+            var tabs = new SegmentedControl("Ciclo y sonido", "Overlay", "Atajos") { Dock = DockStyle.Top, Height = 32 };
+            tabs.SelectedIndexChanged += SelectTab;
 
-            preview = new PreviewPanel(model) { Height = 90, Width = 400 };
-            pages[0] = Page(BuildTimerPage);
-            pages[1] = Page(BuildOverlayPage);
-            pages[2] = Page(BuildShortcutsPage);
+            preview = new PreviewPanel(model);
+            pages[0] = BuildTimerPage();
+            pages[1] = BuildOverlayPage();
+            pages[2] = BuildShortcutsPage();
 
             // Orden de acoplado: lo último añadido con Dock.Top queda arriba.
             foreach (var page in pages) Controls.Add(page);
+            Controls.Add(Spacer(4));
             Controls.Add(tabs);
-            Controls.Add(spacer);
+            Controls.Add(Spacer(12));
             Controls.Add(hero);
             Controls.Add(mascot);
 
@@ -136,6 +131,8 @@ namespace AlfaHub
             ResumeLayout(true);
         }
 
+        static Panel Spacer(int height) => new Panel { Dock = DockStyle.Top, Height = height };
+
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
@@ -144,103 +141,78 @@ namespace AlfaHub
 
         void SelectTab(int index)
         {
-            for (int i = 0; i < pages.Length; i++)
-            {
-                pages[i].Visible = i == index;
-                SetFill(tabButtons[i], i == index ? Theme.Blue : Theme.Card);
-            }
+            for (int i = 0; i < pages.Length; i++) pages[i].Visible = i == index;
         }
 
         // ---------- Páginas ----------
 
-        Panel Page(Action<TableLayoutPanel> build)
+        static StackPanel Page(params Control[] items)
         {
-            var page = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(4, 0, 4, 16) };
-            var table = new TableLayoutPanel
-            {
-                ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Top,
-            };
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            build(table);
-            page.Controls.Add(table);
+            var page = new StackPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 2, 16) };
+            foreach (var item in items) page.Controls.Add(item);
             return page;
         }
 
-        void BuildTimerPage(TableLayoutPanel t)
+        static FormRow Row(string text, Control accessory) => new FormRow(text, accessory);
+
+        static FormRow ButtonRow(RoundButton button) => new FormRow(null, button, RowLayout.Leading);
+
+        static RoundButton ActionButton(string text, Action onClick)
         {
-            Header(t, "Tiempo entre ciclos");
-            var presets = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 2, 0, 4) };
+            var b = new RoundButton { Text = text, Height = 26 };
+            b.FitText(12);
+            b.Click += (s, e) => onClick();
+            return b;
+        }
+
+        StackPanel BuildTimerPage()
+        {
+            var chips = new InlineGroup { Height = 30 };
             foreach (int preset in Presets)
             {
                 int value = preset;
-                var b = new Button { Text = Model.Mmss(value), Width = 70, Font = new Font("Consolas", 10f, FontStyle.Bold), Tag = value };
-                StyleButton(b, Theme.Card);
-                b.Margin = new Padding(0, 0, 6, 0);
-                b.Click += (s, e) => { model.SetCycle(value); SyncFromModel(); Changed?.Invoke(); };
-                presetButtons.Add(b);
-                presets.Controls.Add(b);
+                var pill = new PillButton { Text = Model.Mmss(value), Width = 62 };
+                pill.Click += (s, e) => { model.SetCycle(value); SyncFromModel(); Changed?.Invoke(); };
+                presetButtons.Add(pill);
+                chips.Controls.Add(pill);
             }
-            Full(t, presets);
-            var custom = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
-            custom.Controls.Add(minutes); custom.Controls.Add(Caption("min"));
-            custom.Controls.Add(seconds); custom.Controls.Add(Caption("s"));
-            Row(t, "Personalizado", custom);
+            var custom = new InlineGroup(minutes, new Caption("min"), seconds, new Caption("s"), cycleStepper) { Height = 28 };
+            warningRow = Row("", warningStepper);
+            beepsRow = Row("", beepsStepper);
+            var volumeRow = new InlineGroup(volume, ActionButton("Probar", () => Beeper.Beep(1200, 0.15, model))) { Gap = 10 };
 
-            Header(t, "Avisos");
-            Row(t, "Alerta en los últimos (s)", warning);
-            Row(t, "Beeps en los últimos (s)", beeps);
-            Full(t, cycleBeep);
-            Full(t, ActionButton("Restaurar valores del Pez (2:00 · 25 s · 5 s)", () => { model.RestoreTimerDefaults(); SyncFromModel(); Changed?.Invoke(); }));
-
-            Header(t, "Sonido");
-            Full(t, muted);
-            var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
-            volume.Width = 140;  // con 200 el botón "Probar" se salía de la ventana
-            row.Controls.Add(volume);
-            row.Controls.Add(ActionButton("Probar", () => Beeper.Beep(1200, 0.15, model)));
-            Row(t, "Volumen", row);
-
-            EventHandler cycleChanged = (s, e) =>
-            {
-                if (syncing) return;
-                model.SetCycle((int)minutes.Value * 60 + (int)seconds.Value);
-                SyncFromModel();  // por si quedó por debajo del mínimo de 5 s
-                Changed?.Invoke();
-            };
-            minutes.ValueChanged += cycleChanged;
-            seconds.ValueChanged += cycleChanged;
-            warning.ValueChanged += (s, e) => Set(() => model.Warning = (int)warning.Value);
-            beeps.ValueChanged += (s, e) => Set(() => model.BeepSeconds = (int)beeps.Value);
+            minutes.ValueCommitted += (s, e) => SetCycle(minutes.Value * 60 + model.Cycle % 60);
+            seconds.ValueCommitted += (s, e) => SetCycle(model.Cycle / 60 * 60 + seconds.Value);
+            cycleStepper.Up += () => SetCycle(model.Cycle + 5);
+            cycleStepper.Down += () => SetCycle(model.Cycle - 5);
+            warningStepper.Up += () => Apply(() => model.Warning = Math.Min(model.Cycle, model.Warning + 1));
+            warningStepper.Down += () => Apply(() => model.Warning = Math.Max(0, model.Warning - 1));
+            beepsStepper.Up += () => Apply(() => model.BeepSeconds = Math.Min(30, model.BeepSeconds + 1));
+            beepsStepper.Down += () => Apply(() => model.BeepSeconds = Math.Max(0, model.BeepSeconds - 1));
             cycleBeep.CheckedChanged += (s, e) => Set(() => model.CycleBeep = cycleBeep.Checked);
             muted.CheckedChanged += (s, e) => Set(() => { model.Muted = muted.Checked; volume.Enabled = !muted.Checked; });
             volume.ValueChanged += (s, e) => Set(() => model.Volume = volume.Value / 100.0);
+
+            return Page(
+                new SectionHeader("Tiempo entre ciclos"),
+                new SectionCard(
+                    new FormRow(null, chips, RowLayout.Centered, 46),
+                    Row("Personalizado", custom)),
+                new SectionHeader("Avisos"),
+                new SectionCard(
+                    warningRow,
+                    beepsRow,
+                    Row("Tono al empezar cada ciclo", cycleBeep),
+                    ButtonRow(ActionButton("Restaurar valores del Pez (2:00 · 25 s · 5 s)", () => Apply(model.RestoreTimerDefaults)))),
+                new SectionHeader("Sonido"),
+                new SectionCard(
+                    Row("Silenciar", muted),
+                    Row("Volumen", volumeRow)));
         }
 
-        void BuildOverlayPage(TableLayoutPanel t)
+        StackPanel BuildOverlayPage()
         {
-            Header(t, "Vista previa");
-            preview.Margin = new Padding(0, 2, 0, 2);
-            Full(t, preview);
-            Full(t, previewAlert);
-            previewAlert.CheckedChanged += (s, e) => { preview.ShowAlert = previewAlert.Checked; };
-
-            Header(t, "En Tibia");
-            Full(t, overlayVisible);
-            Row(t, "Tamaño", scale);
-            Row(t, "Opacidad", opacity);
-            Full(t, unlocked);
-            Full(t, ActionButton("Volver a la esquina superior derecha", () => ResetOverlayPosition?.Invoke()));
-            Note(t, "Solo aparece con Tibia al frente y deja pasar los clics al juego. Mientras está desbloqueado se ve siempre, para que puedas arrastrarlo a su sitio; luego vuelve a bloquearlo.");
-
-            Header(t, "Colores");
-            Row(t, "Contador", counterColor);
-            Row(t, "Contador en alerta", alertColor);
-            Row(t, "Fondo", backgroundColor);
-            Row(t, "Opacidad del fondo", backgroundAlpha);
-            Full(t, ActionButton("Restaurar colores", () => { model.RestoreColors(); SyncFromModel(); Changed?.Invoke(); }));
-            Note(t, "Pon la opacidad del fondo en cero para ver solo el número.");
-
+            previewAlert.CheckedChanged += (s, e) => preview.ShowAlert = previewAlert.Checked;
             overlayVisible.CheckedChanged += (s, e) => Set(() => model.OverlayVisible = overlayVisible.Checked);
             unlocked.CheckedChanged += (s, e) => Set(() =>
             {
@@ -255,22 +227,43 @@ namespace AlfaHub
                 PickColor(model.BackgroundColor, c => model.BackgroundColor = Color.FromArgb(model.BackgroundColor.A, c));
             backgroundAlpha.ValueChanged += (s, e) => Set(() =>
                 model.BackgroundColor = Color.FromArgb((int)Math.Round(backgroundAlpha.Value * 2.55), model.BackgroundColor));
+
+            return Page(
+                new SectionHeader("Vista previa"),
+                new SectionCard(
+                    new FormRow(null, preview, RowLayout.Stretch, 112),
+                    Row("Ver en alerta", previewAlert)),
+                new SectionHeader("En Tibia"),
+                new SectionCard(
+                    Row("Mostrar overlay", overlayVisible),
+                    Row("Tamaño", scale),
+                    Row("Opacidad", opacity),
+                    Row("Desbloquear para moverlo", unlocked),
+                    ButtonRow(ActionButton("Volver a la esquina superior derecha", () => ResetOverlayPosition?.Invoke()))),
+                new NoteLabel("Solo aparece con Tibia al frente y deja pasar los clics al juego. Mientras está desbloqueado se ve siempre, para que puedas arrastrarlo a su sitio; luego vuelve a bloquearlo."),
+                new SectionHeader("Colores"),
+                new SectionCard(
+                    Row("Contador", counterColor),
+                    Row("Contador en alerta", alertColor),
+                    Row("Fondo", backgroundColor),
+                    Row("Opacidad del fondo", backgroundAlpha),
+                    ButtonRow(ActionButton("Restaurar colores", () => Apply(model.RestoreColors)))),
+                new NoteLabel("Pon la opacidad del fondo en cero para ver solo el número."));
         }
 
-        void BuildShortcutsPage(TableLayoutPanel t)
+        StackPanel BuildShortcutsPage()
         {
-            Header(t, "Funcionan con Tibia al frente");
             var titles = new Dictionary<HotKeyAction, string>
             {
                 [HotKeyAction.Toggle] = "Iniciar / pausar",
                 [HotKeyAction.Reset] = "Reiniciar",
                 [HotKeyAction.Overlay] = "Mostrar / ocultar overlay",
             };
+            var rows = new List<FormRow>();
             foreach (var pair in titles)
             {
                 HotKeyAction action = pair.Key;
-                var button = new ShortcutButton { Width = 170 };
-                StyleButton(button, Theme.Card);
+                var button = new ShortcutButton { Width = 150, Height = 26 };
                 button.Recorded += keys =>
                 {
                     model.SetShortcut(action, keys);
@@ -279,26 +272,37 @@ namespace AlfaHub
                     ShortcutsChanged?.Invoke();
                 };
                 button.RecordingChanged += recording => RecordingShortcut?.Invoke(recording);
-                var clear = ActionButton("✕", () => button.Assign(Keys.None));
-                clear.AutoSize = false;
-                clear.Width = 32;
-                var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
-                row.Controls.Add(button);
-                row.Controls.Add(clear);
+                var clear = new RoundButton { Text = "✕", Pill = true, Size = new Size(24, 24), ForeColor = Theme.Muted };
+                clear.Click += (s, e) => button.Assign(Keys.None);
                 shortcutButtons[action] = button;
-                Row(t, pair.Value, row);
+                rows.Add(Row(pair.Value, new InlineGroup(button, clear)));
             }
-            Full(t, ActionButton("Restaurar atajos", () =>
+            rows.Add(ButtonRow(ActionButton("Restaurar atajos", () =>
             {
                 model.RestoreShortcuts();
                 SyncFromModel();
                 Changed?.Invoke();
                 ShortcutsChanged?.Invoke();
-            }));
-            Note(t, "Haz clic en un atajo y pulsa la nueva combinación (Esc cancela). Usa al menos Ctrl, Alt o Mayús, o una tecla F sola.");
+            })));
+
+            return Page(
+                new SectionHeader("Funcionan con Tibia al frente"),
+                new SectionCard(rows.ToArray()),
+                new NoteLabel("Haz clic en un atajo y pulsa la nueva combinación (Esc cancela). Usa al menos Ctrl, Alt o Mayús, o una tecla F sola."));
         }
 
         // ---------- Sincronización ----------
+
+        void SetCycle(int seconds) => Apply(() => model.SetCycle(seconds));
+
+        /// Cambia el modelo y vuelve a sincronizar toda la UI (para cambios que afectan a varios controles).
+        void Apply(Action apply)
+        {
+            if (syncing) return;
+            apply();
+            SyncFromModel();
+            Changed?.Invoke();
+        }
 
         void Set(Action apply)
         {
@@ -314,18 +318,18 @@ namespace AlfaHub
             syncing = true;
             minutes.Value = model.Cycle / 60;
             seconds.Value = model.Cycle % 60;
-            foreach (var b in presetButtons) SetFill(b, (int)b.Tag == model.Cycle ? Theme.Blue : Theme.Card);
-            warning.Value = Model.Clamp(model.Warning, 0, 3600);
-            beeps.Value = Model.Clamp(model.BeepSeconds, 0, 30);
+            foreach (var pill in presetButtons) pill.Selected = pill.Text == Model.Mmss(model.Cycle);
+            warningRow.Text = $"Alerta en los últimos {model.Warning} s";
+            beepsRow.Text = $"Beeps en los últimos {model.BeepSeconds} s";
             cycleBeep.Checked = model.CycleBeep;
             muted.Checked = model.Muted;
             volume.Enabled = !model.Muted;
-            volume.Value = Model.Clamp((int)Math.Round(model.Volume * 100), 0, 100);
+            volume.Value = (int)Math.Round(model.Volume * 100);
             overlayVisible.Checked = model.OverlayVisible;
             unlocked.Checked = model.OverlayUnlocked;
-            scale.Value = Model.Clamp((int)Math.Round(model.OverlayScale * 100), 60, 300);
-            opacity.Value = Model.Clamp((int)Math.Round(model.OverlayOpacity * 100), 20, 100);
-            backgroundAlpha.Value = Model.Clamp((int)Math.Round(model.BackgroundColor.A / 2.55), 0, 100);
+            scale.Value = (int)Math.Round(model.OverlayScale * 100);
+            opacity.Value = (int)Math.Round(model.OverlayOpacity * 100);
+            backgroundAlpha.Value = (int)Math.Round(model.BackgroundColor.A / 2.55);
             foreach (var pair in shortcutButtons) pair.Value.Display(model.Shortcuts.TryGetValue(pair.Key, out Keys k) ? k : Keys.None);
             SyncSwatches();
             preview.Invalidate();
@@ -335,9 +339,9 @@ namespace AlfaHub
 
         void SyncSwatches()
         {
-            counterColor.BackColor = model.CounterColor;
-            alertColor.BackColor = model.AlertColor;
-            backgroundColor.BackColor = Color.FromArgb(255, model.BackgroundColor);
+            counterColor.FillColor = model.CounterColor;
+            alertColor.FillColor = model.AlertColor;
+            backgroundColor.FillColor = Color.FromArgb(255, model.BackgroundColor);
         }
 
         /// Refresca la cabecera (se llama en cada tick).
@@ -375,97 +379,6 @@ namespace AlfaHub
                 Hide();
             }
             base.OnFormClosing(e);
-        }
-
-        // ---------- Helpers de UI ----------
-
-        void Header(TableLayoutPanel t, string text)
-        {
-            Full(t, new Label
-            {
-                Text = text, AutoSize = true, ForeColor = Theme.Fore,
-                Font = new Font(Font.FontFamily, 10.5f, FontStyle.Bold), Margin = new Padding(0, 14, 0, 4),
-            });
-        }
-
-        void Note(TableLayoutPanel t, string text)
-        {
-            Full(t, new Label
-            {
-                Text = text, ForeColor = Theme.Muted, AutoSize = true, MaximumSize = new Size(390, 0),
-                Font = new Font(Font.FontFamily, 8.5f), Margin = new Padding(0, 2, 0, 4),
-            });
-        }
-
-        static void Row(TableLayoutPanel t, string label, Control control)
-        {
-            t.Controls.Add(new Label
-            {
-                Text = label, AutoSize = true, Anchor = AnchorStyles.Left, ForeColor = Theme.Fore,
-                Margin = new Padding(0, 6, 12, 6),
-            });
-            control.Anchor = AnchorStyles.Left;
-            t.Controls.Add(control);
-        }
-
-        static void Full(TableLayoutPanel t, Control control)
-        {
-            t.Controls.Add(control);
-            t.SetColumnSpan(control, 2);
-        }
-
-        static Label Caption(string text) =>
-            new Label { Text = text, AutoSize = true, ForeColor = Theme.Muted, Margin = new Padding(2, 6, 8, 0) };
-
-        static NumericUpDown Number(int min, int max) => new NumericUpDown
-        {
-            Minimum = min, Maximum = max, Width = 64, BackColor = Theme.Card, ForeColor = Theme.Fore,
-            BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Right,
-        };
-
-        static CheckBox Check(string text) =>
-            new CheckBox { Text = text, AutoSize = true, ForeColor = Theme.Fore, Margin = new Padding(0, 6, 0, 6) };
-
-        static TrackBar Slider(int min, int max) => new TrackBar
-        {
-            Minimum = min, Maximum = max, TickStyle = TickStyle.None, Width = 200, AutoSize = false, Height = 30,
-            BackColor = Theme.Back, SmallChange = 1, LargeChange = Math.Max(1, (max - min) / 10),
-        };
-
-        static Button Swatch()
-        {
-            var b = new Button { Width = 64, Height = 24, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand };
-            b.FlatAppearance.BorderColor = Theme.Muted;
-            return b;
-        }
-
-        static Button ActionButton(string text, Action onClick)
-        {
-            var b = new Button { Text = text, AutoSize = true };
-            StyleButton(b, Theme.Card);
-            b.Click += (s, e) => onClick();
-            return b;
-        }
-
-        /// Cambia el color de un botón plano junto con sus colores de hover/pulsado; si no, el hover
-        /// del color anterior tapa el nuevo mientras el ratón sigue encima (p. ej. la pestaña recién elegida).
-        public static void SetFill(Button b, Color back)
-        {
-            b.BackColor = back;
-            b.FlatAppearance.MouseOverBackColor = ControlPaint.Light(back, 0.15f);
-            b.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(back, 0.05f);
-        }
-
-        public static void StyleButton(Button b, Color back)
-        {
-            b.FlatStyle = FlatStyle.Flat;
-            b.BackColor = back;
-            b.ForeColor = Color.White;
-            b.Height = 30;
-            b.Cursor = Cursors.Hand;
-            b.FlatAppearance.BorderColor = Color.FromArgb(80, 80, 90);
-            b.FlatAppearance.MouseOverBackColor = ControlPaint.Light(back, 0.15f);
-            b.Margin = new Padding(0, 4, 8, 4);
         }
     }
 
@@ -536,7 +449,7 @@ namespace AlfaHub
     sealed class HeroPanel : Control
     {
         readonly Model model;
-        readonly Button toggle = new Button(), reset = new Button { Text = "↺  Reiniciar" };
+        readonly RoundButton toggle = new RoundButton(), reset = new RoundButton { Text = "↺  Reiniciar" };
         string lastState;
 
         public event Action ToggleClicked, ResetClicked;
@@ -549,12 +462,13 @@ namespace AlfaHub
             BackColor = Theme.Back;
             foreach (var b in new[] { toggle, reset })
             {
-                HubForm.StyleButton(b, Theme.Card);
                 b.Font = new Font("Segoe UI Semibold", 11f);
-                b.FlatAppearance.BorderSize = 0;
+                b.Radius = 10;
+                b.BackColor = Theme.HeroCard;
                 Controls.Add(b);
             }
-            reset.BackColor = Color.FromArgb(52, 52, 60);
+            reset.FillColor = Color.FromArgb(76, 73, 73);
+            reset.BorderColor = Color.FromArgb(92, 89, 89);
             toggle.Click += (s, e) => ToggleClicked?.Invoke();
             reset.Click += (s, e) => ResetClicked?.Invoke();
         }
@@ -565,7 +479,7 @@ namespace AlfaHub
         public void UpdateState()
         {
             toggle.Text = model.Running ? "❚❚  Pausar" : "▶  Iniciar";
-            HubForm.SetFill(toggle, model.Running ? Theme.Amber : Theme.Blue);
+            toggle.FillColor = model.Running ? Theme.Amber : Theme.Blue;
             string state = string.Join("|", model.Seconds, model.Running, model.Cycle, model.Warning,
                 model.CounterColor.ToArgb(), model.AlertColor.ToArgb());
             if (state != lastState || (model.Critical && model.Running))
@@ -579,7 +493,7 @@ namespace AlfaHub
         {
             base.OnLayout(e);
             float k = K;
-            int y = (int)(128 * k), h = (int)(40 * k), resetW = (int)(130 * k), gap = (int)(10 * k), pad = (int)(16 * k);
+            int y = (int)(128 * k), h = (int)(38 * k), resetW = (int)(130 * k), gap = (int)(10 * k), pad = (int)(16 * k);
             reset.Bounds = new Rectangle(Width - pad - resetW, y, resetW, h);
             toggle.Bounds = new Rectangle(pad, y, reset.Left - gap - pad, h);
         }
@@ -595,13 +509,13 @@ namespace AlfaHub
             var card = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
             using (var shape = CounterRenderer.RoundedRect(card, 14 * k))
             {
-                using (var fill = new SolidBrush(Color.FromArgb(40, 40, 46))) g.FillPath(fill, shape);
-                using (var border = new Pen(Color.FromArgb(62, 62, 70))) g.DrawPath(border, shape);
+                using (var fill = new SolidBrush(Theme.HeroCard)) g.FillPath(fill, shape);
+                using (var border = new Pen(Color.FromArgb(84, 81, 81))) g.DrawPath(border, shape);
             }
 
             float left = 16 * k, right = Width - 16 * k;
             bool alert = model.Critical && model.Running;
-            // El hub usa el azul de la app; el color del contador solo aplica al overlay.
+            // El contador del hub va en blanco hueso; el color del contador solo aplica al overlay.
             Color accent = model.Critical ? model.AlertColor : Theme.Accent;
 
             DrawChip(g, left, 14 * k, k);
@@ -669,10 +583,10 @@ namespace AlfaHub
         {
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.Clear(Theme.Back);
+            g.Clear(BackColor);
             float k = DeviceDpi / 96f;
             var rect = new RectangleF(0, 0, Width - 1, Height - 1);
-            using (var shape = CounterRenderer.RoundedRect(rect, 10 * k))
+            using (var shape = CounterRenderer.RoundedRect(rect, 8 * k))
             using (var fill = new LinearGradientBrush(rect, Color.FromArgb(74, 92, 51), Color.FromArgb(51, 41, 31), 35f))
                 g.FillPath(fill, shape);
 
@@ -693,13 +607,19 @@ namespace AlfaHub
     }
 
     /// Botón que graba una combinación de teclas al pulsarlo. Esc cancela.
-    sealed class ShortcutButton : Button
+    sealed class ShortcutButton : RoundButton
     {
         Keys value;
         bool recording;
 
         public event Action<Keys> Recorded;
         public event Action<bool> RecordingChanged;
+
+        public ShortcutButton()
+        {
+            FillColor = Theme.ControlFill;
+            Font = new Font("Segoe UI Semibold", 9.5f);
+        }
 
         public void Display(Keys keys) { value = keys; UpdateLabel(); }
         public void Assign(Keys keys) { value = keys; UpdateLabel(); Recorded?.Invoke(keys); }

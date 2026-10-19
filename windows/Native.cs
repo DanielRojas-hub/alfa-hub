@@ -73,6 +73,17 @@ namespace AlfaHub
             catch (EntryPointNotFoundException) { }
         }
 
+        [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
+        static extern int SetWindowTheme(IntPtr hWnd, string appName, string idList);
+
+        /// Barras de scroll oscuras (tema del Explorador en modo oscuro, Windows 10 1809+).
+        public static void UseDarkScrollbars(IntPtr hWnd)
+        {
+            try { SetWindowTheme(hWnd, "DarkMode_Explorer", null); }
+            catch (DllNotFoundException) { }
+            catch (EntryPointNotFoundException) { }
+        }
+
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
 
