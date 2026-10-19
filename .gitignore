@@ -1,0 +1,5 @@
+.DS_Store
+dist/
+windows/bin/
+windows/obj/
+macos/Alfa Hub.app/
