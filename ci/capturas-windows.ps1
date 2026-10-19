@@ -76,7 +76,22 @@ function Find-ByName($root, [string] $name, [int] $timeoutSeconds = 10, $control
         if ($element) { return $element }
         Start-Sleep -Milliseconds 300
     }
+    Dump-Tree $root
     throw "No se encontró el elemento '$name'"
+}
+
+# Para depurar: lista lo que ve UI Automation (tipo, nombre, patrones).
+function Dump-Tree($element, [int] $depth = 0) {
+    if ($depth -gt 8) { return }
+    $c = $element.Current
+    $patterns = ($element.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName -replace 'PatternIdentifiers.Pattern', '' }) -join ','
+    Write-Host ("{0}{1} '{2}' [{3}]" -f ('  ' * $depth), $c.ControlType.ProgrammaticName, $c.Name, $patterns)
+    $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+    $child = $walker.GetFirstChild($element)
+    while ($child) {
+        Dump-Tree $child ($depth + 1)
+        $child = $walker.GetNextSibling($child)
+    }
 }
 
 function Click($name) {
