@@ -147,7 +147,7 @@ namespace AlfaHub
             for (int i = 0; i < pages.Length; i++)
             {
                 pages[i].Visible = i == index;
-                tabButtons[i].BackColor = i == index ? Theme.Blue : Theme.Card;
+                SetFill(tabButtons[i], i == index ? Theme.Blue : Theme.Card);
             }
         }
 
@@ -314,7 +314,7 @@ namespace AlfaHub
             syncing = true;
             minutes.Value = model.Cycle / 60;
             seconds.Value = model.Cycle % 60;
-            foreach (var b in presetButtons) b.BackColor = (int)b.Tag == model.Cycle ? Theme.Blue : Theme.Card;
+            foreach (var b in presetButtons) SetFill(b, (int)b.Tag == model.Cycle ? Theme.Blue : Theme.Card);
             warning.Value = Model.Clamp(model.Warning, 0, 3600);
             beeps.Value = Model.Clamp(model.BeepSeconds, 0, 30);
             cycleBeep.Checked = model.CycleBeep;
@@ -447,6 +447,15 @@ namespace AlfaHub
             return b;
         }
 
+        /// Cambia el color de un botón plano junto con sus colores de hover/pulsado; si no, el hover
+        /// del color anterior tapa el nuevo mientras el ratón sigue encima (p. ej. la pestaña recién elegida).
+        public static void SetFill(Button b, Color back)
+        {
+            b.BackColor = back;
+            b.FlatAppearance.MouseOverBackColor = ControlPaint.Light(back, 0.15f);
+            b.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(back, 0.05f);
+        }
+
         public static void StyleButton(Button b, Color back)
         {
             b.FlatStyle = FlatStyle.Flat;
@@ -542,6 +551,7 @@ namespace AlfaHub
             {
                 HubForm.StyleButton(b, Theme.Card);
                 b.Font = new Font("Segoe UI Semibold", 11f);
+                b.FlatAppearance.BorderSize = 0;
                 Controls.Add(b);
             }
             reset.BackColor = Color.FromArgb(52, 52, 60);
@@ -555,8 +565,7 @@ namespace AlfaHub
         public void UpdateState()
         {
             toggle.Text = model.Running ? "❚❚  Pausar" : "▶  Iniciar";
-            toggle.BackColor = model.Running ? Theme.Amber : Theme.Blue;
-            toggle.FlatAppearance.MouseOverBackColor = ControlPaint.Light(toggle.BackColor, 0.15f);
+            HubForm.SetFill(toggle, model.Running ? Theme.Amber : Theme.Blue);
             string state = string.Join("|", model.Seconds, model.Running, model.Cycle, model.Warning,
                 model.CounterColor.ToArgb(), model.AlertColor.ToArgb());
             if (state != lastState || (model.Critical && model.Running))
