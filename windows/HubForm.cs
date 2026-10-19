@@ -196,6 +196,7 @@ namespace AlfaHub
             Header(t, "Sonido");
             Full(t, muted);
             var row = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = Padding.Empty };
+            volume.Width = 140;  // con 200 el botón "Probar" se salía de la ventana
             row.Controls.Add(volume);
             row.Controls.Add(ActionButton("Probar", () => Beeper.Beep(1200, 0.15, model)));
             Row(t, "Volumen", row);

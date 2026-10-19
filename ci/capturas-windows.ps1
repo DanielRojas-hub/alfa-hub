@@ -64,8 +64,12 @@ public static class Shot
 $UIA = [System.Windows.Automation.AutomationElement]
 $Scope = [System.Windows.Automation.TreeScope]
 
-function Find-ByName($root, [string] $name, [int] $timeoutSeconds = 10) {
+function Find-ByName($root, [string] $name, [int] $timeoutSeconds = 10, $controlType = $null) {
     $condition = New-Object System.Windows.Automation.PropertyCondition($UIA::NameProperty, $name)
+    if ($controlType) {
+        $typeCondition = New-Object System.Windows.Automation.PropertyCondition($UIA::ControlTypeProperty, $controlType)
+        $condition = New-Object System.Windows.Automation.AndCondition($condition, $typeCondition)
+    }
     $deadline = (Get-Date).AddSeconds($timeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         $element = $root.FindFirst($Scope::Descendants, $condition)
@@ -76,13 +80,13 @@ function Find-ByName($root, [string] $name, [int] $timeoutSeconds = 10) {
 }
 
 function Click($name) {
-    $element = Find-ByName $script:hub $name
+    $element = Find-ByName $script:hub $name 10 ([System.Windows.Automation.ControlType]::Button)
     $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 800
 }
 
 function Toggle($name) {
-    $element = Find-ByName $script:hub $name
+    $element = Find-ByName $script:hub $name 10 ([System.Windows.Automation.ControlType]::CheckBox)
     $element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Start-Sleep -Milliseconds 800
 }
