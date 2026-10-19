@@ -23,6 +23,10 @@ La versión de macOS ya está probada; la de Windows se compiló desde macOS y *
 
 ## 2. Aspecto del hub
 
+Referencia visual: [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md) y las capturas de
+[docs/capturas/](docs/capturas/) (versión de macOS). Si el hub de Windows no se parece, ajustarlo
+siguiendo esa guía antes de seguir con el resto de pruebas.
+
 - [ ] Arriba a la derecha: el personaje (pixel-art nítido, sin sombra) con una **nube de diálogo blanca** a su izquierda que dice "Slayer macaco e mielda", con la punta hacia él.
 - [ ] Tarjeta gris neutra con: estado ("En pausa"), "Ciclo 1 · Total 00:00", contador **02:00 en blanco hueso** centrado, barra de progreso, botón **Iniciar azul** y botón Reiniciar gris.
 - [ ] Pestañas "Ciclo y sonido", "Overlay", "Atajos": la seleccionada en azul y cambian el contenido.
