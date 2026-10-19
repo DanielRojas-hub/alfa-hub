@@ -1,0 +1,36 @@
+# Compila Alfa Hub en un Windows real, lo abre y sube capturas del hub y del overlay como artefacto.
+# Se lanza a mano (Actions → "Capturas Windows" → Run workflow) o al cambiar windows/ en main o en un PR.
+name: Capturas Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['windows/**', 'ci/**', '.github/workflows/capturas-windows.yml']
+  pull_request:
+    paths: ['windows/**', 'ci/**', '.github/workflows/capturas-windows.yml']
+
+jobs:
+  capturas:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar
+        working-directory: windows
+        run: dotnet build -c Release
+
+      - name: Abrir AlfaHub.exe y capturar
+        shell: powershell
+        run: ./ci/capturas-windows.ps1 -Exe windows/bin/Release/net48/AlfaHub.exe -Out capturas
+
+      - name: Subir capturas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-windows
+          path: |
+            capturas
+            windows/bin/Release/net48/AlfaHub.exe
+          if-no-files-found: warn
