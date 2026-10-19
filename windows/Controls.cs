@@ -80,12 +80,24 @@ namespace AlfaHub
         public float Radius { get; set; } = 7;
         public bool Pill { get; set; }
 
-        /// Ancho justo para el texto con un margen a cada lado.
+        int fitPadding = -1;
+
+        /// Ancho justo para el texto con un margen a cada lado; se recalcula si cambian el texto
+        /// o la fuente (la fuente heredada de la ventana llega después de crear el botón).
         public RoundButton FitText(int padding = 14)
         {
-            Width = TextRenderer.MeasureText(Text, Font).Width + padding * 2;
+            fitPadding = padding;
+            Refit();
             return this;
         }
+
+        void Refit()
+        {
+            if (fitPadding >= 0) Width = TextRenderer.MeasureText(Text, Font).Width + (int)(fitPadding * 2 * K);
+        }
+
+        protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); Refit(); }
+        protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Refit(); }
 
         protected override void OnMouseEnter(EventArgs e) { hover = true; Invalidate(); base.OnMouseEnter(e); }
         protected override void OnMouseLeave(EventArgs e) { hover = pressed = false; Invalidate(); base.OnMouseLeave(e); }
