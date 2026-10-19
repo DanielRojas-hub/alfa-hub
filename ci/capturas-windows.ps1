@@ -26,6 +26,16 @@ public static class Shot
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
     [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
+
+    public static void Click(int x, int y)
+    {
+        SetCursorPos(x, y);
+        System.Threading.Thread.Sleep(100);
+        mouse_event(0x2, 0, 0, 0, UIntPtr.Zero);  // botón izquierdo abajo
+        mouse_event(0x4, 0, 0, 0, UIntPtr.Zero);  // arriba
+    }
 
     // Captura la ventana completa aunque se salga de la pantalla.
     public static void Window(IntPtr h, string path)
@@ -94,17 +104,16 @@ function Dump-Tree($element, [int] $depth = 0) {
     }
 }
 
+# Los controles de WinForms salen en UI Automation como paneles sin patrones (Invoke/Toggle),
+# así que se hace clic real en el centro de cada uno.
 function Click($name) {
-    $element = Find-ByName $script:hub $name 10 ([System.Windows.Automation.ControlType]::Button)
-    $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $element = Find-ByName $script:hub $name
+    $r = $element.Current.BoundingRectangle
+    [Shot]::Click([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height / 2))
     Start-Sleep -Milliseconds 800
 }
 
-function Toggle($name) {
-    $element = Find-ByName $script:hub $name 10 ([System.Windows.Automation.ControlType]::CheckBox)
-    $element.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
-    Start-Sleep -Milliseconds 800
-}
+function Toggle($name) { Click $name }
 
 function Capture-Hub($file) {
     [Shot]::Window($script:hwnd, (Join-Path $Out $file))
