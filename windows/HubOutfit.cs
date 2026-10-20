@@ -28,7 +28,7 @@ namespace AlfaHub
             var editor = new OutfitEditor(Outfit) { Margin = new Padding(0, 4, 0, 8) };
             editor.Disposed += (s, e) => Outfit.Changed -= onChange;
             return Page(
-                new PageHeader("Outfit", "Tu personaje: ícono de la ventana, de la bandeja y barra lateral", actions),
+                new PageHeader("Outfit", "Tu personaje: ícono, bandeja y barra lateral", actions),
                 editor,
                 new NoteLabel("Pulsa Guardar cambios para que tu personaje pase al ícono de la ventana, a la bandeja y a la barra lateral. Los sprites vienen del Outfiter de TibiaWiki: se descargan la primera vez que eliges cada outfit o montura y luego funcionan sin conexión. El ícono del archivo AlfaHub.exe sigue siendo el original."));
         }
