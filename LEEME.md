@@ -4,12 +4,18 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
 
 - **Timers**: varios a la vez, con presets **Pez** (cada 2:00), **Bakragore** (mecánica cada 1:30
   durante 25 min), **Pilar** (rotación de los Totens cada 6 s) o personalizados. Cada uno tiene su
-  duración, avisos, sonido propio (.wav/.mp3 o beep) y atajo de iniciar/pausar.
+  duración, avisos, sonido (14 incluidos o un .wav/.mp3 propio), atajo de iniciar/pausar y su propio
+  contador sobre Tibia (tamaño, opacidad, colores y sitio), que se edita en el editor del timer.
+- **Tibia Audio**: pones la tecla con la que usas una habilidad en Tibia y su cooldown; al pulsarla en
+  el juego empieza la cuenta y suena un aviso cuando la habilidad vuelve a estar lista. La tecla sigue
+  llegando a Tibia (Alfa Hub solo la mira). Está apagado hasta que lo activas.
 - **Espejos**: copia partes de la ventana de Tibia (cooldowns, hechizos, barra de vida…) en ventanitas
   flotantes que pones donde quieras; solo se ven con Tibia al frente y dejan pasar los clics.
-- **Overlay**: los contadores de los timers en marcha, encima de Tibia y únicamente mientras Tibia
-  está al frente. Los clics lo atraviesan y llegan al juego.
-- **Hub**: barra lateral con Timers, Overlay, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
+- **Overlay**: el contador de cada timer en marcha, encima de Tibia y únicamente mientras Tibia
+  está al frente. Los clics lo atraviesan y llegan al juego. "Desbloquear para moverlos" (página
+  Timers) los muestra todos para arrastrar cada uno a su sitio.
+- Sin límite de timers, habilidades ni espejos.
+- **Hub**: barra lateral con Timers, Tibia Audio, Espejos, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
 
 ## Windows
 
@@ -24,7 +30,8 @@ Descarga `AlfaHub.exe` desde la última **Release** del repositorio. No necesita
 
 Atajos por defecto: **Ctrl+Alt+P** iniciar/pausar el timer Pez, **Ctrl+Alt+R** reiniciar el último
 timer usado, **Ctrl+Alt+O** mostrar/ocultar overlay. Cada timer puede tener su propio atajo.
-Los ajustes se guardan en `%APPDATA%\AlfaHub\ajustes.ini` y los timers en `timers.json`.
+Los ajustes se guardan en `%APPDATA%\AlfaHub\ajustes.ini`; los timers en `timers.json`, los espejos
+en `espejos.json` y Tibia Audio en `audio.json`.
 
 Si el overlay no se ve encima de Tibia, pon Tibia en modo ventana o pantalla completa sin bordes
 (una pantalla completa exclusiva no deja dibujar ventanas encima).
@@ -38,6 +45,9 @@ Alfa Hub es un programa aparte que **no toca el cliente de Tibia**:
 - para saber si Tibia está al frente solo mira el nombre del proceso y el título de la ventana
   activa, igual que el Administrador de tareas;
 - los atajos son atajos globales normales de Windows (`RegisterHotKey`);
+- **Tibia Audio** no instala ganchos de teclado: con Tibia al frente pregunta cada 15 ms si están
+  pulsadas las teclas de tu lista (`GetAsyncKeyState`, solo lectura). No bloquea la tecla, no envía nada
+  y no guarda lo que escribes;
 - los **espejos** usan las miniaturas de ventana de Windows (DWM, las mismas de la vista previa de
   la barra de tareas): las dibuja el sistema dentro de la ventana del espejo; Alfa Hub no captura la
   pantalla ni lee píxeles del cliente.
@@ -56,6 +66,12 @@ ventana de Tibia con ScreenCaptureKit, de una de estas dos formas (se elige en l
   cada vez que abres Alfa Hub o reinicias Tibia.
 - **Automática**: Alfa Hub encuentra la ventana solo; necesita el permiso de **Grabación de pantalla**
   ("Abrir Ajustes" añade la app a la lista: solo hay que activarla) y macOS lo reconfirma de vez en cuando.
+
+**Tibia Audio** necesita el permiso de **Monitorización de entrada** (el mismo que piden Discord u OBS
+para sus atajos en segundo plano): es una escucha de solo lectura del teclado, que no bloquea la tecla
+ni la cambia. Alfa Hub solo la usa con Tibia Audio activado y Tibia al frente, y solo compara cada
+pulsación con las teclas de tu lista. Los atajos de Alfa Hub (⌃⌥P…) no sirven para esto porque se
+quedan con la tecla y Tibia no la recibiría.
 
 Atajos por defecto: **⌃⌥P** (timer Pez), **⌃⌥R** (reiniciar el último timer usado), **⌃⌥O** (overlay).
 

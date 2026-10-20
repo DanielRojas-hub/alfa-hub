@@ -23,7 +23,7 @@ de pantalla distinto de 100 %.
 
 - [ ] Al abrir `AlfaHub.exe`, si aparece "Windows protegió su PC", **Más información → Ejecutar de todas formas** funciona.
 - [ ] El `.exe` muestra el ícono del personaje (sin fondo) en el Explorador.
-- [ ] Se abre el hub con la barra de título oscura, la barra superior "AlfaHub" y la barra lateral.
+- [ ] Se abre el hub con la barra de título oscura, la barra superior (sin logo) y la barra lateral.
 - [ ] Aparece el ícono del personaje en la bandeja del sistema (junto al reloj).
 - [ ] Abrir el `.exe` por segunda vez muestra "Alfa Hub ya está abierto" y no abre otra copia.
 - [ ] Si venías de una versión anterior, el timer **Pez** conserva tu duración y tu atajo, y aparecen también **Bakragore** y **Pilar**.
@@ -32,12 +32,12 @@ de pantalla distinto de 100 %.
 
 - [ ] Se parece a las capturas de [docs/capturas/](docs/capturas/) (macOS).
 - [ ] Barra superior: "● Tibia abierto" en verde con Tibia abierto y "Tibia cerrado" en gris sin él.
-- [ ] Barra lateral: Timers (con un contador verde de timers en marcha), Overlay, Atajos, Sonido; personaje y nube al pie.
+- [ ] Barra lateral: Timers (con un contador verde de timers en marcha), Tibia Audio, Espejos, Atajos, Sonido; personaje y nube al pie.
 - [ ] Con el escalado de Windows al 125 % y al 150 %, nada se corta ni se solapa.
 
 ## 3. Timers
 
-- [ ] **＋ Añadir timer** ofrece Pez, Bakragore, Pilar y Personalizado, y abre el editor del nuevo (máximo 8).
+- [ ] **＋ Añadir timer** ofrece Pez, Bakragore, Pilar y Personalizado, y abre el editor del nuevo (sin límite).
 - [ ] En la lista, ▶ inicia y ❚❚ pausa cada timer por separado; ↺ lo reinicia; la barra de color de cada fila cambia (verde, ámbar, rojo).
 - [ ] Varios timers pueden ir a la vez y "N en marcha" se actualiza.
 - [ ] **Pausar todos** y **Reiniciar todos** funcionan.
@@ -56,7 +56,7 @@ de pantalla distinto de 100 %.
 - [ ] **Cargar preset** cambia la configuración y conserva el sonido y el atajo.
 - [ ] Duración: botones 01:00…03:00, personalizado (min / s, mínimo 5 s), repetir y duración total.
 - [ ] Rotación: segundos por dirección, dirección inicial y beeps.
-- [ ] **Sonido de aviso → Elegir…** acepta un `.wav` y un `.mp3`; **Probar sonido** lo reproduce con el volumen de la app; ✕ vuelve al beep.
+- [ ] **Sonido de aviso**: el menú tiene 14 sonidos y cada uno suena al elegirlo; **Archivo propio…** acepta un `.wav` y un `.mp3`; **Probar** lo reproduce con el volumen de la app.
 - [ ] Si el archivo de sonido se borra o mueve, suena el beep en su lugar.
 - [ ] **Atajo iniciar / pausar** de cada timer funciona con Tibia al frente.
 - [ ] **Eliminar este timer** lo borra y vuelve a la lista.
@@ -70,11 +70,19 @@ Probar con Tibia abierto, primero en **modo ventana** y luego en **pantalla comp
 - [ ] Se ve **encima de Tibia** en modo ventana y en pantalla completa (si no, anotar el modo de pantalla de Tibia).
 - [ ] Los **clics atraviesan** el overlay y llegan a Tibia.
 - [ ] El overlay **no roba el foco**: se puede seguir escribiendo/jugando en Tibia.
-- [ ] Al añadir un segundo timer el overlay crece hacia la izquierda sin salirse de la pantalla.
-- [ ] "Desbloquear para moverlo": borde ámbar, se arrastra y al bloquear los clics vuelven a atravesarlo; la posición se conserva al reiniciar la app.
-- [ ] "Volver a la esquina superior derecha", "Tamaño", "Opacidad" y "Mostrar overlay" funcionan.
+- [ ] Cada timer tiene su propio contador; sin sitio propio se apilan arriba a la derecha.
+- [ ] Timers → "Desbloquear para moverlos": se ven todos con borde ámbar, cada uno se arrastra por separado y al bloquear los clics vuelven a atravesarlos; los sitios se conservan al reiniciar la app.
+- [ ] En el editor de cada timer, sección **Overlay**: mostrar en el overlay, tamaño, opacidad, colores (contador, alerta, fondo y su opacidad; a 0 deja solo el número con contorno), "Restaurar colores" y "Volver a su sitio automático".
 - [ ] Botón "Overlay visible / oculto" de la barra superior y atajo Ctrl+Alt+O.
-- [ ] Colores: contador, alerta, fondo y opacidad del fondo (a 0 deja solo el número con contorno); "Restaurar colores".
+
+## 5b. Tibia Audio
+
+- [ ] **＋ Añadir habilidad** abre su editor; "Tecla en Tibia" acepta una tecla sola (p. ej. **1** o **F1**) o con modificador.
+- [ ] Con **Activar Tibia Audio** encendido y Tibia al frente, pulsar la tecla en el juego **usa la habilidad en Tibia** (la tecla llega al juego) y empieza el cooldown en la fila.
+- [ ] Al terminar el cooldown suena el sonido elegido con su volumen.
+- [ ] "Si la pulsas durante el cooldown": *Vuelve a empezar* reinicia la cuenta; *Se ignora* no.
+- [ ] Con otra ventana al frente (no Tibia), pulsar la tecla no hace nada.
+- [ ] Si la tecla también es un atajo de Alfa Hub, el editor lo avisa.
 
 ## 6. Espejos
 
