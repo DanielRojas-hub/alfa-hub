@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
@@ -140,7 +141,7 @@ namespace AlfaHub
 
         static void LoadImages(Control ui, Boosted boosted)
         {
-            foreach (string url in new[] { boosted.CreatureImage, boosted.BossImage })
+            foreach (var (url, name) in new[] { (boosted.CreatureImage, boosted.Creature), (boosted.BossImage, boosted.Boss) })
             {
                 if (url == null || images.ContainsKey(url)) continue;
                 images[url] = null;  // pedida
@@ -150,9 +151,9 @@ namespace AlfaHub
                     try
                     {
                         // El GIF necesita su stream abierto para animarse.
-                        image = System.Drawing.Image.FromStream(new MemoryStream(Download(url)));
+                        image = System.Drawing.Image.FromStream(new MemoryStream(DownloadSprite(url, name)));
                     }
-                    catch (Exception e) when (e is WebException || e is IOException || e is ArgumentException) { }
+                    catch (Exception e) when (e is WebException || e is IOException || e is ArgumentException || e is SerializationException) { }
                     if (!ui.IsHandleCreated) return;
                     ui.BeginInvoke((Action)(() =>
                     {
@@ -170,6 +171,26 @@ namespace AlfaHub
             {
                 client.Headers[HttpRequestHeader.UserAgent] = "AlfaHub";
                 return client.DownloadData(url);
+            }
+        }
+
+        [DataContract] sealed class WikiResponse { [DataMember(Name = "query")] public WikiQuery Query; }
+        [DataContract] sealed class WikiQuery { [DataMember(Name = "pages")] public List<WikiPage> Pages; }
+        [DataContract] sealed class WikiPage { [DataMember(Name = "imageinfo")] public List<WikiImage> Info; }
+        [DataContract] sealed class WikiImage { [DataMember(Name = "url")] public string Url; }
+
+        /// GIF de tibia.com; si no deja descargarlo (Cloudflare rechaza a veces a quien no es un
+        /// navegador), el de la criatura en TibiaWiki.
+        static byte[] DownloadSprite(string url, string name)
+        {
+            try { return Download(url); }
+            catch (WebException)
+            {
+                var wiki = Get<WikiResponse>("https://tibia.fandom.com/api.php?action=query&prop=imageinfo&iiprop=url&format=json&formatversion=2&titles="
+                                             + Uri.EscapeDataString("File:" + name.Replace(' ', '_') + ".gif"));
+                string file = wiki?.Query?.Pages?.FirstOrDefault()?.Info?.FirstOrDefault()?.Url;
+                if (file == null) throw;
+                return Download(file + "&format=original");
             }
         }
 
@@ -269,7 +290,7 @@ namespace AlfaHub
             if (IsHandleCreated && !IsDisposed) BeginInvoke((Action)(() => { if (!IsDisposed) Invalidate(); }));
         }
 
-        const int CardHeight = 176, Gap = 12;
+        const int CardHeight = 196, Gap = 12;
 
         public int HeightFor(int width) => (int)((CardHeight * 2 + Gap) * K);
 
@@ -319,8 +340,8 @@ namespace AlfaHub
             else
             {
                 float half = r.Width / 2;
-                Creature(g, boosted.Creature, TodayData.Image(boosted.CreatureImage), "CRIATURA", new RectangleF(r.X, r.Y, half, r.Height - 22 * k));
-                Creature(g, boosted.Boss, TodayData.Image(boosted.BossImage), "BOSS", new RectangleF(r.X + half, r.Y, half, r.Height - 22 * k));
+                Creature(g, boosted.Creature, TodayData.Image(boosted.CreatureImage), "CRIATURA", new RectangleF(r.X, r.Y, half, r.Height - 20 * k));
+                Creature(g, boosted.Boss, TodayData.Image(boosted.BossImage), "BOSS", new RectangleF(r.X + half, r.Y, half, r.Height - 20 * k));
             }
             Footer(g, boosted != null && boosted.Day != day.ToString("yyyy-MM-dd") ? "Pueden ser los de ayer: actualizando…" : "Más experiencia y loot hasta el server save", r);
         }

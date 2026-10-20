@@ -103,13 +103,33 @@ final class TodayModel: ObservableObject {
     }
 
     private func loadImages(_ boosted: Boosted) {
-        for url in [boosted.creatureImage, boosted.bossImage] where images[url] == nil {
-            guard let link = URL(string: url) else { continue }
+        for (url, name) in [(boosted.creatureImage, boosted.creature), (boosted.bossImage, boosted.boss)] where images[url] == nil {
             images[url] = Data()  // pedida
             Task {
-                if let (data, _) = try? await URLSession.shared.data(from: link) { images[url] = data } else { images[url] = nil }
+                if let data = try? await Self.sprite(url, name: name) { images[url] = data } else { images[url] = nil }
             }
         }
+    }
+
+    /// GIF de tibia.com; si no deja descargarlo (Cloudflare rechaza a veces a quien no es un
+    /// navegador), el de la criatura en TibiaWiki.
+    private static func sprite(_ url: String, name: String) async throws -> Data {
+        if let data = try? await get(url), NSImage(data: data) != nil { return data }
+        struct Response: Decodable {
+            struct Query: Decodable { let pages: [Page] }
+            struct Page: Decodable { let imageinfo: [Info]? }
+            struct Info: Decodable { let url: String }
+            let query: Query
+        }
+        var components = URLComponents(string: "https://tibia.fandom.com/api.php")!
+        components.queryItems = [
+            .init(name: "action", value: "query"), .init(name: "prop", value: "imageinfo"), .init(name: "iiprop", value: "url"),
+            .init(name: "format", value: "json"), .init(name: "formatversion", value: "2"),
+            .init(name: "titles", value: "File:\(name.replacingOccurrences(of: " ", with: "_")).gif"),
+        ]
+        let wiki = try JSONDecoder().decode(Response.self, from: try await get(components.url!.absoluteString))
+        guard let file = wiki.query.pages.first?.imageinfo?.first?.url else { throw URLError(.fileDoesNotExist) }
+        return try await get(file + "&format=original")
     }
 
     private static func fetch() async throws -> Boosted {
