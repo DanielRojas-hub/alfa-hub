@@ -87,6 +87,45 @@ namespace AlfaHub
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int maxCount);
 
+        // ---- Ventanas y miniaturas de DWM (espejos) ----
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct RECT
+        {
+            public int Left, Top, Right, Bottom;
+            public RECT(int left, int top, int right, int bottom) { Left = left; Top = top; Right = right; Bottom = bottom; }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct DWM_THUMBNAIL_PROPERTIES
+        {
+            public int dwFlags;
+            public RECT rcDestination;
+            public RECT rcSource;
+            public byte opacity;
+            [MarshalAs(UnmanagedType.Bool)] public bool fVisible;
+            [MarshalAs(UnmanagedType.Bool)] public bool fSourceClientAreaOnly;
+        }
+
+        public const int DWM_TNP_RECTDESTINATION = 0x1, DWM_TNP_RECTSOURCE = 0x2, DWM_TNP_OPACITY = 0x4,
+            DWM_TNP_VISIBLE = 0x8, DWM_TNP_SOURCECLIENTAREAONLY = 0x10;
+
+        /// La miniatura la dibuja el compositor de Windows (DWM) dentro de nuestra ventana: la app no
+        /// captura la pantalla ni lee los píxeles de la ventana de origen.
+        [DllImport("dwmapi.dll")] public static extern int DwmRegisterThumbnail(IntPtr destination, IntPtr source, out IntPtr thumbnail);
+        [DllImport("dwmapi.dll")] public static extern int DwmUnregisterThumbnail(IntPtr thumbnail);
+        [DllImport("dwmapi.dll")] public static extern int DwmUpdateThumbnailProperties(IntPtr thumbnail, ref DWM_THUMBNAIL_PROPERTIES properties);
+
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+        [DllImport("user32.dll")] public static extern bool IsWindow(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
+        [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hWnd, ref POINT point);
+        [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, int colorKey, byte alpha, int flags);
+        public const int LWA_ALPHA = 0x2;
+
         /// Datos de la ventana en primer plano sin abrir su proceso: BattlEye protege el proceso de
         /// Tibia y vigila a quien le pide un handle, así que aquí solo se usa la lista de procesos
         /// del sistema (como el Administrador de tareas) y el título de la ventana.

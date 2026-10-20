@@ -37,6 +37,19 @@ public static class Shot
         mouse_event(0x4, 0, 0, 0, UIntPtr.Zero);  // arriba
     }
 
+    public static void Drag(int x1, int y1, int x2, int y2)
+    {
+        SetCursorPos(x1, y1);
+        System.Threading.Thread.Sleep(150);
+        mouse_event(0x2, 0, 0, 0, UIntPtr.Zero);
+        for (int i = 1; i <= 20; i++)
+        {
+            SetCursorPos(x1 + (x2 - x1) * i / 20, y1 + (y2 - y1) * i / 20);
+            System.Threading.Thread.Sleep(20);
+        }
+        mouse_event(0x4, 0, 0, 0, UIntPtr.Zero);
+    }
+
     public static void Wheel(int x, int y, int notches)
     {
         SetCursorPos(x, y);
@@ -132,6 +145,13 @@ function Assert-Running {
 }
 
 Write-Host "Pantalla: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+
+# El Bloc de notas hace de "Tibia" para probar los espejos (solo en pruebas: ALFAHUB_TEST_WINDOW).
+$env:ALFAHUB_TEST_WINDOW = 'Notepad'
+$notepad = Start-Process notepad -PassThru
+Start-Sleep -Seconds 3
+[System.Windows.Forms.SendKeys]::SendWait('ESPEJO DE PRUEBA 12345{ENTER}Alfa Hub copia esta parte de la ventana')
+Start-Sleep -Seconds 1
 $script:process = Start-Process -FilePath (Resolve-Path $Exe) -PassThru
 Start-Sleep -Seconds 5
 Assert-Running
@@ -184,6 +204,38 @@ Capture-Hub '09-atajos.png'
 Click 'Sonido'
 Capture-Hub '10-sonido.png'
 
+# ---- Espejos ----
+Click 'Espejos'
+Capture-Hub '11-espejos-vacio.png'
+Click '＋  Añadir espejo'
+Start-Sleep -Seconds 1
+$selection = Find-ByName $UIA::RootElement 'Alfa Hub – elegir región' 10
+$r = $selection.Current.BoundingRectangle
+Write-Host "Selección sobre el Bloc de notas: $r"
+[Shot]::Screen((Join-Path $Out '12-pantalla-elegir-region.png'))
+[Shot]::Drag([int]$r.X + 10, [int]$r.Y + 10, [int]$r.X + 420, [int]$r.Y + 140)
+Start-Sleep -Seconds 2
+Assert-Running
+Capture-Hub '13-espejos-uno.png'
+[Shot]::Screen((Join-Path $Out '14-pantalla-espejo-desbloqueado.png'))
+Write-Host 'captura: 14-pantalla-espejo-desbloqueado.png'
+Click '🔒  Bloquear'
+Start-Sleep -Seconds 1
+[Shot]::Screen((Join-Path $Out '15-pantalla-espejo-hub-al-frente.png'))
+Write-Host 'captura: 15 (hub al frente: el espejo no debe verse)'
+$np = $UIA::RootElement.FindAll($Scope::Children, [System.Windows.Automation.Condition]::TrueCondition) |
+    Where-Object { $_.Current.Name -like '*Notepad*' } | Select-Object -First 1
+Write-Host "Bloc de notas: $($np.Current.Name)"
+[void] [Shot]::SetForegroundWindow([IntPtr] $np.Current.NativeWindowHandle)
+Start-Sleep -Seconds 2
+[Shot]::Screen((Join-Path $Out '16-pantalla-espejo-notepad-al-frente.png'))
+Write-Host 'captura: 16 ("Tibia" al frente: el espejo debe verse, bloqueado)'
+[void] [Shot]::SetForegroundWindow($script:hwnd)
+Start-Sleep -Seconds 1
+Click 'Editar Espejo 1'
+Capture-Hub '17-editor-espejo.png'
+
 Assert-Running
 Stop-Process -Id $script:process.Id
+Stop-Process -Id $notepad.Id -ErrorAction SilentlyContinue
 Write-Host 'Listo.'

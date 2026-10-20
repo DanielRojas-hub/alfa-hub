@@ -67,7 +67,7 @@ namespace AlfaHub
         }
     }
 
-    enum HubPage { Timers, Overlay, Shortcuts, Sound }
+    enum HubPage { Timers, Mirrors, Overlay, Shortcuts, Sound }
 
     /// Ventana principal: barra superior, barra lateral y una página a la derecha.
     sealed class HubForm : Form
@@ -77,7 +77,7 @@ namespace AlfaHub
         readonly Sidebar sidebar;
         readonly Panel content = new Panel { Dock = DockStyle.Fill };
         HubPage page = HubPage.Timers;
-        string editingId;
+        string editingId, editingMirrorId;
 
         // Página visible y sus controles vivos (se refrescan en cada tick)
         readonly List<TimerRow> rows = new List<TimerRow>();
@@ -90,6 +90,7 @@ namespace AlfaHub
         public event Action<bool> RecordingShortcut;
         public event Action ResetOverlayPosition;
         public event Action<int> HotKeyPressed;
+        public event Action MirrorsChanged;        // espejos añadidos, quitados o cambiados
 
         public HubForm(Model model)
         {
@@ -109,7 +110,7 @@ namespace AlfaHub
             topBar = new TopBar(model) { Dock = DockStyle.Top, Height = 52 };
             topBar.OverlayToggled += () => { model.OverlayVisible = !model.OverlayVisible; Changed?.Invoke(); RefreshTimer(); };
             sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200 };
-            sidebar.Navigate += p => { editingId = null; ShowPage(p); };
+            sidebar.Navigate += p => { editingId = null; editingMirrorId = null; ShowPage(p); };
 
             Controls.Add(content);
             Controls.Add(new Panel { Dock = DockStyle.Left, Width = 1, BackColor = Theme.Line });
@@ -141,6 +142,11 @@ namespace AlfaHub
             Control view;
             if (target == HubPage.Timers)
                 view = editingId != null && model.Find(editingId) != null ? BuildEditor(model.Find(editingId)) : BuildTimersPage();
+            else if (target == HubPage.Mirrors)
+            {
+                var mirror = model.Mirrors.FirstOrDefault(m => m.Id == editingMirrorId);
+                view = mirror != null ? BuildMirrorEditor(mirror) : BuildMirrorsPage();
+            }
             else if (target == HubPage.Overlay) view = BuildOverlayPage();
             else if (target == HubPage.Shortcuts) view = BuildShortcutsPage();
             else view = BuildSoundPage();
@@ -413,6 +419,156 @@ namespace AlfaHub
             return button;
         }
 
+        // ---------- Página: Espejos ----------
+
+        Control BuildMirrorsPage()
+        {
+            var add = new RoundButton { Text = "＋  Añadir espejo", FillColor = Theme.Blue, Pill = true, Height = 34, BackColor = Theme.Back };
+            add.Font = new Font("Segoe UI Semibold", 10f);
+            add.FitText(16);
+            add.Enabled = model.Mirrors.Count < Model.MaxMirrors;
+            add.Click += (s, e) => AddMirror();
+
+            var count = new Label
+            {
+                AutoSize = true, ForeColor = Theme.Muted, BackColor = Theme.Back,
+                Text = $"{model.Mirrors.Count} de {Model.MaxMirrors} · {model.Mirrors.Count(m => m.Visible)} visibles",
+            };
+            var showAll = SmallButton(model.MirrorsVisible ? "Ocultar todos" : "Mostrar todos", () =>
+            {
+                model.MirrorsVisible = !model.MirrorsVisible;
+                MirrorsChanged?.Invoke();
+                Rebuild();
+            });
+            var lockAll = SmallButton(model.MirrorsUnlocked ? "🔒  Bloquear" : "🔓  Desbloquear para moverlos", () =>
+            {
+                model.MirrorsUnlocked = !model.MirrorsUnlocked;
+                MirrorsChanged?.Invoke();
+                Rebuild();
+            });
+            var items = new List<Control>
+            {
+                new PageHeader("Espejos", "Copia las partes de Tibia que necesitas donde quieras", add),
+                new ToolbarRow(count, showAll, lockAll) { Margin = new Padding(0, 4, 0, 8) },
+            };
+            if (model.Mirrors.Count == 0)
+                items.Add(new NoteLabel("Todavía no hay espejos. Con Tibia abierto, pulsa “Añadir espejo” y arrastra sobre la parte que quieras copiar (cooldowns, hechizos, barra de vida…)."));
+            foreach (var mirror in model.Mirrors)
+            {
+                var m = mirror;
+                var row = new MirrorRow(m) { Margin = new Padding(0, 0, 0, 8) };
+                row.Changed += () => MirrorsChanged?.Invoke();
+                row.EditClicked += () => { editingMirrorId = m.Id; ShowPage(HubPage.Mirrors); };
+                row.ReselectClicked += () => Reselect(m);
+                row.DeleteClicked += () => { model.Mirrors.Remove(m); MirrorsChanged?.Invoke(); Rebuild(); };
+                items.Add(row);
+            }
+            items.Add(new NoteLabel("Los espejos solo se ven con Tibia al frente y dejan pasar los clics al juego. Los dibuja Windows con sus miniaturas de ventana (las mismas de la barra de tareas): Alfa Hub no captura la pantalla ni lee nada del cliente."));
+            return Page(items.ToArray());
+        }
+
+        Control BuildMirrorEditor(MirrorConfig m)
+        {
+            var back = new RoundButton { Text = "‹  Volver a Espejos", ForeColor = Theme.Blue, FillColor = Theme.Back, BackColor = Theme.Back, Height = 26 };
+            back.FitText(2);
+            back.Click += (s, e) => { editingMirrorId = null; ShowPage(HubPage.Mirrors); };
+            var backRow = new FormRow(null, back, RowLayout.Leading, 28) { BackColor = Theme.Back, Margin = new Padding(-12, 0, 0, 0) };
+            back.BackColor = Theme.Back;
+
+            var name = new TextField { Value = m.Name };
+            name.TextCommitted += (s, e) =>
+            {
+                string value = name.Value.Trim();
+                if (value.Length == 0 || value == m.Name) return;
+                m.Name = value;
+                MirrorsChanged?.Invoke();
+            };
+            var zoom = new FlatSlider { Minimum = 25, Maximum = 400, Value = m.Zoom, Width = 190 };
+            var zoomLabel = new Caption($"{m.Zoom} %") { Width = 48 };
+            zoom.ValueChanged += (s, e) => { m.Zoom = zoom.Value; zoomLabel.Text = $"{zoom.Value} %"; MirrorsChanged?.Invoke(); };
+            var opacity = new FlatSlider { Minimum = 10, Maximum = 100, Value = m.Opacity, Width = 190 };
+            var opacityLabel = new Caption($"{m.Opacity} %") { Width = 48 };
+            opacity.ValueChanged += (s, e) => { m.Opacity = opacity.Value; opacityLabel.Text = $"{opacity.Value} %"; MirrorsChanged?.Invoke(); };
+            var visible = new ToggleSwitch { Checked = m.Visible };
+            visible.CheckedChanged += (s, e) => { m.Visible = visible.Checked; MirrorsChanged?.Invoke(); };
+            var border = new ToggleSwitch { Checked = m.Border };
+            border.CheckedChanged += (s, e) => { m.Border = border.Checked; MirrorsChanged?.Invoke(); };
+            var delete = ActionButton("Eliminar este espejo", () =>
+            {
+                model.Mirrors.Remove(m);
+                editingMirrorId = null;
+                MirrorsChanged?.Invoke();
+                ShowPage(HubPage.Mirrors);
+            });
+            delete.ForeColor = Color.FromArgb(255, 105, 97);
+
+            return Page(
+                backRow,
+                new PageHeader(m.Name, $"Región de {m.Width} × {m.Height} px de la ventana de Tibia"),
+                new SectionHeader("Espejo"),
+                new SectionCard(
+                    Row("Nombre", name),
+                    Row("Visible", visible),
+                    Row("Tamaño", new InlineGroup(zoom, zoomLabel) { Gap = 8 }),
+                    Row("Opacidad", new InlineGroup(opacity, opacityLabel) { Gap = 8 }),
+                    Row("Borde", border),
+                    new FormRow(null, ActionButton("Volver a elegir la región", () => Reselect(m)), RowLayout.Leading)),
+                new NoteLabel("Para moverlo, usa “Desbloquear para moverlos” en la lista de espejos y arrástralo."),
+                new SectionCard(new FormRow(null, delete, RowLayout.Leading)) { Margin = new Padding(0, 16, 0, 0) });
+        }
+
+        /// Oculta el hub y deja elegir una región arrastrando sobre la ventana de Tibia.
+        bool SelectRegion(out Rectangle region, out Rectangle tibiaClient)
+        {
+            region = tibiaClient = Rectangle.Empty;
+            IntPtr tibia = TibiaWindow.Find();
+            if (tibia == IntPtr.Zero)
+            {
+                MessageBox.Show(this, "Abre Tibia (en modo ventana o pantalla completa sin bordes) para elegir la región.",
+                    "Alfa Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
+            }
+            tibiaClient = TibiaWindow.ClientScreenRect(tibia);
+            Hide();
+            Native.SetForegroundWindow(tibia);
+            System.Threading.Thread.Sleep(250);
+            bool ok;
+            using (var selection = new SelectionForm(tibiaClient))
+            {
+                ok = selection.ShowDialog() == DialogResult.OK;
+                region = selection.Result;
+            }
+            Show();
+            Activate();
+            return ok;
+        }
+
+        void AddMirror()
+        {
+            if (model.Mirrors.Count >= Model.MaxMirrors) return;
+            if (!SelectRegion(out Rectangle region, out Rectangle client)) return;
+            var mirror = new MirrorConfig
+            {
+                Name = $"Espejo {model.Mirrors.Count + 1}",
+                X = region.X, Y = region.Y, Width = region.Width, Height = region.Height,
+                // Aparece junto a la región elegida; queda desbloqueado para moverlo a su sitio.
+                Left = client.X + region.Right + 16, Top = client.Y + region.Y,
+            };
+            model.Mirrors.Add(mirror);
+            model.MirrorsUnlocked = true;
+            MirrorsChanged?.Invoke();
+            editingMirrorId = null;
+            ShowPage(HubPage.Mirrors);
+        }
+
+        void Reselect(MirrorConfig m)
+        {
+            if (!SelectRegion(out Rectangle region, out _)) return;
+            m.X = region.X; m.Y = region.Y; m.Width = region.Width; m.Height = region.Height;
+            MirrorsChanged?.Invoke();
+            Rebuild();
+        }
+
         // ---------- Página: Overlay ----------
 
         Control BuildOverlayPage()
@@ -669,6 +825,7 @@ namespace AlfaHub
             int y = 12;
             y = AddLabel("PRINCIPAL", y);
             y = AddItem(HubPage.Timers, "Timers", "", y);
+            y = AddItem(HubPage.Mirrors, "Espejos", "\uE7C4", y);
             y = AddItem(HubPage.Overlay, "Overlay", "", y);
             y = AddLabel("AJUSTES", y + 14);
             y = AddItem(HubPage.Shortcuts, "Atajos", "", y);
@@ -968,6 +1125,76 @@ namespace AlfaHub
             var track = new RectangleF(right - 90 * k, 44 * k, 90 * k, 4 * k);
             Fill(g, track, 2 * k, Color.FromArgb(40, 255, 255, 255));
             if (run.Started) Fill(g, new RectangleF(track.X, track.Y, Math.Max(track.Height, track.Width * (float)d.Progress), track.Height), 2 * k, accent);
+        }
+    }
+
+    /// Fila de la lista de espejos: nombre, región, visible, opacidad y acciones.
+    sealed class MirrorRow : PaintedControl, IStackItem
+    {
+        readonly MirrorConfig mirror;
+        readonly ToggleSwitch visible;
+        readonly FlatSlider opacity;
+        readonly Caption opacityLabel;
+        readonly RoundButton edit, more;
+
+        public event Action Changed, EditClicked, ReselectClicked, DeleteClicked;
+
+        public MirrorRow(MirrorConfig mirror)
+        {
+            this.mirror = mirror;
+            BackColor = Theme.Back;
+            Cursor = Cursors.Hand;
+            visible = new ToggleSwitch { Checked = mirror.Visible, Text = "Visible " + mirror.Name, BackColor = Theme.Row };
+            opacity = new FlatSlider { Minimum = 10, Maximum = 100, Value = mirror.Opacity, Width = 110, BackColor = Theme.Row };
+            opacityLabel = new Caption($"{mirror.Opacity} %") { Width = 44, BackColor = Theme.Row };
+            edit = new RoundButton { Caption = "✎  Editar", Text = "Editar " + mirror.Name, Height = 28, FillColor = Theme.ControlFill, BackColor = Theme.Row };
+            edit.FitText(11);
+            more = new RoundButton { Caption = "⋮", Text = "Más opciones " + mirror.Name, Size = new Size(22, 28), FillColor = Theme.Row, BackColor = Theme.Row };
+            visible.CheckedChanged += (s, e) => { mirror.Visible = visible.Checked; Invalidate(); Changed?.Invoke(); };
+            opacity.ValueChanged += (s, e) => { mirror.Opacity = opacity.Value; opacityLabel.Text = $"{opacity.Value} %"; Changed?.Invoke(); };
+            edit.Click += (s, e) => EditClicked?.Invoke();
+            more.Click += (s, e) =>
+            {
+                var menu = DarkMenu.Create();
+                menu.Items.Add("Volver a elegir la región", null, (a, b) => ReselectClicked?.Invoke());
+                menu.Items.Add("Eliminar", null, (a, b) => DeleteClicked?.Invoke());
+                menu.Show(more, new Point(0, more.Height));
+            };
+            Controls.AddRange(new Control[] { visible, opacity, opacityLabel, edit, more });
+        }
+
+        public int HeightFor(int width) => (int)(64 * K);
+
+        protected override void OnDoubleClick(EventArgs e) { base.OnDoubleClick(e); EditClicked?.Invoke(); }
+
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            base.OnLayout(e);
+            float k = K;
+            int x = Width - (int)(10 * k);
+            foreach (var c in new Control[] { more, edit, opacityLabel, opacity, visible })
+            {
+                x -= c.Width;
+                c.Location = new Point(x, (Height - c.Height) / 2);
+                x -= (int)((c == edit ? 14 : c == opacity ? 18 : 6) * k);
+            }
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = Begin(e);
+            float k = K;
+            var card = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
+            Fill(g, card, 10 * k, Theme.Row);
+            Stroke(g, card, 10 * k, Color.FromArgb(48, 48, 52));
+            Fill(g, new RectangleF(10 * k, 12 * k, 4 * k, Height - 24 * k), 2 * k, mirror.Visible ? Theme.Green : Color.FromArgb(70, 70, 75));
+            using (var name = new Font("Segoe UI", 10.5f, FontStyle.Bold))
+                TextRenderer.DrawText(g, mirror.Name, name, new Rectangle((int)(26 * k), (int)(12 * k), (int)(220 * k), (int)(22 * k)),
+                    Color.White, TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+            string summary = $"{mirror.Width} × {mirror.Height} px · {mirror.Zoom} % · {(mirror.Visible ? "Visible" : "Oculto")}";
+            using (var small = new Font("Segoe UI", 8.25f))
+                TextRenderer.DrawText(g, summary, small, new Rectangle((int)(26 * k), (int)(36 * k), (int)(240 * k), (int)(18 * k)),
+                    Theme.Muted, TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
         }
     }
 

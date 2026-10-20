@@ -48,6 +48,25 @@ namespace AlfaHub
 
     enum TimerPreset { Pez, Bakragore, Pilar, Custom }
 
+    /// Un espejo: una región de la ventana de Tibia mostrada en otra parte de la pantalla
+    /// (se guarda en %APPDATA%\AlfaHub\espejos.json).
+    [DataContract]
+    sealed class MirrorConfig
+    {
+        [DataMember] public string Id = Guid.NewGuid().ToString();
+        [DataMember] public string Name = "Espejo";
+        // Región, en píxeles del área de cliente de la ventana de Tibia
+        [DataMember] public int X, Y, Width = 120, Height = 60;
+        // Posición en pantalla y aspecto
+        [DataMember] public int Left = 100, Top = 100;
+        [DataMember] public int Zoom = 100;      // %
+        [DataMember] public int Opacity = 100;   // %
+        [DataMember] public bool Visible = true;
+        [DataMember] public bool Border = true;
+
+        public Size DisplaySize => new Size(Math.Max(8, Width * Zoom / 100), Math.Max(8, Height * Zoom / 100));
+    }
+
     static class Presets
     {
         public static string Title(TimerPreset p) =>
@@ -238,6 +257,11 @@ namespace AlfaHub
         };
 
         public readonly List<TimerRun> Runs = new List<TimerRun>();
+        public const int MaxMirrors = 10;
+        public readonly List<MirrorConfig> Mirrors = new List<MirrorConfig>();
+        public bool MirrorsVisible = true;
+        /// Espejos desbloqueados: se ven siempre y se pueden arrastrar. No se guarda.
+        public bool MirrorsUnlocked;
         public string SelectedId;
         string lastUsedId;
 
@@ -385,6 +409,7 @@ namespace AlfaHub
         static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AlfaHub");
         static string SettingsPath => Path.Combine(Folder, "ajustes.ini");
         static string TimersPath => Path.Combine(Folder, "timers.json");
+        static string MirrorsPath => Path.Combine(Folder, "espejos.json");
 
         public void Save()
         {
@@ -394,7 +419,7 @@ namespace AlfaHub
                 "volume=" + Volume.ToString(inv), "muted=" + Muted, "overlayVisible=" + OverlayVisible,
                 "overlayScale=" + OverlayScale.ToString(inv), "overlayOpacity=" + OverlayOpacity.ToString(inv),
                 "counterColor=" + Hex(CounterColor), "alertColor=" + Hex(AlertColor), "backgroundColor=" + Hex(BackgroundColor),
-                "selectedTimer=" + SelectedId,
+                "selectedTimer=" + SelectedId, "mirrorsVisible=" + MirrorsVisible,
             };
             if (OverlayPosition.HasValue) lines.Add($"overlayPosition={OverlayPosition.Value.X},{OverlayPosition.Value.Y}");
             foreach (var pair in GlobalShortcuts) lines.Add("global." + pair.Key + "=" + (int)pair.Value);
@@ -404,6 +429,8 @@ namespace AlfaHub
                 File.WriteAllLines(SettingsPath, lines);
                 using (var stream = File.Create(TimersPath))
                     new DataContractJsonSerializer(typeof(List<TimerConfig>)).WriteObject(stream, Runs.Select(r => r.Config).ToList());
+                using (var stream = File.Create(MirrorsPath))
+                    new DataContractJsonSerializer(typeof(List<MirrorConfig>)).WriteObject(stream, Mirrors);
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -435,6 +462,7 @@ namespace AlfaHub
                             case "alertColor": AlertColor = Hex(value); break;
                             case "backgroundColor": BackgroundColor = Hex(value); break;
                             case "selectedTimer": SelectedId = value; break;
+                            case "mirrorsVisible": MirrorsVisible = bool.Parse(value); break;
                             case "overlayPosition":
                                 var xy = value.Split(',');
                                 OverlayPosition = new Point(int.Parse(xy[0], inv), int.Parse(xy[1], inv));
@@ -477,6 +505,17 @@ namespace AlfaHub
             }
             Runs.Clear();
             foreach (var config in configs) Runs.Add(new TimerRun(this, config));
+
+            Mirrors.Clear();
+            if (File.Exists(MirrorsPath))
+            {
+                try
+                {
+                    using (var stream = File.OpenRead(MirrorsPath))
+                        Mirrors.AddRange((List<MirrorConfig>)new DataContractJsonSerializer(typeof(List<MirrorConfig>)).ReadObject(stream));
+                }
+                catch (SerializationException) { }
+            }
             if (Find(SelectedId) == null) SelectedId = Runs[0].Id;
         }
     }

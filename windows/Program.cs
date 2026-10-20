@@ -39,9 +39,11 @@ namespace AlfaHub
         readonly OverlayForm overlay;
         readonly NotifyIcon tray;
         readonly System.Windows.Forms.Timer ticker = new System.Windows.Forms.Timer { Interval = 50 };
+        readonly MirrorManager mirrors;
         bool recordingShortcut;
         int tickCount;
         bool tibiaInFront;
+        IntPtr tibiaWindow;
 
         public AlfaHubContext()
         {
@@ -53,6 +55,7 @@ namespace AlfaHub
             hub.RecordingShortcut += recording => { recordingShortcut = recording; RegisterHotKeys(); };
             hub.ResetOverlayPosition += PlaceOverlayTopRight;
             hub.HotKeyPressed += OnHotKey;
+            hub.MirrorsChanged += () => { model.Save(); SyncMirrors(); };
             hub.CreateControl();
             var _ = hub.Handle;  // los atajos globales se registran en esta ventana
 
@@ -62,6 +65,9 @@ namespace AlfaHub
             if (model.OverlayPosition.HasValue && IsOnScreen(model.OverlayPosition.Value)) overlay.Location = model.OverlayPosition.Value;
             else PlaceOverlayTopRight();
             overlay.MovedByUser += p => { model.OverlayPosition = p; model.Save(); };
+
+            mirrors = new MirrorManager(model);
+            mirrors.Moved += () => model.Save();
 
             tray = new NotifyIcon { Icon = Resources.AppIcon(SystemInformation.SmallIconSize), Text = "Alfa Hub", Visible = true, ContextMenuStrip = TrayMenu() };
             tray.DoubleClick += (s, e) => ShowHub();
@@ -88,37 +94,23 @@ namespace AlfaHub
             model.Tick();
             if (hub.Visible) hub.RefreshTimer();
 
-            if (tickCount % 5 == 0) tibiaInFront = TibiaInFront();  // cada 250 ms basta
-            if (tickCount % 20 == 0) model.TibiaRunning = TibiaRunning();  // cada segundo
+            if (tickCount % 20 == 0 || (tibiaWindow != IntPtr.Zero && !Native.IsWindow(tibiaWindow)))
+            {
+                tibiaWindow = TibiaWindow.Find();  // cada segundo
+                model.TibiaRunning = tibiaWindow != IntPtr.Zero;
+            }
+            if (tickCount % 5 == 0)  // cada 250 ms basta
+            {
+                tibiaInFront = TibiaWindow.InFront();
+                SyncMirrors();
+            }
             tickCount++;
             bool show = model.OverlayVisible && (model.OverlayUnlocked || tibiaInFront);
             if (show) overlay.ShowOnTop();
             else overlay.HideOverlay();
         }
 
-        /// El cliente del juego se llama client.exe y su ventana se titula "Tibia" o "Tibia - Personaje"
-        /// (el launcher es otro .exe). No se abre el proceso de Tibia: ver Native.ForegroundWindowInfo.
-        static bool TibiaInFront()
-        {
-            if (!Native.ForegroundWindowInfo(out string processName, out string title)) return false;
-            return string.Equals(processName, "client", StringComparison.OrdinalIgnoreCase)
-                   && title.StartsWith("Tibia", StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// Si el cliente de Tibia está abierto (para la barra superior). Usa la lista de procesos del
-        /// sistema y el título de su ventana, sin abrir el proceso de Tibia.
-        static bool TibiaRunning()
-        {
-            foreach (var process in System.Diagnostics.Process.GetProcessesByName("client"))
-            {
-                using (process)
-                {
-                    try { if (process.MainWindowTitle.StartsWith("Tibia", StringComparison.OrdinalIgnoreCase)) return true; }
-                    catch (InvalidOperationException) { }  // el proceso terminó
-                }
-            }
-            return false;
-        }
+        void SyncMirrors() => mirrors.Sync(tibiaWindow, tibiaInFront);
 
         // Ids de RegisterHotKey: 1–2 atajos globales (GlobalAction) y 100 + n el timer n.
         const int TimerHotKeyBase = 100;
@@ -214,6 +206,7 @@ namespace AlfaHub
             tray.Visible = false;
             tray.Dispose();
             overlay.Close();
+            mirrors.CloseAll();
             hub.Dispose();
             ExitThread();
         }
