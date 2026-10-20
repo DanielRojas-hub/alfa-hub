@@ -39,11 +39,115 @@ namespace AlfaHub
         [DataMember] public int Step = 6;             // segundos por dirección
         [DataMember] public int StartDirection;
         [DataMember] public int BeepSeconds = 5;      // beeps en los últimos N s
-        [DataMember] public string SoundPath;         // sonido de aviso propio (null = beep)
+        [DataMember] public string Sound;             // sonido incluido (Sounds.Ids; null = beep)
+        [DataMember] public string SoundPath;         // sonido de aviso propio (tiene prioridad)
         [DataMember] public int Shortcut;             // iniciar / pausar (Keys; 0 = sin atajo)
+        [DataMember] public OverlayStyle Overlay = new OverlayStyle();
 
         public bool IsRotation => Kind == "rotation";
-        public TimerConfig Clone() => (TimerConfig)MemberwiseClone();
+
+        public TimerConfig Clone()
+        {
+            var copy = (TimerConfig)MemberwiseClone();
+            copy.Overlay = Overlay?.Clone();
+            return copy;
+        }
+    }
+
+    /// Aspecto y sitio del contador de un timer sobre Tibia (cada timer tiene el suyo).
+    [DataContract]
+    sealed class OverlayStyle
+    {
+        public const string DefaultCounter = "A873FA", DefaultAlert = "F54D4D", DefaultBackground = "111827D9";
+        [DataMember] public bool Show = true;
+        [DataMember] public double Scale = 1;
+        [DataMember] public double Opacity = 1;
+        [DataMember] public string CounterColor = DefaultCounter;
+        [DataMember] public string AlertColor = DefaultAlert;
+        [DataMember] public string BackgroundColor = DefaultBackground;
+        /// Borde derecho y borde superior en pantalla; sin HasPosition se coloca automáticamente.
+        [DataMember] public bool HasPosition;
+        [DataMember] public int Right, Top;
+
+        public Color Counter => Model.Hex(CounterColor);
+        public Color Alert => Model.Hex(AlertColor);
+        public Color Background => Model.Hex(BackgroundColor);
+
+        public OverlayStyle Clone() => (OverlayStyle)MemberwiseClone();
+
+        // El lector JSON no ejecuta los inicializadores: los campos que falten quedarían en 0.
+        [OnDeserializing]
+        void Defaults(StreamingContext context)
+        {
+            Show = true; Scale = 1; Opacity = 1;
+            CounterColor = DefaultCounter; AlertColor = DefaultAlert; BackgroundColor = DefaultBackground;
+        }
+    }
+
+    /// Una habilidad de Tibia Audio (se guarda en %APPDATA%\AlfaHub\audio.json).
+    [DataContract]
+    sealed class AudioConfig
+    {
+        [DataMember] public string Id = Guid.NewGuid().ToString();
+        [DataMember] public string Name = "Habilidad";
+        [DataMember] public int Key;                 // tecla con la que se usa en Tibia (Keys; 0 = sin tecla)
+        [DataMember] public double Cooldown = 2;     // segundos
+        [DataMember] public string Sound = "ding";
+        [DataMember] public string SoundPath;
+        [DataMember] public double Volume = 1;       // 0–1, sobre el volumen de la app
+        [DataMember] public bool Retrigger = true;   // pulsarla durante el cooldown lo vuelve a empezar
+        [DataMember] public bool Enabled = true;
+
+        public AudioConfig Clone() => (AudioConfig)MemberwiseClone();
+
+        [OnDeserializing]
+        void Defaults(StreamingContext context)
+        {
+            Name = "Habilidad"; Cooldown = 2; Sound = "ding"; Volume = 1; Retrigger = true; Enabled = true;
+        }
+    }
+
+    /// Una habilidad y su cooldown en curso.
+    sealed class AudioRun
+    {
+        readonly Model model;
+        DateTime? endsAt;
+        public AudioConfig Config;
+
+        public AudioRun(Model model, AudioConfig config) { this.model = model; Config = config; }
+
+        public string Id => Config.Id;
+        public bool Active => endsAt.HasValue;
+        /// Segundos que faltan (0 = lista).
+        public double Remaining => endsAt.HasValue ? Math.Max(0, (endsAt.Value - DateTime.UtcNow).TotalSeconds) : 0;
+        public double Progress => Active ? 1 - Remaining / Math.Max(0.1, Config.Cooldown) : 0;
+
+        /// La tecla se pulsó en Tibia: empieza el cooldown; el aviso suena al terminar.
+        public void Trigger()
+        {
+            if (Active && !Config.Retrigger) return;
+            endsAt = DateTime.UtcNow.AddSeconds(Math.Max(0.1, Config.Cooldown));
+        }
+
+        public void Cancel() => endsAt = null;
+
+        public void Tick()
+        {
+            if (endsAt.HasValue && DateTime.UtcNow >= endsAt.Value)
+            {
+                endsAt = null;
+                PlaySound();
+            }
+        }
+
+        public void PlaySound()
+        {
+            if (!string.IsNullOrEmpty(Config.SoundPath) && Beeper.PlayFile(Config.SoundPath, model, Config.Volume)) return;
+            Beeper.Play(Config.Sound, model, Config.Volume);
+        }
+
+        public string Summary =>
+            $"{(Config.Key == 0 ? "Sin tecla" : Model.Describe((Keys)Config.Key))} · {Model.Seconds(Config.Cooldown)} s · {Model.SoundName(Config.Sound, Config.SoundPath)}";
     }
 
     enum TimerPreset { Pez, Bakragore, Pilar, Custom }
@@ -155,7 +259,8 @@ namespace AlfaHub
         public void PlayAlert(bool longBeep = false)
         {
             if (!string.IsNullOrEmpty(Config.SoundPath) && Beeper.PlayFile(Config.SoundPath, model)) return;
-            Beeper.Beep(880, longBeep ? 0.6 : 0.25, model);
+            if (Sounds.Normalize(Config.Sound) == "beep" && longBeep) Beeper.Beep(880, 0.6, model);
+            else Beeper.Play(Config.Sound, model);
         }
 
         void Refresh(bool sound) => Display = Config.IsRotation ? RotationDisplay(sound) : CycleDisplay(sound);
@@ -239,8 +344,8 @@ namespace AlfaHub
                     : !c.Repeats ? $"Cuenta atrás {Model.Mmss(c.Cycle)}"
                     : c.Total > 0 ? $"Cada {Model.Mmss(c.Cycle)} durante {c.Total / 60} min"
                     : $"Cada {Model.Mmss(c.Cycle)}";
-                string sound = string.IsNullOrEmpty(c.SoundPath) ? "Beep" : Path.GetFileNameWithoutExtension(c.SoundPath);
-                return $"{what} · {Model.Describe((Keys)c.Shortcut)} · {sound}";
+                string summary = $"{what} · {Model.Describe((Keys)c.Shortcut)} · {Model.SoundName(c.Sound, c.SoundPath)}";
+                return c.Overlay.Show ? summary : summary + " · Sin overlay";
             }
         }
     }
@@ -248,8 +353,6 @@ namespace AlfaHub
     /// Timers y ajustes. Ajustes en %APPDATA%\AlfaHub\ajustes.ini y timers en timers.json.
     sealed class Model
     {
-        public const string DefaultCounterColor = "A873FA", DefaultAlertColor = "F54D4D", DefaultBackgroundColor = "111827D9";
-        public const int MaxTimers = 8;
         public static readonly Dictionary<GlobalAction, Keys> DefaultGlobalShortcuts = new Dictionary<GlobalAction, Keys>
         {
             [GlobalAction.Reset] = Keys.Control | Keys.Alt | Keys.R,
@@ -257,7 +360,9 @@ namespace AlfaHub
         };
 
         public readonly List<TimerRun> Runs = new List<TimerRun>();
-        public const int MaxMirrors = 10;
+        public readonly List<AudioRun> Audios = new List<AudioRun>();
+        /// Interruptor general de Tibia Audio: solo entonces se miran las teclas.
+        public bool AudioEnabled;
         public readonly List<MirrorConfig> Mirrors = new List<MirrorConfig>();
         public bool MirrorsVisible = true;
         /// Espejos desbloqueados: se ven siempre y se pueden arrastrar. No se guarda.
@@ -269,12 +374,6 @@ namespace AlfaHub
         public double Volume = 0.5;
         public bool Muted;
         public bool OverlayVisible = true;
-        public double OverlayScale = 1;
-        public double OverlayOpacity = 1;
-        public Color CounterColor = Hex(DefaultCounterColor);
-        public Color AlertColor = Hex(DefaultAlertColor);
-        public Color BackgroundColor = Hex(DefaultBackgroundColor);
-        public Point? OverlayPosition;
         public Dictionary<GlobalAction, Keys> GlobalShortcuts = new Dictionary<GlobalAction, Keys>(DefaultGlobalShortcuts);
 
         // Estado (no se guarda)
@@ -286,16 +385,50 @@ namespace AlfaHub
         public int RunningCount => Runs.Count(r => r.Running);
 
         /// Timers que se ven en el overlay: los que están en marcha o a medias; si no hay, el elegido.
+        /// Desbloqueado se ven todos, para poder colocar cada uno. Nunca los que tienen el overlay apagado.
         public List<TimerRun> OverlayRuns
         {
             get
             {
+                if (OverlayUnlocked) return Runs.Where(r => r.Config.Overlay.Show).ToList();
                 var started = Runs.Where(r => r.Started).ToList();
-                return started.Count > 0 ? started : new List<TimerRun> { Selected };
+                return (started.Count > 0 ? started : new List<TimerRun> { Selected }).Where(r => r.Config.Overlay.Show).ToList();
             }
         }
 
-        public void Tick() { foreach (var run in Runs) run.Tick(); }
+        public void Tick()
+        {
+            foreach (var run in Runs) run.Tick();
+            foreach (var audio in Audios) audio.Tick();
+        }
+
+        public AudioRun AddAudio()
+        {
+            var audio = new AudioRun(this, new AudioConfig { Name = $"Habilidad {Audios.Count + 1}" });
+            Audios.Add(audio);
+            return audio;
+        }
+
+        public void Duplicate(AudioRun audio)
+        {
+            var config = audio.Config.Clone();
+            config.Id = Guid.NewGuid().ToString();
+            config.Name += " (copia)";
+            Audios.Insert(Audios.IndexOf(audio) + 1, new AudioRun(this, config));
+        }
+
+        public void Remove(AudioRun audio) { audio.Cancel(); Audios.Remove(audio); }
+
+        /// Una tecla pulsada con Tibia al frente (solo llegan las de alguna habilidad).
+        public void KeyPressed(Keys keys)
+        {
+            if (!AudioEnabled) return;
+            foreach (var audio in Audios) if (audio.Config.Enabled && audio.Config.Key == (int)keys) audio.Trigger();
+        }
+
+        /// Teclas de Tibia Audio que también son atajos de Alfa Hub (esas no llegarían a Tibia).
+        public bool AudioKeyConflicts(Keys keys) =>
+            keys != Keys.None && (GlobalShortcuts.Values.Contains(keys) || Runs.Any(r => (Keys)r.Config.Shortcut == keys));
 
         public void Toggle(TimerRun run) { run.Toggle(); lastUsedId = run.Id; }
         public void Reset(TimerRun run) { run.Reset(); lastUsedId = run.Id; }
@@ -308,7 +441,6 @@ namespace AlfaHub
 
         public TimerRun Add(TimerPreset preset)
         {
-            if (Runs.Count >= MaxTimers) return null;
             var config = Presets.Config(preset);
             var names = new HashSet<string>(Runs.Select(r => r.Config.Name));
             if (names.Contains(config.Name))
@@ -325,7 +457,6 @@ namespace AlfaHub
 
         public void Duplicate(TimerRun run)
         {
-            if (Runs.Count >= MaxTimers) return;
             var config = run.Config.Clone();
             config.Id = Guid.NewGuid().ToString();
             config.Shortcut = 0;  // una combinación solo puede estar en un timer
@@ -347,16 +478,11 @@ namespace AlfaHub
             var config = Presets.Config(preset);
             config.Id = run.Config.Id;
             config.SoundPath = run.Config.SoundPath;
+            config.Sound = run.Config.Sound;
             config.Shortcut = run.Config.Shortcut;
+            config.Overlay = run.Config.Overlay;
             run.Config = config;
             run.Changed();
-        }
-
-        public void RestoreColors()
-        {
-            CounterColor = Hex(DefaultCounterColor);
-            AlertColor = Hex(DefaultAlertColor);
-            BackgroundColor = Hex(DefaultBackgroundColor);
         }
 
         public void RestoreGlobalShortcuts() { GlobalShortcuts = new Dictionary<GlobalAction, Keys>(DefaultGlobalShortcuts); }
@@ -374,6 +500,14 @@ namespace AlfaHub
 
         public static int Clamp(int v, int min, int max) => v < min ? min : v > max ? max : v;
         public static string Mmss(int s) => $"{s / 60:00}:{s % 60:00}";
+
+        /// "2", "1,5", "40".
+        public static string Seconds(double value) =>
+            value == Math.Round(value) ? ((int)value).ToString(CultureInfo.InvariantCulture) : value.ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',');
+
+        /// Nombre corto de un sonido: el archivo propio o el incluido.
+        public static string SoundName(string sound, string path) =>
+            string.IsNullOrEmpty(path) ? Sounds.Title(sound) : Path.GetFileNameWithoutExtension(path);
 
         // ---- Colores "RRGGBB" / "RRGGBBAA" ----
 
@@ -410,6 +544,7 @@ namespace AlfaHub
         static string SettingsPath => Path.Combine(Folder, "ajustes.ini");
         static string TimersPath => Path.Combine(Folder, "timers.json");
         static string MirrorsPath => Path.Combine(Folder, "espejos.json");
+        static string AudioPath => Path.Combine(Folder, "audio.json");
 
         public void Save()
         {
@@ -417,11 +552,8 @@ namespace AlfaHub
             var lines = new List<string>
             {
                 "volume=" + Volume.ToString(inv), "muted=" + Muted, "overlayVisible=" + OverlayVisible,
-                "overlayScale=" + OverlayScale.ToString(inv), "overlayOpacity=" + OverlayOpacity.ToString(inv),
-                "counterColor=" + Hex(CounterColor), "alertColor=" + Hex(AlertColor), "backgroundColor=" + Hex(BackgroundColor),
-                "selectedTimer=" + SelectedId, "mirrorsVisible=" + MirrorsVisible,
+                "selectedTimer=" + SelectedId, "mirrorsVisible=" + MirrorsVisible, "audioEnabled=" + AudioEnabled,
             };
-            if (OverlayPosition.HasValue) lines.Add($"overlayPosition={OverlayPosition.Value.X},{OverlayPosition.Value.Y}");
             foreach (var pair in GlobalShortcuts) lines.Add("global." + pair.Key + "=" + (int)pair.Value);
             try
             {
@@ -431,6 +563,8 @@ namespace AlfaHub
                     new DataContractJsonSerializer(typeof(List<TimerConfig>)).WriteObject(stream, Runs.Select(r => r.Config).ToList());
                 using (var stream = File.Create(MirrorsPath))
                     new DataContractJsonSerializer(typeof(List<MirrorConfig>)).WriteObject(stream, Mirrors);
+                using (var stream = File.Create(AudioPath))
+                    new DataContractJsonSerializer(typeof(List<AudioConfig>)).WriteObject(stream, Audios.Select(a => a.Config).ToList());
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -456,17 +590,9 @@ namespace AlfaHub
                             case "volume": Volume = double.Parse(value, inv); break;
                             case "muted": Muted = bool.Parse(value); break;
                             case "overlayVisible": OverlayVisible = bool.Parse(value); break;
-                            case "overlayScale": OverlayScale = double.Parse(value, inv); break;
-                            case "overlayOpacity": OverlayOpacity = double.Parse(value, inv); break;
-                            case "counterColor": CounterColor = Hex(value); break;
-                            case "alertColor": AlertColor = Hex(value); break;
-                            case "backgroundColor": BackgroundColor = Hex(value); break;
                             case "selectedTimer": SelectedId = value; break;
                             case "mirrorsVisible": MirrorsVisible = bool.Parse(value); break;
-                            case "overlayPosition":
-                                var xy = value.Split(',');
-                                OverlayPosition = new Point(int.Parse(xy[0], inv), int.Parse(xy[1], inv));
-                                break;
+                            case "audioEnabled": AudioEnabled = bool.Parse(value); break;
                             default:
                                 if (key.StartsWith("global.", StringComparison.Ordinal) && Enum.TryParse(key.Substring(7), out GlobalAction action))
                                     GlobalShortcuts[action] = (Keys)int.Parse(value, inv);
@@ -503,8 +629,32 @@ namespace AlfaHub
                 pez.Shortcut = legacy.TryGetValue("shortcut.Toggle", out v) && int.TryParse(v, out n) ? n : (int)(Keys.Control | Keys.Alt | Keys.P);
                 configs = new List<TimerConfig> { pez, Presets.Config(TimerPreset.Bakragore), Presets.Config(TimerPreset.Pilar) };
             }
+            // Versión 1.3: un solo aspecto de overlay para todos (en ajustes.ini). Pasa a cada timer.
+            foreach (var config in configs.Where(c => c.Overlay == null))
+            {
+                var style = new OverlayStyle();
+                double d;
+                if (legacy.TryGetValue("overlayScale", out string v) && double.TryParse(v, NumberStyles.Float, inv, out d)) style.Scale = d;
+                if (legacy.TryGetValue("overlayOpacity", out v) && double.TryParse(v, NumberStyles.Float, inv, out d)) style.Opacity = d;
+                if (legacy.TryGetValue("counterColor", out v)) style.CounterColor = v;
+                if (legacy.TryGetValue("alertColor", out v)) style.AlertColor = v;
+                if (legacy.TryGetValue("backgroundColor", out v)) style.BackgroundColor = v;
+                config.Overlay = style;
+            }
             Runs.Clear();
             foreach (var config in configs) Runs.Add(new TimerRun(this, config));
+
+            Audios.Clear();
+            if (File.Exists(AudioPath))
+            {
+                try
+                {
+                    using (var stream = File.OpenRead(AudioPath))
+                        foreach (var config in (List<AudioConfig>)new DataContractJsonSerializer(typeof(List<AudioConfig>)).ReadObject(stream))
+                            Audios.Add(new AudioRun(this, config));
+                }
+                catch (SerializationException) { }
+            }
 
             Mirrors.Clear();
             if (File.Exists(MirrorsPath))
@@ -520,57 +670,64 @@ namespace AlfaHub
         }
     }
 
-    /// Beeps senoidales como los del sitio original, y sonidos propios (wav/mp3) con MCI de Windows.
+    /// Sonidos: beeps e incluidos (sintetizados) y archivos propios (wav/mp3), todos con MCI de Windows
+    /// para que puedan sonar varios a la vez (p. ej. dos cooldowns que terminan juntos).
     static class Beeper
     {
-        static SoundPlayer player;
+        const int Channels = 6;
+        static int next;
 
         [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
         static extern int mciSendString(string command, StringBuilder result, int length, IntPtr callback);
 
+        static string TempFolder => Path.Combine(Path.GetTempPath(), "AlfaHub");
+
+        /// Escribe el WAV en la carpeta temporal la primera vez (MCI reproduce archivos).
+        static string Cached(string name, Func<byte[]> make)
+        {
+            string path = Path.Combine(TempFolder, name + ".wav");
+            if (!File.Exists(path))
+            {
+                Directory.CreateDirectory(TempFolder);
+                File.WriteAllBytes(path, make());
+            }
+            return path;
+        }
+
         public static void Beep(double freq, double duration, Model model)
         {
             if (model.Muted || model.Volume <= 0) return;
-            try
-            {
-                player?.Stop();
-                player = new SoundPlayer(new MemoryStream(Wav(freq, duration, model.Volume)));
-                player.Play();
-            }
-            catch (InvalidOperationException) { }
+            try { PlayPath(Cached($"beep-{freq}-{duration}".Replace(',', '_'), () => Sounds.Beep(freq, duration)), model.Volume); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
-        /// Reproduce un archivo de audio; devuelve false si no se pudo (el llamador suena un beep).
-        public static bool PlayFile(string path, Model model)
+        /// Uno de los sonidos incluidos; gain (0–1) se multiplica por el volumen de la app.
+        public static void Play(string sound, Model model, double gain = 1)
+        {
+            if (model.Muted || model.Volume <= 0) return;
+            string id = Sounds.Normalize(sound);
+            try { PlayPath(Cached("sonido-" + id, () => Sounds.Wav(id)), model.Volume * gain); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        /// Reproduce un archivo de audio; devuelve false si no se pudo (el llamador usa otro sonido).
+        public static bool PlayFile(string path, Model model, double gain = 1)
         {
             if (model.Muted || model.Volume <= 0) return true;
             if (!File.Exists(path)) return false;
-            mciSendString("close alfahub", null, 0, IntPtr.Zero);
-            if (mciSendString($"open \"{path}\" type mpegvideo alias alfahub", null, 0, IntPtr.Zero) != 0) return false;
-            mciSendString($"setaudio alfahub volume to {(int)(model.Volume * 1000)}", null, 0, IntPtr.Zero);
-            return mciSendString("play alfahub", null, 0, IntPtr.Zero) == 0;
+            return PlayPath(path, model.Volume * gain);
         }
 
-        static byte[] Wav(double freq, double duration, double volume)
+        static bool PlayPath(string path, double volume)
         {
-            const int rate = 44100;
-            int count = (int)(rate * duration);
-            double decay = Math.Log(0.01) / duration;
-            using (var ms = new MemoryStream())
-            using (var w = new BinaryWriter(ms))
-            {
-                w.Write(Encoding.ASCII.GetBytes("RIFF")); w.Write(36 + count * 2);
-                w.Write(Encoding.ASCII.GetBytes("WAVEfmt ")); w.Write(16); w.Write((short)1); w.Write((short)1);
-                w.Write(rate); w.Write(rate * 2); w.Write((short)2); w.Write((short)16);
-                w.Write(Encoding.ASCII.GetBytes("data")); w.Write(count * 2);
-                for (int i = 0; i < count; i++)
-                {
-                    double t = (double)i / rate;
-                    double attack = Math.Min(1, t / 0.004);
-                    w.Write((short)(Math.Sin(2 * Math.PI * freq * t) * Math.Exp(decay * t) * attack * 32000 * volume));
-                }
-                return ms.ToArray();
-            }
+            string alias = "alfahub" + next;
+            next = (next + 1) % Channels;
+            mciSendString($"close {alias}", null, 0, IntPtr.Zero);
+            if (mciSendString($"open \"{path}\" type mpegvideo alias {alias}", null, 0, IntPtr.Zero) != 0) return false;
+            mciSendString($"setaudio {alias} volume to {(int)(Math.Max(0, Math.Min(1, volume)) * 1000)}", null, 0, IntPtr.Zero);
+            return mciSendString($"play {alias}", null, 0, IntPtr.Zero) == 0;
         }
     }
 }

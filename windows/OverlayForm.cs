@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -37,7 +38,7 @@ namespace AlfaHub
             }
         }
 
-        public static Bitmap Draw(Model model, float zoom, string text, bool critical, bool running, bool unlocked, string label = null)
+        public static Bitmap Draw(OverlayStyle style, float zoom, string text, bool critical, bool running, bool unlocked, string label = null)
         {
             Size size = Measure(zoom, text, label);
             bool alert = critical && running;
@@ -51,8 +52,9 @@ namespace AlfaHub
                 g.TextRenderingHint = TextRenderingHint.AntiAlias;
 
                 // Sin fondo (o casi), un contorno oscuro mantiene el número legible sobre el juego.
-                bool bare = model.BackgroundColor.A < 77 && !unlocked;
-                Color background = unlocked && bare ? Color.FromArgb(153, 0, 0, 0) : model.BackgroundColor;
+                Color styleBackground = style.Background;
+                bool bare = styleBackground.A < 77 && !unlocked;
+                Color background = unlocked && bare ? Color.FromArgb(153, 0, 0, 0) : styleBackground;
                 var rect = new RectangleF(0.5f, 0.5f, size.Width - 1, size.Height - 1);
                 using (var shape = RoundedRect(rect, 9 * zoom))
                 {
@@ -61,7 +63,7 @@ namespace AlfaHub
                         using (var pen = new Pen(Theme.Amber, 1.5f * zoom) { DashPattern = new[] { 3f, 2f } })
                             g.DrawPath(pen, shape);
                     else if (alert && !bare)
-                        using (var pen = new Pen(Color.FromArgb(153, model.AlertColor), 1.5f * zoom))
+                        using (var pen = new Pen(Color.FromArgb(153, style.Alert), 1.5f * zoom))
                             g.DrawPath(pen, shape);
                 }
 
@@ -82,7 +84,7 @@ namespace AlfaHub
                         x += l.Width + 8 * zoom;
                         path.Reset();
                     }
-                    Color color = critical ? model.AlertColor : model.CounterColor;
+                    Color color = critical ? style.Alert : style.Counter;
                     path.AddString(text, font.FontFamily, (int)FontStyle.Bold, font.Size, new PointF(x, 4 * zoom), StringFormat.GenericTypographic);
                     if (bare)
                         using (var outline = new Pen(Color.FromArgb(210, 0, 0, 0), 3f * zoom) { LineJoin = LineJoin.Round })
@@ -111,25 +113,31 @@ namespace AlfaHub
         }
     }
 
-    /// Ventana del contador: transparente por píxel, siempre encima, sin foco y sin clics
+    /// Ventana del contador de un timer: transparente por píxel, siempre encima, sin foco y sin clics
     /// (los clics la atraviesan y llegan a Tibia) salvo mientras está desbloqueada para moverla.
     sealed class OverlayForm : Form
     {
-        readonly Model model;
+        readonly TimerRun run;
         bool unlocked;
         string lastSignature;
         bool shown;  // propio: la ventana se muestra/oculta con ShowWindow para no robar el foco
 
-        public event Action<Point> MovedByUser;
+        /// Con más de un contador a la vista, cada uno lleva su nombre.
+        public bool ShowName;
+        /// El usuario la está arrastrando (el gestor no la recoloca mientras tanto).
+        public bool Moving { get; private set; }
+        public event Action MovedByUser;
 
-        public OverlayForm(Model model)
+        public OverlayForm(TimerRun run)
         {
-            this.model = model;
+            this.run = run;
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
-            Text = "Alfa Hub – contador";
+            Text = "Alfa Hub – " + run.Config.Name;
         }
+
+        public TimerRun Run => run;
 
         protected override bool ShowWithoutActivation => true;
 
@@ -144,16 +152,15 @@ namespace AlfaHub
             }
         }
 
-        float Zoom => (float)(model.OverlayScale * DeviceDpi / 96.0);
+        float Zoom => (float)(run.Config.Overlay.Scale * DeviceDpi / 96.0);
 
-        /// Tamaño actual del overlay (todos los contadores visibles).
-        public Size MeasureSize()
-        {
-            using (var bmp = Compose(out _)) return bmp.Size;
-        }
+        /// Tamaño del contador tal como se ve ahora.
+        public Size MeasureSize() =>
+            CounterRenderer.Measure(Zoom, run.Display.Text, ShowName ? run.Config.Name : null);
 
         public void SetUnlocked(bool value)
         {
+            if (unlocked == value) return;
             unlocked = value;
             int ex = Native.GetWindowLong(Handle, Native.GWL_EXSTYLE);
             ex = value ? ex & ~Native.WS_EX_TRANSPARENT : ex | Native.WS_EX_TRANSPARENT;
@@ -189,71 +196,37 @@ namespace AlfaHub
                 m.Result = (IntPtr)Native.HTCAPTION;
                 return;
             }
+            if (m.Msg == Native.WM_ENTERSIZEMOVE) Moving = true;
             base.WndProc(ref m);
-            if (m.Msg == Native.WM_EXITSIZEMOVE) MovedByUser?.Invoke(Location);
+            if (m.Msg == Native.WM_EXITSIZEMOVE)
+            {
+                Moving = false;
+                MovedByUser?.Invoke();
+            }
         }
 
         public void Render(bool force = false)
         {
             if (!IsHandleCreated) return;
-            var runs = model.OverlayRuns;
-            bool anyAlert = runs.Any(r => r.Display.Critical && r.Running);
-            string signature = string.Join("|", runs.Select(r => r.Id + r.Display.Signature + r.Running + r.Config.Name))
-                + string.Join("|", unlocked, model.OverlayScale, model.OverlayOpacity, model.CounterColor.ToArgb(),
-                    model.AlertColor.ToArgb(), model.BackgroundColor.ToArgb());
-            if (!force && !anyAlert && signature == lastSignature) return;
+            var style = run.Config.Overlay;
+            bool alert = run.Display.Critical && run.Running;
+            string signature = string.Join("|", run.Display.Signature, run.Running, run.Config.Name, ShowName, unlocked,
+                style.Scale, style.Opacity, style.CounterColor, style.AlertColor, style.BackgroundColor, Left, Top);
+            if (!force && !alert && signature == lastSignature) return;
             lastSignature = signature;
 
-            using (var bmp = Compose(out _))
-                Push(bmp, (byte)Math.Round(255 * model.OverlayOpacity));
-        }
-
-        /// Dibuja los contadores de los timers visibles, uno debajo de otro y alineados a la derecha.
-        /// Los que están en alerta parpadean (cada uno por separado).
-        Bitmap Compose(out int count)
-        {
-            var runs = model.OverlayRuns;
-            count = runs.Count;
-            bool showNames = runs.Count > 1;
-            float zoom = Zoom;
-            var badges = runs.Select(r => new
+            using (var badge = CounterRenderer.Draw(style, Zoom, run.Display.Text, run.Display.Critical, run.Running, unlocked,
+                       ShowName ? run.Config.Name : null))
             {
-                Bitmap = CounterRenderer.Draw(model, zoom, r.Display.Text, r.Display.Critical, r.Running, unlocked,
-                    showNames ? r.Config.Name : null),
-                Pulse = (float)CounterRenderer.Pulse(r.Display.Critical && r.Running),
-            }).ToList();
-            int gap = (int)(4 * zoom);
-            int width = badges.Max(b => b.Bitmap.Width);
-            int height = badges.Sum(b => b.Bitmap.Height) + gap * (badges.Count - 1);
-            var result = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(result))
-            {
-                g.Clear(Color.Transparent);
-                int y = 0;
-                foreach (var b in badges)
-                {
-                    using (var attributes = new ImageAttributes())
-                    {
-                        attributes.SetColorMatrix(new ColorMatrix { Matrix33 = b.Pulse });
-                        g.DrawImage(b.Bitmap, new Rectangle(width - b.Bitmap.Width, y, b.Bitmap.Width, b.Bitmap.Height),
-                            0, 0, b.Bitmap.Width, b.Bitmap.Height, GraphicsUnit.Pixel, attributes);
-                    }
-                    y += b.Bitmap.Height + gap;
-                    b.Bitmap.Dispose();
-                }
+                // Los que están en alerta parpadean.
+                byte alpha = (byte)Math.Round(255 * style.Opacity * CounterRenderer.Pulse(alert));
+                Push(badge, alpha);
             }
-            return result;
         }
 
         void Push(Bitmap bmp, byte alpha)
         {
-            if (Size != bmp.Size)
-            {
-                // Crece o encoge hacia la izquierda: el borde derecho queda fijo (suele estar en la esquina).
-                int right = Left + Width;
-                Size = bmp.Size;
-                if (right > 0) Left = right - bmp.Width;
-            }
+            if (Size != bmp.Size) Size = bmp.Size;
             IntPtr screenDc = Native.GetDC(IntPtr.Zero);
             IntPtr memDc = Native.CreateCompatibleDC(screenDc);
             IntPtr hBitmap = bmp.GetHbitmap(Color.FromArgb(0));
@@ -276,6 +249,76 @@ namespace AlfaHub
                 Native.DeleteDC(memDc);
                 Native.ReleaseDC(IntPtr.Zero, screenDc);
             }
+        }
+    }
+
+    /// Una ventana de overlay por timer: las muestra solo con Tibia al frente (o desbloqueadas), las
+    /// coloca en su sitio (o apiladas arriba a la derecha si no tienen uno) y guarda el sitio al arrastrarlas.
+    sealed class OverlayManager
+    {
+        readonly Model model;
+        readonly Dictionary<string, OverlayForm> forms = new Dictionary<string, OverlayForm>();
+
+        public event Action Moved;
+
+        public OverlayManager(Model model) { this.model = model; }
+
+        public void Sync(bool tibiaInFront)
+        {
+            foreach (var id in forms.Keys.ToList())
+            {
+                if (model.Find(id) != null) continue;
+                forms[id].Close();
+                forms.Remove(id);
+            }
+            bool visible = model.OverlayVisible && (model.OverlayUnlocked || tibiaInFront);
+            var shown = visible ? model.OverlayRuns : new List<TimerRun>();
+            Rectangle area = Screen.PrimaryScreen.WorkingArea;
+            int anchorRight = area.Right - 20, autoTop = area.Top + 20;
+            foreach (var run in model.Runs)
+            {
+                forms.TryGetValue(run.Id, out OverlayForm form);
+                if (!shown.Contains(run))
+                {
+                    form?.HideOverlay();
+                    continue;
+                }
+                if (form == null) form = Make(run);
+                form.ShowName = shown.Count > 1;
+                form.SetUnlocked(model.OverlayUnlocked);
+                var style = run.Config.Overlay;
+                Size size = form.MeasureSize();
+                Point place = style.HasPosition
+                    ? new Point(style.Right - size.Width, style.Top)
+                    : new Point(anchorRight - size.Width, autoTop);
+                if (!style.HasPosition) autoTop += size.Height + (int)(4 * style.Scale * form.DeviceDpi / 96.0);
+                if (!form.Moving && form.Location != place) form.Location = place;
+                form.ShowOnTop();
+            }
+        }
+
+        OverlayForm Make(TimerRun run)
+        {
+            var form = new OverlayForm(run);
+            var _ = form.Handle;
+            form.MovedByUser += () =>
+            {
+                var style = run.Config.Overlay;
+                style.HasPosition = true;
+                style.Right = form.Right;
+                style.Top = form.Top;
+                Moved?.Invoke();
+            };
+            forms[run.Id] = form;
+            return form;
+        }
+
+        public void RenderAll() { foreach (var form in forms.Values) form.Render(force: true); }
+
+        public void CloseAll()
+        {
+            foreach (var form in forms.Values) form.Close();
+            forms.Clear();
         }
     }
 }

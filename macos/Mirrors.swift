@@ -503,7 +503,6 @@ struct MirrorsPage: View {
                         .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(model.mirrors.count >= HubModel.maxMirrors)
             }
             if model.mirrorPickerMode && !model.mirrorWindowPicked {
                 HStack(spacing: 12) {
@@ -548,7 +547,7 @@ struct MirrorsPage: View {
                 Spacer()
             }
             HStack(spacing: 10) {
-                Text("\(model.mirrors.count) de \(HubModel.maxMirrors) · \(model.mirrors.filter(\.visible).count) visibles")
+                Text("\(model.mirrors.count) \(model.mirrors.count == 1 ? "espejo" : "espejos") · \(model.mirrors.filter(\.visible).count) visibles")
                     .font(.system(size: 12)).foregroundStyle(Color.muted)
                 Spacer()
                 SmallButton(title: model.mirrorsVisible ? "Ocultar todos" : "Mostrar todos",

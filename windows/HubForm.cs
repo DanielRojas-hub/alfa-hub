@@ -67,20 +67,22 @@ namespace AlfaHub
         }
     }
 
-    enum HubPage { Timers, Mirrors, Overlay, Shortcuts, Sound }
+    enum HubPage { Timers, Audio, Mirrors, Shortcuts, Sound }
 
     /// Ventana principal: barra superior, barra lateral y una página a la derecha.
-    sealed class HubForm : Form
+    sealed partial class HubForm : Form
     {
         readonly Model model;
         readonly TopBar topBar;
         readonly Sidebar sidebar;
         readonly Panel content = new Panel { Dock = DockStyle.Fill };
         HubPage page = HubPage.Timers;
-        string editingId, editingMirrorId;
+        string editingId, editingMirrorId, editingAudioId;
 
         // Página visible y sus controles vivos (se refrescan en cada tick)
         readonly List<TimerRow> rows = new List<TimerRow>();
+        readonly List<AudioRow> audioRows = new List<AudioRow>();
+        Label audioStatus;
         HeroCard hero;
         PreviewPanel preview;
         Label countLabel;
@@ -88,7 +90,6 @@ namespace AlfaHub
         public event Action Changed;               // cualquier ajuste cambió (guardar y redibujar)
         public event Action ShortcutsChanged;      // volver a registrar los atajos globales
         public event Action<bool> RecordingShortcut;
-        public event Action ResetOverlayPosition;
         public event Action<int> HotKeyPressed;
         public event Action MirrorsChanged;        // espejos añadidos, quitados o cambiados
 
@@ -110,7 +111,7 @@ namespace AlfaHub
             topBar = new TopBar(model) { Dock = DockStyle.Top, Height = 52 };
             topBar.OverlayToggled += () => { model.OverlayVisible = !model.OverlayVisible; Changed?.Invoke(); RefreshTimer(); };
             sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200 };
-            sidebar.Navigate += p => { editingId = null; editingMirrorId = null; ShowPage(p); };
+            sidebar.Navigate += p => { editingId = null; editingMirrorId = null; editingAudioId = null; ShowPage(p); };
 
             Controls.Add(content);
             Controls.Add(new Panel { Dock = DockStyle.Left, Width = 1, BackColor = Theme.Line });
@@ -135,6 +136,8 @@ namespace AlfaHub
             page = target;
             sidebar.Select(target);
             rows.Clear();
+            audioRows.Clear();
+            audioStatus = null;
             hero = null;
             preview = null;
             countLabel = null;
@@ -147,7 +150,11 @@ namespace AlfaHub
                 var mirror = model.Mirrors.FirstOrDefault(m => m.Id == editingMirrorId);
                 view = mirror != null ? BuildMirrorEditor(mirror) : BuildMirrorsPage();
             }
-            else if (target == HubPage.Overlay) view = BuildOverlayPage();
+            else if (target == HubPage.Audio)
+            {
+                var audio = model.Audios.FirstOrDefault(a => a.Id == editingAudioId);
+                view = audio != null ? BuildAudioEditor(audio) : BuildAudioPage();
+            }
             else if (target == HubPage.Shortcuts) view = BuildShortcutsPage();
             else view = BuildSoundPage();
 
@@ -184,7 +191,6 @@ namespace AlfaHub
             var add = new RoundButton { Text = "＋  Añadir timer", FillColor = Theme.Blue, Pill = true, Height = 34, BackColor = Theme.Back };
             add.Font = new Font("Segoe UI Semibold", 10f);
             add.FitText(16);
-            add.Enabled = model.Runs.Count < Model.MaxTimers;
             add.Click += (s, e) => PresetMenu(preset =>
             {
                 var run = model.Add(preset);
@@ -196,9 +202,16 @@ namespace AlfaHub
             countLabel = new Label { AutoSize = true, ForeColor = Theme.Muted, BackColor = Theme.Back };
             var pauseAll = SmallButton("❚❚  Pausar todos", () => { foreach (var r in model.Runs.Where(r => r.Running)) model.Toggle(r); RefreshTimer(); });
             var resetAll = SmallButton("↺  Reiniciar todos", () => { foreach (var r in model.Runs) model.Reset(r); RefreshTimer(); });
-            var toolbar = new ToolbarRow(countLabel, pauseAll, resetAll) { Margin = new Padding(0, 4, 0, 8) };
+            var unlock = SmallButton(model.OverlayUnlocked ? "🔒  Bloquear contadores" : "🔓  Desbloquear para moverlos", () =>
+            {
+                model.OverlayUnlocked = !model.OverlayUnlocked;
+                if (model.OverlayUnlocked) model.OverlayVisible = true;
+                Changed?.Invoke();
+                Rebuild();
+            });
+            var toolbar = new ToolbarRow(countLabel, unlock, pauseAll, resetAll) { Margin = new Padding(0, 4, 0, 8) };
 
-            var items = new List<Control> { new PageHeader("Timers", "Cuentas atrás y rotaciones con aviso", add), toolbar };
+            var items = new List<Control> { new PageHeader("Timers", "Cuentas atrás y rotaciones con aviso; cada uno con su contador sobre Tibia", add), toolbar };
             foreach (var run in model.Runs)
             {
                 var row = new TimerRow(model, run) { Margin = new Padding(0, 0, 0, 8) };
@@ -346,31 +359,15 @@ namespace AlfaHub
             }
 
             // Sonido y atajo
-            var soundName = new Caption(string.IsNullOrEmpty(c.SoundPath) ? "Beep" : Path.GetFileName(c.SoundPath));
-            var choose = ActionButton("Elegir…", () =>
-            {
-                using (var dialog = new OpenFileDialog { Filter = "Audio (*.wav;*.mp3)|*.wav;*.mp3", Title = "Sonido de aviso para " + run.Config.Name })
-                {
-                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
-                    run.Config.SoundPath = dialog.FileName;
-                    Apply(run);
-                    Rebuild();
-                }
-            });
-            var soundGroup = new InlineGroup(soundName, choose) { Gap = 8 };
-            if (!string.IsNullOrEmpty(c.SoundPath))
-            {
-                var clearSound = new RoundButton { Text = "✕", Pill = true, Size = new Size(24, 24), ForeColor = Theme.Muted };
-                clearSound.Click += (s, e) => { run.Config.SoundPath = null; Apply(run); Rebuild(); };
-                soundGroup.Controls.Add(clearSound);
-            }
+            var soundGroup = SoundChooser(() => run.Config.Sound, v => run.Config.Sound = v, () => run.Config.SoundPath,
+                v => run.Config.SoundPath = v, "Sonido de aviso para " + run.Config.Name, () => run.PlayAlert(), () => Apply(run));
             var shortcut = ShortcutFor(run);
             items.Add(new SectionHeader("Sonido y atajo"));
             items.Add(new SectionCard(
                 Row("Sonido de aviso", soundGroup),
-                new FormRow(null, ActionButton("Probar sonido", () => run.PlayAlert()), RowLayout.Leading),
                 Row("Atajo iniciar / pausar", shortcut)));
             items.Add(new NoteLabel("El sonido de aviso suena al empezar cada ciclo (o cada dirección) y al terminar. Los beeps de los últimos segundos son aparte."));
+            items.AddRange(OverlaySection(run));
 
             if (model.Runs.Count > 1)
             {
@@ -426,13 +423,12 @@ namespace AlfaHub
             var add = new RoundButton { Text = "＋  Añadir espejo", FillColor = Theme.Blue, Pill = true, Height = 34, BackColor = Theme.Back };
             add.Font = new Font("Segoe UI Semibold", 10f);
             add.FitText(16);
-            add.Enabled = model.Mirrors.Count < Model.MaxMirrors;
             add.Click += (s, e) => AddMirror();
 
             var count = new Label
             {
                 AutoSize = true, ForeColor = Theme.Muted, BackColor = Theme.Back,
-                Text = $"{model.Mirrors.Count} de {Model.MaxMirrors} · {model.Mirrors.Count(m => m.Visible)} visibles",
+                Text = $"{model.Mirrors.Count} {(model.Mirrors.Count == 1 ? "espejo" : "espejos")} · {model.Mirrors.Count(m => m.Visible)} visibles",
             };
             var showAll = SmallButton(model.MirrorsVisible ? "Ocultar todos" : "Mostrar todos", () =>
             {
@@ -545,7 +541,6 @@ namespace AlfaHub
 
         void AddMirror()
         {
-            if (model.Mirrors.Count >= Model.MaxMirrors) return;
             if (!SelectRegion(out Rectangle region, out Rectangle client)) return;
             var mirror = new MirrorConfig
             {
@@ -593,66 +588,106 @@ namespace AlfaHub
             Rebuild();
         }
 
-        // ---------- Página: Overlay ----------
+        // ---------- Editor de un timer: su overlay ----------
 
-        Control BuildOverlayPage()
+        IEnumerable<Control> OverlaySection(TimerRun run)
         {
-            preview = new PreviewPanel(model);
+            var style = run.Config.Overlay;
+            preview = new PreviewPanel(run);
             var previewAlert = new ToggleSwitch();
             previewAlert.CheckedChanged += (s, e) => preview.ShowAlert = previewAlert.Checked;
 
-            var visible = new ToggleSwitch { Checked = model.OverlayVisible };
-            var unlocked = new ToggleSwitch { Checked = model.OverlayUnlocked };
-            var scale = new FlatSlider { Minimum = 60, Maximum = 300, Value = (int)Math.Round(model.OverlayScale * 100) };
-            var opacity = new FlatSlider { Minimum = 20, Maximum = 100, Value = (int)Math.Round(model.OverlayOpacity * 100) };
-            var counterColor = new ColorSwatch { FillColor = model.CounterColor };
-            var alertColor = new ColorSwatch { FillColor = model.AlertColor };
-            var backgroundColor = new ColorSwatch { FillColor = Color.FromArgb(255, model.BackgroundColor) };
-            var backgroundAlpha = new FlatSlider { Maximum = 100, Value = (int)Math.Round(model.BackgroundColor.A / 2.55) };
+            var show = new ToggleSwitch { Checked = style.Show };
+            var scale = new FlatSlider { Minimum = 60, Maximum = 300, Value = (int)Math.Round(style.Scale * 100), Width = 190 };
+            var scaleLabel = new Caption($"{scale.Value} %") { Width = 48 };
+            var opacity = new FlatSlider { Minimum = 20, Maximum = 100, Value = (int)Math.Round(style.Opacity * 100), Width = 190 };
+            var opacityLabel = new Caption($"{opacity.Value} %") { Width = 48 };
+            var counterColor = new ColorSwatch { FillColor = style.Counter };
+            var alertColor = new ColorSwatch { FillColor = style.Alert };
+            var backgroundColor = new ColorSwatch { FillColor = Color.FromArgb(255, style.Background) };
+            var backgroundAlpha = new FlatSlider { Maximum = 100, Value = (int)Math.Round(style.Background.A / 2.55) };
 
-            visible.CheckedChanged += (s, e) => { model.OverlayVisible = visible.Checked; Changed?.Invoke(); RefreshTimer(); };
-            unlocked.CheckedChanged += (s, e) =>
+            show.CheckedChanged += (s, e) => { style.Show = show.Checked; Apply(run); };
+            scale.ValueChanged += (s, e) => { style.Scale = scale.Value / 100.0; scaleLabel.Text = $"{scale.Value} %"; preview.Invalidate(); Changed?.Invoke(); };
+            opacity.ValueChanged += (s, e) => { style.Opacity = opacity.Value / 100.0; opacityLabel.Text = $"{opacity.Value} %"; preview.Invalidate(); Changed?.Invoke(); };
+            counterColor.Click += (s, e) => PickColor(style.Counter, c => { style.CounterColor = Model.Hex(c); counterColor.FillColor = c; });
+            alertColor.Click += (s, e) => PickColor(style.Alert, c => { style.AlertColor = Model.Hex(c); alertColor.FillColor = c; });
+            backgroundColor.Click += (s, e) => PickColor(style.Background, c =>
             {
-                model.OverlayUnlocked = unlocked.Checked;
-                if (unlocked.Checked) { model.OverlayVisible = true; visible.Checked = true; }
-                Changed?.Invoke();
-            };
-            scale.ValueChanged += (s, e) => { model.OverlayScale = scale.Value / 100.0; preview.Invalidate(); Changed?.Invoke(); };
-            opacity.ValueChanged += (s, e) => { model.OverlayOpacity = opacity.Value / 100.0; preview.Invalidate(); Changed?.Invoke(); };
-            counterColor.Click += (s, e) => PickColor(model.CounterColor, c => { model.CounterColor = c; counterColor.FillColor = c; });
-            alertColor.Click += (s, e) => PickColor(model.AlertColor, c => { model.AlertColor = c; alertColor.FillColor = c; });
-            backgroundColor.Click += (s, e) => PickColor(model.BackgroundColor, c =>
-            {
-                model.BackgroundColor = Color.FromArgb(model.BackgroundColor.A, c);
+                style.BackgroundColor = Model.Hex(Color.FromArgb(style.Background.A, c));
                 backgroundColor.FillColor = Color.FromArgb(255, c);
             });
             backgroundAlpha.ValueChanged += (s, e) =>
             {
-                model.BackgroundColor = Color.FromArgb((int)Math.Round(backgroundAlpha.Value * 2.55), model.BackgroundColor);
+                style.BackgroundColor = Model.Hex(Color.FromArgb((int)Math.Round(backgroundAlpha.Value * 2.55), style.Background));
                 preview.Invalidate();
                 Changed?.Invoke();
             };
+            var restore = ActionButton("Restaurar colores", () =>
+            {
+                style.CounterColor = OverlayStyle.DefaultCounter;
+                style.AlertColor = OverlayStyle.DefaultAlert;
+                style.BackgroundColor = OverlayStyle.DefaultBackground;
+                Changed?.Invoke();
+                Rebuild();
+            });
+            var autoPlace = ActionButton("Volver a su sitio automático", () => { style.HasPosition = false; Changed?.Invoke(); Rebuild(); });
+            autoPlace.Enabled = style.HasPosition;
 
-            return Page(
-                new PageHeader("Overlay", "El contador que ves encima de Tibia"),
-                new SectionHeader("Vista previa"),
-                new SectionCard(new FormRow(null, preview, RowLayout.Stretch, 112), Row("Ver en alerta", previewAlert)),
-                new SectionHeader("En Tibia"),
+            return new Control[]
+            {
+                new SectionHeader("Overlay"),
                 new SectionCard(
-                    Row("Mostrar overlay", visible),
-                    Row("Tamaño", scale),
-                    Row("Opacidad", opacity),
-                    Row("Desbloquear para moverlo", unlocked),
-                    new FormRow(null, ActionButton("Volver a la esquina superior derecha", () => ResetOverlayPosition?.Invoke()), RowLayout.Leading)),
-                new NoteLabel("Muestra los timers en marcha (con su nombre si hay más de uno). Solo aparece con Tibia al frente y deja pasar los clics al juego; desbloquéalo para arrastrarlo a su sitio."),
-                new SectionHeader("Colores"),
-                new SectionCard(
+                    Row("Mostrar en el overlay", show),
+                    new FormRow(null, preview, RowLayout.Stretch, 112),
+                    Row("Ver en alerta", previewAlert),
+                    Row("Tamaño", new InlineGroup(scale, scaleLabel) { Gap = 8 }),
+                    Row("Opacidad", new InlineGroup(opacity, opacityLabel) { Gap = 8 }),
                     Row("Contador", counterColor),
                     Row("Contador en alerta", alertColor),
                     Row("Fondo", backgroundColor),
                     Row("Opacidad del fondo", backgroundAlpha),
-                    new FormRow(null, ActionButton("Restaurar colores", () => { model.RestoreColors(); Changed?.Invoke(); Rebuild(); }), RowLayout.Leading)),
-                new NoteLabel("Pon la opacidad del fondo en cero para ver solo el número."));
+                    new FormRow(null, new InlineGroup(restore, autoPlace) { Gap = 8 }, RowLayout.Leading)),
+                new NoteLabel("El contador de este timer sobre Tibia: solo aparece con Tibia al frente y deja pasar los clics. Para moverlo, pulsa “Desbloquear para moverlos” en la lista de timers y arrástralo. Pon la opacidad del fondo en cero para ver solo el número."),
+            };
+        }
+
+        /// Botón con el sonido elegido (menú con los incluidos, que suenan al elegirlos), archivo propio y probar.
+        InlineGroup SoundChooser(Func<string> getSound, Action<string> setSound, Func<string> getPath, Action<string> setPath,
+            string dialogTitle, Action play, Action changed)
+        {
+            var current = new RoundButton { Text = Model.SoundName(getSound(), getPath()) + "  ▾", Height = 26, FillColor = Theme.ControlFill };
+            current.FitText(12);
+            current.Click += (s, e) =>
+            {
+                var menu = DarkMenu.Create();
+                foreach (string id in Sounds.Ids)
+                {
+                    string value = id;
+                    var item = (ToolStripMenuItem)menu.Items.Add(Sounds.Title(value), null, (a, b) =>
+                    {
+                        setPath(null);
+                        setSound(value);
+                        changed();
+                        play();
+                        Rebuild();
+                    });
+                    item.Checked = string.IsNullOrEmpty(getPath()) && Sounds.Normalize(getSound()) == value;
+                }
+                menu.Show(current, new Point(0, current.Height + 2));
+            };
+            var file = ActionButton("Archivo propio…", () =>
+            {
+                using (var dialog = new OpenFileDialog { Filter = "Audio (*.wav;*.mp3)|*.wav;*.mp3", Title = dialogTitle })
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                    setPath(dialog.FileName);
+                    changed();
+                    Rebuild();
+                }
+            });
+            var test = ActionButton("Probar", play);
+            return new InlineGroup(current, file, test) { Gap = 8 };
         }
 
         void PickColor(Color current, Action<Color> apply)
@@ -715,7 +750,7 @@ namespace AlfaHub
                     Row("Silenciar", muted),
                     Row("Volumen", new InlineGroup(volume, percent) { Gap = 8 }),
                     new FormRow(null, ActionButton("Probar beep", () => Beeper.Beep(1200, 0.15, model)), RowLayout.Leading)),
-                new NoteLabel("El sonido de aviso de cada timer (beep o un archivo .wav/.mp3) se elige al editar el timer."));
+                new NoteLabel("El sonido de cada timer y de cada habilidad de Tibia Audio se elige al editarlos: hay 14 sonidos incluidos o puedes usar un archivo .wav/.mp3 propio."));
         }
 
         // ---------- Refresco ----------
@@ -729,16 +764,14 @@ namespace AlfaHub
             hero?.UpdateState();
             if (countLabel != null)
             {
-                string text = $"{model.Runs.Count} de {Model.MaxTimers} · {model.RunningCount} en marcha";
+                string text = $"{model.Runs.Count} {(model.Runs.Count == 1 ? "timer" : "timers")} · {model.RunningCount} en marcha";
                 if (countLabel.Text != text) countLabel.Text = text;
             }
+            foreach (var row in audioRows) row.UpdateState();
+            if (audioStatus != null && audioStatus.Text != AudioStatusText) audioStatus.Text = AudioStatusText;
         }
 
-        public void OnOverlayVisibilityToggled()
-        {
-            if (page == HubPage.Overlay) Rebuild();
-            RefreshTimer();
-        }
+        public void OnOverlayVisibilityToggled() => RefreshTimer();
 
         // ---------- Ventana ----------
 
@@ -774,7 +807,7 @@ namespace AlfaHub
 
     // ---------- Barra superior y barra lateral ----------
 
-    /// Barra superior: logo, nombre, estado de Tibia y botón del overlay.
+    /// Barra superior: estado de Tibia y botón del overlay.
     sealed class TopBar : PaintedControl
     {
         readonly Model model;
@@ -816,14 +849,6 @@ namespace AlfaHub
         {
             var g = Begin(e);
             float k = K;
-            Resources.DrawPixelArt(g, Resources.Character, new RectangleF(16 * k, (Height - 26 * k) / 2, 28 * k, 26 * k));
-            using (var font = new Font("Segoe UI", 13f, FontStyle.Bold))
-            {
-                var alfa = TextRenderer.MeasureText(g, "Alfa", font, Size.Empty, TextFormatFlags.NoPadding);
-                int y = (Height - alfa.Height) / 2;
-                TextRenderer.DrawText(g, "Alfa", font, new Point((int)(52 * k), y), Theme.Blue, TextFormatFlags.NoPadding);
-                TextRenderer.DrawText(g, "Hub", font, new Point((int)(52 * k) + alfa.Width, y), Color.White, TextFormatFlags.NoPadding);
-            }
             // Estado de Tibia, a la izquierda del botón del overlay.
             string status = model.TibiaRunning ? "Tibia abierto" : "Tibia cerrado";
             var size = TextRenderer.MeasureText(g, status, Font, Size.Empty, TextFormatFlags.NoPadding);
@@ -849,8 +874,8 @@ namespace AlfaHub
             int y = 12;
             y = AddLabel("PRINCIPAL", y);
             y = AddItem(HubPage.Timers, "Timers", "", y);
+            y = AddItem(HubPage.Audio, "Tibia Audio", "\uE8D6", y);
             y = AddItem(HubPage.Mirrors, "Espejos", "\uE7C4", y);
-            y = AddItem(HubPage.Overlay, "Overlay", "", y);
             y = AddLabel("AJUSTES", y + 14);
             y = AddItem(HubPage.Shortcuts, "Atajos", "", y);
             AddItem(HubPage.Sound, "Sonido", "", y);
@@ -1127,8 +1152,8 @@ namespace AlfaHub
             Fill(g, card, 10 * k, Theme.Row);
             Stroke(g, card, 10 * k, model.SelectedId == run.Id ? Color.FromArgb(130, Theme.Blue) : Color.FromArgb(48, 48, 52));
 
-            Color state = d.Finished ? model.AlertColor : !run.Started ? Color.FromArgb(70, 70, 75)
-                : !run.Running ? Theme.Amber : d.Critical ? model.AlertColor : Theme.Green;
+            Color state = d.Finished ? run.Config.Overlay.Alert : !run.Started ? Color.FromArgb(70, 70, 75)
+                : !run.Running ? Theme.Amber : d.Critical ? run.Config.Overlay.Alert : Theme.Green;
             Fill(g, new RectangleF(10 * k, 12 * k, 4 * k, Height - 24 * k), 2 * k, state);
 
             using (var name = new Font("Segoe UI", 10.5f, FontStyle.Bold))
@@ -1140,7 +1165,7 @@ namespace AlfaHub
 
             // Contador y barra a la izquierda de los botones.
             float right = toggle.Left - 16 * k;
-            Color accent = d.Critical || d.Finished ? model.AlertColor : Theme.Accent;
+            Color accent = d.Critical || d.Finished ? run.Config.Overlay.Alert : Theme.Accent;
             int alpha = (int)(255 * CounterRenderer.Pulse(d.Critical && run.Running));
             using (var font = new Font("Consolas", 22f * k, FontStyle.Bold, GraphicsUnit.Pixel))
             using (var brush = new SolidBrush(Color.FromArgb(alpha, accent)))
@@ -1295,7 +1320,7 @@ namespace AlfaHub
             using (var mono = new Font("Consolas", 9f))
                 TextRenderer.DrawText(g, d.Detail, mono, new Point((int)(18 * k), (int)(50 * k)), Theme.Muted, TextFormatFlags.NoPadding);
 
-            Color accent = d.Critical ? model.AlertColor : Theme.Accent;
+            Color accent = d.Critical ? run.Config.Overlay.Alert : Theme.Accent;
             int alpha = (int)(255 * CounterRenderer.Pulse(d.Critical && run.Running));
             using (var font = new Font("Consolas", 50f * k, FontStyle.Bold, GraphicsUnit.Pixel))
             using (var brush = new SolidBrush(Color.FromArgb(alpha, accent)))
@@ -1310,9 +1335,9 @@ namespace AlfaHub
         {
             string label;
             Color color;
-            if (d.Finished) { label = "Terminado"; color = model.AlertColor; }
+            if (d.Finished) { label = "Terminado"; color = run.Config.Overlay.Alert; }
             else if (!run.Running) { label = "En pausa"; color = Theme.Muted; }
-            else if (d.Critical) { label = "¡Alerta!"; color = model.AlertColor; }
+            else if (d.Critical) { label = "¡Alerta!"; color = run.Config.Overlay.Alert; }
             else { label = "En marcha"; color = Theme.Green; }
             using (var font = new Font("Segoe UI Semibold", 11f * k, GraphicsUnit.Pixel))
             {
@@ -1332,12 +1357,12 @@ namespace AlfaHub
     /// Vista previa del overlay sobre un fondo que imita el mapa de Tibia.
     sealed class PreviewPanel : Control
     {
-        readonly Model model;
+        readonly TimerRun run;
         bool showAlert;
 
-        public PreviewPanel(Model model)
+        public PreviewPanel(TimerRun run)
         {
-            this.model = model;
+            this.run = run;
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint
                      | ControlStyles.ResizeRedraw, true);
         }
@@ -1355,8 +1380,9 @@ namespace AlfaHub
             using (var fill = new LinearGradientBrush(rect, Color.FromArgb(74, 92, 51), Color.FromArgb(51, 41, 31), 35f))
                 g.FillPath(fill, shape);
 
-            string text = showAlert ? "00:05" : model.Selected.Display.Text;
-            using (var counter = CounterRenderer.Draw(model, (float)model.OverlayScale * k, text, showAlert, true, false))
+            var style = run.Config.Overlay;
+            string text = showAlert ? "00:05" : run.Display.Text;
+            using (var counter = CounterRenderer.Draw(style, (float)style.Scale * k, text, showAlert, true, false))
             {
                 float w = counter.Width, h = counter.Height;
                 float fit = Math.Min(1f, Math.Min((Width - 16 * k) / w, (Height - 12 * k) / h));
@@ -1364,7 +1390,7 @@ namespace AlfaHub
                 var dest = new Rectangle((int)((Width - w) / 2), (int)((Height - h) / 2), (int)w, (int)h);
                 using (var attributes = new ImageAttributes())
                 {
-                    attributes.SetColorMatrix(new ColorMatrix { Matrix33 = (float)model.OverlayOpacity });
+                    attributes.SetColorMatrix(new ColorMatrix { Matrix33 = (float)style.Opacity });
                     g.DrawImage(counter, dest, 0, 0, counter.Width, counter.Height, GraphicsUnit.Pixel, attributes);
                 }
             }
@@ -1407,6 +1433,9 @@ namespace AlfaHub
     {
         Keys value;
         bool recording;
+        /// Vale cualquier tecla sola (las de Tibia Audio no se registran como atajo).
+        public bool AllowPlain;
+        public string EmptyText = "Sin atajo";
 
         public event Action<Keys> Recorded;
         public event Action<bool> RecordingChanged;
@@ -1441,7 +1470,7 @@ namespace AlfaHub
 
         void UpdateLabel()
         {
-            Text = recording ? "Pulsa la combinación…" : Model.Describe(value);
+            Text = recording ? (AllowPlain ? "Pulsa la tecla…" : "Pulsa la combinación…") : value == Keys.None ? EmptyText : Model.Describe(value);
             ForeColor = recording ? Theme.Amber : value == Keys.None ? Theme.Muted : Color.White;
         }
 
@@ -1453,7 +1482,7 @@ namespace AlfaHub
             if (key == Keys.ControlKey || key == Keys.ShiftKey || key == Keys.Menu || key == Keys.LWin || key == Keys.RWin)
                 return true;  // esperando la tecla principal
             bool functionKey = key >= Keys.F1 && key <= Keys.F24;
-            if (mods == Keys.None && !functionKey) { SystemSounds.Beep.Play(); return true; }
+            if (mods == Keys.None && !functionKey && !AllowPlain) { SystemSounds.Beep.Play(); return true; }
             recording = false;
             RecordingChanged?.Invoke(false);
             Assign(keyData);

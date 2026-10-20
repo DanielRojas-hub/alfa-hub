@@ -16,6 +16,7 @@ namespace AlfaHub
 
         public const int WM_HOTKEY = 0x0312;
         public const int WM_NCHITTEST = 0x84;
+        public const int WM_ENTERSIZEMOVE = 0x231;
         public const int WM_EXITSIZEMOVE = 0x232;
         public const int HTCAPTION = 2;
 
@@ -37,6 +38,8 @@ namespace AlfaHub
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         public struct BLENDFUNCTION { public byte BlendOp, BlendFlags, SourceConstantAlpha, AlphaFormat; }
 
+        /// Estado de una tecla en este momento (solo lectura; no engancha ni bloquea el teclado).
+        [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
         [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint modifiers, uint vk);
         [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
         [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();

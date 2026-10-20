@@ -186,18 +186,56 @@ Capture-Hub '05-editor-bakragore.png'
 Click '‹  Volver a Timers'
 Assert-Running
 
-# Overlay: sin Tibia solo se ve desbloqueado (borde ámbar). Debe mostrar Pez y Pilar apilados.
-Click 'Overlay'
-Capture-Hub '06-overlay.png'
-Toggle 'Desbloquear para moverlo'
+# Overlay del editor de Pez (cada timer tiene el suyo): bajar hasta la sección.
+Click 'Editar Pez'
+$r = $script:hub.Current.BoundingRectangle
+[Shot]::Wheel([int]($r.X + $r.Width * 0.6), [int]($r.Y + $r.Height * 0.6), -25)
+Start-Sleep -Seconds 1
+Capture-Hub '06-editor-pez-overlay.png'
+Click '‹  Volver a Timers'
+
+# Overlay: sin Tibia solo se ve desbloqueado (borde ámbar): un contador por timer, apilados.
+Click '🔓  Desbloquear para moverlos'
 $wait = 37 - ((Get-Date) - $pezStart).TotalSeconds
 if ($wait -gt 0) { Start-Sleep -Seconds $wait }
-[Shot]::Screen((Join-Path $Out '07-pantalla-overlay-dos-timers-alerta.png'))
-Write-Host 'captura: 07-pantalla-overlay-dos-timers-alerta.png'
-Toggle 'Desbloquear para moverlo'
+[Shot]::Screen((Join-Path $Out '07-pantalla-overlay-contadores-alerta.png'))
+Write-Host 'captura: 07-pantalla-overlay-contadores-alerta.png'
+# Arrastrar el contador de Pilar a otro sitio: debe quedarse ahí.
+$pilar = Find-ByName $UIA::RootElement 'Alfa Hub – Pilar' 10
+$p = $pilar.Current.BoundingRectangle
+Write-Host "Contador de Pilar antes: $p"
+[Shot]::Drag([int]($p.X + $p.Width / 2), [int]($p.Y + $p.Height / 2), 700, 420)
+Start-Sleep -Seconds 1
+Write-Host "Contador de Pilar después: $($pilar.Current.BoundingRectangle)"
+[Shot]::Screen((Join-Path $Out '07b-pantalla-overlay-pilar-movido.png'))
+Click '🔒  Bloquear contadores'
 Start-Sleep -Seconds 1
 [Shot]::Screen((Join-Path $Out '08-pantalla-overlay-bloqueado.png'))
 Write-Host 'captura: 08-pantalla-overlay-bloqueado.png (sin Tibia, el overlay no debe verse)'
+
+# ---- Tibia Audio ----
+Click 'Tibia Audio'
+Capture-Hub '08b-audio-vacio.png'
+Click '＋  Añadir habilidad'
+Click 'Sin tecla'
+[System.Windows.Forms.SendKeys]::SendWait('1')
+Start-Sleep -Milliseconds 800
+Capture-Hub '08c-audio-editor.png'
+Click '‹  Volver a Tibia Audio'
+Toggle 'Tibia Audio activado'
+Capture-Hub '08d-audio-activado.png'
+# Con "Tibia" (el Bloc de notas) al frente, pulsar 1 debe empezar el cooldown de 2 s.
+$np = $UIA::RootElement.FindAll($Scope::Children, [System.Windows.Automation.Condition]::TrueCondition) |
+    Where-Object { $_.Current.Name -like '*Notepad*' } | Select-Object -First 1
+[void] [Shot]::SetForegroundWindow([IntPtr] $np.Current.NativeWindowHandle)
+Start-Sleep -Seconds 1
+[System.Windows.Forms.SendKeys]::SendWait('1')
+Start-Sleep -Milliseconds 500
+Capture-Hub '08e-audio-tecla-en-tibia.png'
+Write-Host 'captura: 08e (la habilidad debe estar en cooldown, ~1,5 s)'
+[void] [Shot]::SetForegroundWindow($script:hwnd)
+Start-Sleep -Seconds 2
+Assert-Running
 
 Click 'Atajos'
 Capture-Hub '09-atajos.png'

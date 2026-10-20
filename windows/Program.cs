@@ -36,7 +36,8 @@ namespace AlfaHub
     {
         readonly Model model = new Model();
         readonly HubForm hub;
-        readonly OverlayForm overlay;
+        readonly OverlayManager overlays;
+        readonly KeyWatcher keys;
         readonly NotifyIcon tray;
         readonly System.Windows.Forms.Timer ticker = new System.Windows.Forms.Timer { Interval = 50 };
         readonly MirrorManager mirrors;
@@ -50,21 +51,18 @@ namespace AlfaHub
             model.Load();
 
             hub = new HubForm(model) { Icon = Resources.AppIcon(new Size(32, 32)) };
-            hub.Changed += () => { model.Save(); overlay.Render(force: true); ApplyUnlocked(); };
+            hub.Changed += () => { model.Save(); overlays.RenderAll(); keys.Sync(); };
             hub.ShortcutsChanged += RegisterHotKeys;
             hub.RecordingShortcut += recording => { recordingShortcut = recording; RegisterHotKeys(); };
-            hub.ResetOverlayPosition += PlaceOverlayTopRight;
             hub.HotKeyPressed += OnHotKey;
             hub.MirrorsChanged += () => { model.Save(); SyncMirrors(); };
             hub.CreateControl();
             var _ = hub.Handle;  // los atajos globales se registran en esta ventana
 
-            overlay = new OverlayForm(model);
-            var __ = overlay.Handle;
-            overlay.Size = overlay.MeasureSize();
-            if (model.OverlayPosition.HasValue && IsOnScreen(model.OverlayPosition.Value)) overlay.Location = model.OverlayPosition.Value;
-            else PlaceOverlayTopRight();
-            overlay.MovedByUser += p => { model.OverlayPosition = p; model.Save(); };
+            overlays = new OverlayManager(model);
+            overlays.Moved += () => { model.Save(); hub.RefreshTimer(); };
+            keys = new KeyWatcher(model);
+            keys.Sync();
 
             mirrors = new MirrorManager(model);
             mirrors.Moved += () => model.Save();
@@ -102,18 +100,18 @@ namespace AlfaHub
             if (tickCount % 5 == 0)  // cada 250 ms basta
             {
                 tibiaInFront = TibiaWindow.InFront();
+                keys.TibiaInFront = tibiaInFront;
                 SyncMirrors();
             }
             tickCount++;
-            bool show = model.OverlayVisible && (model.OverlayUnlocked || tibiaInFront);
-            if (show) overlay.ShowOnTop();
-            else overlay.HideOverlay();
+            overlays.Sync(tibiaInFront);
         }
 
         void SyncMirrors() => mirrors.Sync(tibiaWindow, tibiaInFront);
 
         // Ids de RegisterHotKey: 1–2 atajos globales (GlobalAction) y 100 + n el timer n.
         const int TimerHotKeyBase = 100;
+        int registeredTimers;
 
         void OnHotKey(int id)
         {
@@ -132,13 +130,14 @@ namespace AlfaHub
                 }
             }
             hub.RefreshTimer();
-            overlay.Render(force: true);
+            overlays.RenderAll();
         }
 
         void UnregisterAll()
         {
             foreach (GlobalAction action in Enum.GetValues(typeof(GlobalAction))) Native.UnregisterHotKey(hub.Handle, (int)action);
-            for (int i = 0; i < Model.MaxTimers; i++) Native.UnregisterHotKey(hub.Handle, TimerHotKeyBase + i);
+            for (int i = 0; i < registeredTimers; i++) Native.UnregisterHotKey(hub.Handle, TimerHotKeyBase + i);
+            registeredTimers = 0;
         }
 
         void RegisterHotKeys()
@@ -149,6 +148,7 @@ namespace AlfaHub
             var bindings = new System.Collections.Generic.List<(int id, Keys keys)>();
             foreach (var pair in model.GlobalShortcuts) bindings.Add(((int)pair.Key, pair.Value));
             for (int i = 0; i < model.Runs.Count; i++) bindings.Add((TimerHotKeyBase + i, (Keys)model.Runs[i].Config.Shortcut));
+            registeredTimers = model.Runs.Count;
 
             var failed = new System.Collections.Generic.List<string>();
             foreach (var (id, keys) in bindings)
@@ -167,30 +167,6 @@ namespace AlfaHub
                     ToolTipIcon.Warning);
         }
 
-        void ApplyUnlocked()
-        {
-            overlay.SetUnlocked(model.OverlayUnlocked);
-            Size size = overlay.MeasureSize();
-            if (overlay.Size != size) overlay.Size = size;
-        }
-
-        void PlaceOverlayTopRight()
-        {
-            Rectangle area = Screen.PrimaryScreen.WorkingArea;
-            Size size = overlay.MeasureSize();
-            overlay.Location = new Point(area.Right - size.Width - 20, area.Top + 20);
-            model.OverlayPosition = overlay.Location;
-            model.Save();
-            overlay.Render(force: true);
-        }
-
-        static bool IsOnScreen(Point p)
-        {
-            foreach (var screen in Screen.AllScreens)
-                if (screen.WorkingArea.Contains(p)) return true;
-            return false;
-        }
-
         void ShowHub()
         {
             hub.Show();
@@ -201,11 +177,12 @@ namespace AlfaHub
         void Quit()
         {
             ticker.Stop();
+            keys.Stop();
             UnregisterAll();
             model.Save();
             tray.Visible = false;
             tray.Dispose();
-            overlay.Close();
+            overlays.CloseAll();
             mirrors.CloseAll();
             hub.Dispose();
             ExitThread();

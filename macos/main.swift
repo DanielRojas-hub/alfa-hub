@@ -23,48 +23,35 @@ final class Beeper {
     private var cache: [String: Data] = [:]
     private var players: [AVAudioPlayer] = []
 
-    /// Beep senoidal como los del sitio original.
+    /// Beep senoidal como los del sitio original (los de los últimos segundos).
     func beep(_ freq: Double, _ duration: Double) {
         guard !muted, volume > 0 else { return }
         let key = "\(freq)-\(duration)"
-        let data = cache[key] ?? Self.wav(freq: freq, duration: duration)
+        let data = cache[key] ?? Synth.wav(Synth.render([Tone(start: 0, duration: duration, freq: freq, decay: -log(0.01) / duration)], peak: 0.98))
         cache[key] = data
-        play(try? AVAudioPlayer(data: data))
+        play(try? AVAudioPlayer(data: data), gain: 1)
     }
 
-    /// Sonido elegido por el usuario (wav, mp3, aiff, m4a…). Si no se puede abrir, suena un beep.
-    func play(file path: String, fallback: () -> Void) {
+    /// Uno de los sonidos incluidos; gain (0–1) se multiplica por el volumen de la app.
+    func play(_ sound: BuiltInSound, gain: Double = 1) {
         guard !muted, volume > 0 else { return }
-        if let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)) { play(player) } else { fallback() }
+        let data = cache[sound.rawValue] ?? sound.wav
+        cache[sound.rawValue] = data
+        play(try? AVAudioPlayer(data: data), gain: gain)
     }
 
-    private func play(_ player: AVAudioPlayer?) {
+    /// Sonido elegido por el usuario (wav, mp3, aiff, m4a…). Si no se puede abrir, suena el fallback.
+    func play(file path: String, gain: Double = 1, fallback: () -> Void) {
+        guard !muted, volume > 0 else { return }
+        if let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)) { play(player, gain: gain) } else { fallback() }
+    }
+
+    private func play(_ player: AVAudioPlayer?, gain: Double) {
         guard let player else { return }
-        player.volume = Float(volume)
+        player.volume = Float(volume * gain)
         player.play()
         players.removeAll { !$0.isPlaying }
         players.append(player)
-    }
-
-    /// WAV mono 16-bit con caída exponencial 1 → 0.01 (igual que el gain ramp del sitio).
-    private static func wav(freq: Double, duration: Double) -> Data {
-        let rate = 44_100.0
-        let count = Int(rate * duration)
-        let decay = log(0.01) / duration
-        var samples = [Int16](repeating: 0, count: count)
-        for i in 0..<count {
-            let t = Double(i) / rate
-            let attack = min(1, t / 0.004)
-            samples[i] = Int16(sin(2 * .pi * freq * t) * exp(decay * t) * attack * 32_000)
-        }
-        var d = Data()
-        func u32(_ v: UInt32) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
-        func u16(_ v: UInt16) { withUnsafeBytes(of: v.littleEndian) { d.append(contentsOf: $0) } }
-        d.append(contentsOf: Array("RIFF".utf8)); u32(UInt32(36 + count * 2))
-        d.append(contentsOf: Array("WAVEfmt ".utf8)); u32(16); u16(1); u16(1); u32(44_100); u32(88_200); u16(2); u16(16)
-        d.append(contentsOf: Array("data".utf8)); u32(UInt32(count * 2))
-        samples.withUnsafeBytes { d.append(contentsOf: $0) }
-        return d
     }
 }
 
@@ -115,7 +102,8 @@ struct Shortcut: Codable, Equatable {
     ]
 
     /// nil si la combinación no sirve como atajo global (sin modificador y no es tecla F).
-    init?(event: NSEvent) {
+    /// Con allowPlain vale cualquier tecla (las teclas de Tibia Audio no se registran como atajo).
+    init?(event: NSEvent, allowPlain: Bool = false) {
         let code = Int(event.keyCode)
         let flags = event.modifierFlags
         var mods = 0
@@ -124,7 +112,7 @@ struct Shortcut: Codable, Equatable {
         if flags.contains(.shift) { mods |= shiftKey }
         if flags.contains(.command) { mods |= cmdKey }
         let fKey = Self.functionKeys[code]
-        guard mods != 0 || fKey != nil else { return nil }
+        guard mods != 0 || fKey != nil || allowPlain else { return nil }
         keyCode = code
         modifiers = mods
         key = fKey ?? Self.namedKeys[code]
@@ -198,8 +186,66 @@ struct TimerConfig: Codable, Identifiable, Equatable {
     var startDirection = 0
     // Ambos
     var beepSeconds = 5      // beeps en los últimos N s
-    var soundPath: String?   // sonido de aviso propio (nil = beep)
+    var sound: String?       // sonido incluido (BuiltInSound; nil = beep)
+    var soundPath: String?   // sonido de aviso propio (tiene prioridad sobre el incluido)
     var shortcut: Shortcut?  // iniciar / pausar este timer
+    var overlay = OverlayStyle()
+}
+
+/// Lectura tolerante: los campos que falten (de versiones anteriores) toman su valor por defecto.
+extension TimerConfig {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func get<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T { (try? c.decodeIfPresent(T.self, forKey: key)) ?? fallback }
+        self.init(name: get(.name, "Timer"))
+        id = get(.id, id)
+        kind = get(.kind, kind)
+        cycle = get(.cycle, cycle)
+        repeats = get(.repeats, repeats)
+        total = get(.total, total)
+        warning = get(.warning, warning)
+        cycleBeep = get(.cycleBeep, cycleBeep)
+        step = get(.step, step)
+        startDirection = get(.startDirection, startDirection)
+        beepSeconds = get(.beepSeconds, beepSeconds)
+        sound = get(.sound, sound)
+        soundPath = get(.soundPath, soundPath)
+        shortcut = get(.shortcut, shortcut)
+        overlay = get(.overlay, overlay)
+    }
+}
+
+/// Aspecto y sitio del contador de un timer sobre Tibia (cada timer tiene el suyo).
+struct OverlayStyle: Codable, Equatable {
+    static let defaultCounter = "A873FA", defaultAlert = "F54D4D", defaultBackground = "111827D9"
+    var show = true
+    var scale = 1.0
+    var opacity = 1.0
+    var counterColor = Self.defaultCounter
+    var alertColor = Self.defaultAlert
+    var backgroundColor = Self.defaultBackground
+    /// Esquina superior derecha en pantalla (coordenadas de Cocoa); nil = colocado automáticamente.
+    var right: Double?
+    var top: Double?
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func get<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T { (try? c.decodeIfPresent(T.self, forKey: key)) ?? fallback }
+        show = get(.show, show)
+        scale = get(.scale, scale)
+        opacity = get(.opacity, opacity)
+        counterColor = get(.counterColor, counterColor)
+        alertColor = get(.alertColor, alertColor)
+        backgroundColor = get(.backgroundColor, backgroundColor)
+        right = get(.right, right)
+        top = get(.top, top)
+    }
+
+    var counter: Color { Color(hex: counterColor) }
+    var alert: Color { Color(hex: alertColor) }
+    var background: Color { Color(hex: backgroundColor) }
 }
 
 enum TimerPreset: String, CaseIterable, Identifiable {
@@ -285,8 +331,9 @@ final class TimerRun: ObservableObject, Identifiable {
 
     /// Sonido de aviso del timer: el archivo elegido o el beep por defecto.
     func playAlert(long: Bool = false) {
-        let beep = { Beeper.shared.beep(880, long ? 0.6 : 0.25) }
-        if let path = config.soundPath { Beeper.shared.play(file: path, fallback: beep) } else { beep() }
+        let builtIn = BuiltInSound.named(config.sound)
+        let play = { builtIn == .beep && long ? Beeper.shared.beep(880, 0.6) : Beeper.shared.play(builtIn) }
+        if let path = config.soundPath { Beeper.shared.play(file: path, fallback: play) } else { play() }
     }
 
     private func refresh(sound: Bool) {
@@ -360,9 +407,6 @@ final class TimerRun: ObservableObject, Identifiable {
 
 @MainActor
 final class HubModel: ObservableObject {
-    static let defaultCounterColor = "A873FA", defaultAlertColor = "F54D4D", defaultBackgroundColor = "111827D9"
-    static let maxTimers = 8
-    static let maxMirrors = 10
 
     @Published private(set) var runs: [TimerRun] = []
     @Published var selectedID: UUID? { didSet { defaults.set(selectedID?.uuidString, forKey: "selectedTimer") } }
@@ -372,11 +416,10 @@ final class HubModel: ObservableObject {
     @Published var volume: Double { didSet { Beeper.shared.volume = volume; save(volume, "volume") } }
     @Published var muted: Bool { didSet { Beeper.shared.muted = muted; save(muted, "muted") } }
     @Published var overlayVisible: Bool { didSet { save(overlayVisible, "overlayVisible") } }
-    @Published var overlayScale: Double { didSet { save(overlayScale, "overlayScale") } }
-    @Published var overlayOpacity: Double { didSet { save(overlayOpacity, "overlayOpacity") } }
-    @Published var counterColor: Color { didSet { save(counterColor.hex, "counterColor") } }
-    @Published var alertColor: Color { didSet { save(alertColor.hex, "alertColor") } }
-    @Published var backgroundColor: Color { didSet { save(backgroundColor.hex, "backgroundColor") } }
+    /// Esquina superior derecha desde la que se apilan los contadores sin sitio propio (nil = la de la pantalla).
+    var overlayAnchor: CGPoint? {
+        didSet { save(overlayAnchor.map { [$0.x, $0.y] } ?? [], "overlayAnchor") }
+    }
     @Published private(set) var globalShortcuts: [GlobalAction: Shortcut] {
         didSet {
             let raw = Dictionary(uniqueKeysWithValues: globalShortcuts.map { ($0.key.rawValue, $0.value) })
@@ -387,6 +430,14 @@ final class HubModel: ObservableObject {
     @Published private(set) var shortcutsVersion = 0
     /// Cuántos timers están en marcha (para la barra lateral y la lista).
     @Published private(set) var runningCount = 0
+    // Tibia Audio
+    @Published private(set) var audios: [AudioRun] = []
+    /// Interruptor general de Tibia Audio: solo entonces se escuchan las teclas.
+    @Published var audioEnabled: Bool { didSet { save(audioEnabled, "audioEnabled") } }
+    /// Permiso de Monitorización de entrada (para oír las teclas sin bloquearlas).
+    @Published var listenAllowed = false
+    /// La escucha de teclas está en marcha.
+    @Published var listening = false
     // Espejos
     @Published var mirrors: [MirrorConfig] { didSet { save((try? JSONEncoder().encode(mirrors)) ?? Data(), "mirrors") } }
     @Published var mirrorsVisible: Bool { didSet { save(mirrorsVisible, "mirrorsVisible") } }
@@ -411,11 +462,8 @@ final class HubModel: ObservableObject {
         volume = defaults.object(forKey: "volume") as? Double ?? 0.5
         muted = defaults.object(forKey: "muted") as? Bool ?? false
         overlayVisible = defaults.object(forKey: "overlayVisible") as? Bool ?? true
-        overlayScale = defaults.object(forKey: "overlayScale") as? Double ?? 1
-        overlayOpacity = defaults.object(forKey: "overlayOpacity") as? Double ?? 1
-        counterColor = Color(hex: defaults.string(forKey: "counterColor") ?? Self.defaultCounterColor)
-        alertColor = Color(hex: defaults.string(forKey: "alertColor") ?? Self.defaultAlertColor)
-        backgroundColor = Color(hex: defaults.string(forKey: "backgroundColor") ?? Self.defaultBackgroundColor)
+        if let xy = defaults.array(forKey: "overlayAnchor") as? [Double], xy.count == 2 { overlayAnchor = CGPoint(x: xy[0], y: xy[1]) }
+        audioEnabled = defaults.object(forKey: "audioEnabled") as? Bool ?? false
         mirrors = defaults.data(forKey: "mirrors").flatMap { try? JSONDecoder().decode([MirrorConfig].self, from: $0) } ?? []
         mirrorsVisible = defaults.object(forKey: "mirrorsVisible") as? Bool ?? true
         mirrorPickerMode = defaults.object(forKey: "mirrorPickerMode") as? Bool ?? true
@@ -433,7 +481,7 @@ final class HubModel: ObservableObject {
             globalShortcuts = Dictionary(uniqueKeysWithValues: GlobalAction.allCases.map { ($0, $0.defaultShortcut) })
         }
 
-        let configs: [TimerConfig]
+        var configs: [TimerConfig]
         if let data = defaults.data(forKey: "timers"), let saved = try? JSONDecoder().decode([TimerConfig].self, from: data), !saved.isEmpty {
             configs = saved
         } else {
@@ -448,7 +496,25 @@ final class HubModel: ObservableObject {
                 : legacy["toggle"]
             configs = [pez, TimerPreset.bakragore.config, TimerPreset.pilar.config]
         }
+        // Versión 1.3: un solo aspecto de overlay para todos. Pasa a cada timer, y su sitio a la
+        // esquina desde la que se apilan los contadores.
+        if defaults.object(forKey: "overlayPerTimer") == nil {
+            var style = OverlayStyle()
+            style.scale = defaults.object(forKey: "overlayScale") as? Double ?? style.scale
+            style.opacity = defaults.object(forKey: "overlayOpacity") as? Double ?? style.opacity
+            style.counterColor = defaults.string(forKey: "counterColor") ?? style.counterColor
+            style.alertColor = defaults.string(forKey: "alertColor") ?? style.alertColor
+            style.backgroundColor = defaults.string(forKey: "backgroundColor") ?? style.backgroundColor
+            for i in configs.indices { configs[i].overlay = style }
+            if let frame = defaults.string(forKey: "NSWindow Frame AlfaHubOverlay") {
+                let n = frame.split(separator: " ").compactMap { Double($0) }
+                if n.count >= 4 { overlayAnchor = CGPoint(x: n[0] + n[2], y: n[1] + n[3]) }
+            }
+            save(true, "overlayPerTimer")
+        }
         runs = configs.map(makeRun)
+        let savedAudios = defaults.data(forKey: "audios").flatMap { try? JSONDecoder().decode([AudioConfig].self, from: $0) }
+        audios = (savedAudios ?? []).map(makeAudio)
         let saved = defaults.string(forKey: "selectedTimer").flatMap(UUID.init(uuidString:))
         selectedID = runs.first { $0.id == saved }?.id ?? runs.first?.id
         saveTimers()
@@ -462,21 +528,76 @@ final class HubModel: ObservableObject {
         return run
     }
 
+    private var savedShortcuts: [Shortcut?] = []
+
     private func saveTimers() {
         save((try? JSONEncoder().encode(runs.map(\.config))) ?? Data(), "timers")
-        shortcutsVersion += 1
+        // Mover un contador también guarda: solo se vuelven a registrar los atajos si cambiaron.
+        let shortcuts = runs.map(\.config.shortcut)
+        if shortcuts != savedShortcuts {
+            savedShortcuts = shortcuts
+            shortcutsVersion += 1
+        }
+    }
+
+    private func makeAudio(_ config: AudioConfig) -> AudioRun {
+        let audio = AudioRun(config)
+        audio.onConfigChange = { [weak self] in self?.saveAudios() }
+        return audio
+    }
+
+    private func saveAudios() {
+        save((try? JSONEncoder().encode(audios.map(\.config))) ?? Data(), "audios")
+    }
+
+    func addAudio() -> AudioRun {
+        var config = AudioConfig()
+        config.name = "Habilidad \(audios.count + 1)"
+        let audio = makeAudio(config)
+        audios.append(audio)
+        saveAudios()
+        return audio
+    }
+
+    func duplicate(_ audio: AudioRun) {
+        var config = audio.config
+        config.id = UUID()
+        config.name += " (copia)"
+        audios.insert(makeAudio(config), at: (audios.firstIndex { $0.id == audio.id } ?? audios.count - 1) + 1)
+        saveAudios()
+    }
+
+    func remove(_ audio: AudioRun) {
+        audio.cancel()
+        audios.removeAll { $0.id == audio.id }
+        saveAudios()
+    }
+
+    /// Una tecla pulsada en Tibia (solo llega si es de alguna habilidad y Tibia está al frente).
+    func keyPressed(keyCode: Int, modifiers: Int) {
+        guard audioEnabled else { return }
+        for audio in audios where audio.config.enabled && audio.config.key?.keyCode == keyCode && audio.config.key?.modifiers == modifiers {
+            audio.trigger()
+        }
+    }
+
+    /// Teclas de Tibia Audio que también son atajos de Alfa Hub (esas no llegarían a Tibia).
+    func audioKeyConflicts(_ key: Shortcut?) -> Bool {
+        guard let key else { return false }
+        return globalShortcuts.values.contains(key) || runs.contains { $0.config.shortcut == key }
     }
 
     var selected: TimerRun { runs.first { $0.id == selectedID } ?? runs[0] }
 
     /// Timers que se ven en el overlay: los que están en marcha o a medias; si no hay, el elegido.
+    /// Desbloqueado se ven todos, para poder colocar cada uno. Nunca los que tienen el overlay apagado.
     var overlayRuns: [TimerRun] {
+        if overlayUnlocked { return runs.filter(\.config.overlay.show) }
         let started = runs.filter(\.started)
-        return started.isEmpty ? [selected] : started
+        return (started.isEmpty ? [selected] : started).filter(\.config.overlay.show)
     }
 
     func add(_ preset: TimerPreset) {
-        guard runs.count < Self.maxTimers else { return }
         var config = preset.config
         let names = Set(runs.map(\.config.name))
         if names.contains(config.name) {
@@ -491,7 +612,6 @@ final class HubModel: ObservableObject {
     }
 
     func duplicate(_ run: TimerRun) {
-        guard runs.count < Self.maxTimers else { return }
         var config = run.config
         config.id = UUID()
         config.shortcut = nil  // una combinación solo puede estar en un timer
@@ -518,12 +638,6 @@ final class HubModel: ObservableObject {
         }
     }
 
-    func restoreColors() {
-        counterColor = Color(hex: Self.defaultCounterColor)
-        alertColor = Color(hex: Self.defaultAlertColor)
-        backgroundColor = Color(hex: Self.defaultBackgroundColor)
-    }
-
     func restoreGlobalShortcuts() {
         globalShortcuts = Dictionary(uniqueKeysWithValues: GlobalAction.allCases.map { ($0, $0.defaultShortcut) })
         shortcutsVersion += 1
@@ -548,6 +662,7 @@ final class HubModel: ObservableObject {
 
     func tick() {
         runs.forEach { $0.tick() }
+        audios.forEach { $0.tick() }
         let count = runs.filter(\.running).count
         if count != runningCount { runningCount = count }
     }
@@ -595,21 +710,22 @@ struct Pulsing: ViewModifier {
 
 // MARK: - Overlay
 
-/// Un contador tal como se ve sobre Tibia. Se reutiliza en la vista previa del hub.
+/// Un contador tal como se ve sobre Tibia. Se reutiliza en la vista previa del editor.
 struct CounterBadge: View {
-    @ObservedObject var model: HubModel
+    let style: OverlayStyle
     let text: String
     let critical: Bool
     let running: Bool
     var label: String? = nil
+    var unlocked = false
     var preview = false
 
     var body: some View {
-        let s = model.overlayScale
+        let s = style.scale
         let alert = critical && running
-        let unlocked = model.overlayUnlocked && !preview
+        let background = style.background
         // Sin fondo (o casi), una sombra mantiene el número legible sobre el juego.
-        let bare = model.backgroundColor.alpha < 0.3 && !unlocked
+        let bare = background.alpha < 0.3 && !unlocked
         HStack(alignment: .firstTextBaseline, spacing: 8 * s) {
             if let label {
                 Text(label)
@@ -619,7 +735,7 @@ struct CounterBadge: View {
             }
             Text(text)
                 .font(.system(size: 28 * s, weight: .bold, design: .monospaced))
-                .foregroundStyle(critical ? model.alertColor : model.counterColor)
+                .foregroundStyle(critical ? style.alert : style.counter)
                 .shadow(color: .black.opacity(bare ? 0.9 : 0), radius: 2)
         }
         .opacity(running ? 1 : 0.6)
@@ -628,46 +744,34 @@ struct CounterBadge: View {
         .padding(.vertical, 4 * s)
         .background(
             RoundedRectangle(cornerRadius: 9 * s)
-                .fill(unlocked && bare ? Color.black.opacity(0.6) : model.backgroundColor)
+                .fill(unlocked && bare ? Color.black.opacity(0.6) : background)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 9 * s)
-                .stroke(unlocked ? Color.amber : alert && !bare ? model.alertColor.opacity(0.6) : .clear,
+                .stroke(unlocked ? Color.amber : alert && !bare ? style.alert.opacity(0.6) : .clear,
                         style: StrokeStyle(lineWidth: 1.5, dash: unlocked ? [5, 3] : []))
         )
-        .opacity(preview ? model.overlayOpacity : 1)
+        .opacity(preview ? style.opacity : 1)
         .fixedSize()
     }
 }
 
-/// Contador de un timer concreto (se observa a sí mismo para actualizarse cada segundo).
-struct RunBadge: View {
-    @ObservedObject var model: HubModel
+/// Lo que el controlador le dice a la ventana de un contador.
+@MainActor
+final class CounterPanelState: ObservableObject {
+    @Published var showName = false
+    @Published var unlocked = false
+}
+
+/// Contador de un timer en su ventana sobre Tibia.
+struct RunOverlayView: View {
     @ObservedObject var run: TimerRun
-    let showName: Bool
+    @ObservedObject var state: CounterPanelState
 
     var body: some View {
-        CounterBadge(model: model, text: run.display.text, critical: run.display.critical,
-                     running: run.running, label: showName ? run.config.name : nil)
-    }
-}
-
-struct OverlayView: View {
-    @ObservedObject var model: HubModel
-    /// Se reevalúa cada décima para enterarse de qué timers empiezan o paran.
-    @State private var tick = 0
-
-    var body: some View {
-        let runs = model.overlayRuns
-        VStack(alignment: .trailing, spacing: 4 * model.overlayScale) {
-            ForEach(runs) { run in RunBadge(model: model, run: run, showName: runs.count > 1) }
-        }
-        .fixedSize()
-        .gesture(WindowDragGesture())  // solo actúa cuando está desbloqueado (si no, no recibe clics)
-        .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
-            let ids = model.overlayRuns.map(\.id).hashValue
-            if ids != tick { tick = ids }
-        }
+        CounterBadge(style: run.config.overlay, text: run.display.text, critical: run.display.critical,
+                     running: run.running, label: state.showName ? run.config.name : nil, unlocked: state.unlocked)
+            .gesture(WindowDragGesture())  // solo actúa desbloqueado (si no, la ventana no recibe clics)
     }
 }
 
@@ -693,6 +797,89 @@ final class OverlayPanel: NSPanel {
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override var mouseDownCanMoveWindow: Bool { false }
+}
+
+/// Una ventana de overlay por timer. Las muestra solo con Tibia al frente (o desbloqueadas), las
+/// coloca en su sitio (o apiladas arriba a la derecha si no tienen uno) y, al arrastrarlas
+/// desbloqueadas, guarda su sitio en el timer.
+@MainActor
+final class OverlayController {
+    private struct Entry {
+        let panel: OverlayPanel
+        let state: CounterPanelState
+        let host: NSView
+    }
+
+    private let model: HubModel
+    private var entries: [UUID: Entry] = [:]
+    /// Mientras el controlador mueve una ventana (no cuenta como arrastre del usuario).
+    private var placing = false
+
+    init(model: HubModel) { self.model = model }
+
+    func sync(tibiaActive: Bool) {
+        for id in entries.keys where !model.runs.contains(where: { $0.id == id }) {
+            entries[id]?.panel.orderOut(nil)
+            entries[id] = nil
+        }
+        let visible = model.overlayVisible && (tibiaActive || model.overlayUnlocked)
+        let shown = visible ? model.overlayRuns : []
+        let ids = Set(shown.map(\.id))
+        let screen = NSScreen.main?.visibleFrame ?? .zero
+        let anchor = model.overlayAnchor ?? CGPoint(x: screen.maxX - 20, y: screen.maxY - 20)
+        var autoTop = anchor.y
+        // Mientras se arrastra uno, no se recolocan (el sitio se guarda al moverse).
+        let dragging = model.overlayUnlocked && NSEvent.pressedMouseButtons & 1 != 0
+        for run in model.runs {
+            guard ids.contains(run.id) else {
+                if let entry = entries[run.id], entry.panel.isVisible { entry.panel.orderOut(nil) }
+                continue
+            }
+            let entry = entries[run.id] ?? make(run)
+            let style = run.config.overlay
+            if entry.state.showName != (shown.count > 1) { entry.state.showName = shown.count > 1 }
+            if entry.state.unlocked != model.overlayUnlocked { entry.state.unlocked = model.overlayUnlocked }
+            entry.panel.ignoresMouseEvents = !model.overlayUnlocked
+            if entry.panel.alphaValue != style.opacity { entry.panel.alphaValue = style.opacity }
+            let size = entry.host.fittingSize
+            let own = style.right != nil && style.top != nil
+            let top = own ? style.top! : autoTop
+            if !own { autoTop -= size.height + 4 * style.scale }
+            let frame = NSRect(x: (own ? style.right! : anchor.x) - size.width, y: top - size.height,
+                               width: size.width, height: size.height)
+            if !dragging && entry.panel.frame != frame {
+                placing = true
+                entry.panel.setFrame(frame, display: true)
+                placing = false
+            }
+            if !entry.panel.isVisible { entry.panel.orderFrontRegardless() }
+        }
+    }
+
+    private func make(_ run: TimerRun) -> Entry {
+        let panel = OverlayPanel()
+        let state = CounterPanelState()
+        // La vista va dentro de un contenedor: así su tamaño no mueve la ventana (la coloca sync).
+        let host = FirstMouseHostingView(rootView: RunOverlayView(run: run, state: state))
+        let container = NSView()
+        panel.contentView = container
+        host.frame = container.bounds
+        host.autoresizingMask = [.width, .height]
+        container.addSubview(host)
+        NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self, weak run, weak panel] _ in
+            MainActor.assumeIsolated {
+                guard let self, let run, let panel, !self.placing, self.model.overlayUnlocked else { return }
+                let right = Double(panel.frame.maxX), top = Double(panel.frame.maxY)
+                if run.config.overlay.right != right || run.config.overlay.top != top {
+                    run.config.overlay.right = right
+                    run.config.overlay.top = top
+                }
+            }
+        }
+        let entry = Entry(panel: panel, state: state, host: host)
+        entries[run.id] = entry
+        return entry
+    }
 }
 
 // MARK: - Hub: estructura (barra superior, barra lateral y páginas)
@@ -765,19 +952,13 @@ struct Mascot: View {
     }
 }
 
-/// Barra superior: logo, nombre y estado de Tibia. Ocupa la barra de título (los botones de la
+/// Barra superior: estado de Tibia y del overlay. Ocupa la barra de título (los botones de la
 /// ventana quedan a la izquierda).
 struct TopBar: View {
     @ObservedObject var model: HubModel
 
     var body: some View {
         HStack(spacing: 10) {
-            Spacer().frame(width: 70)  // botones de la ventana
-            if let characterImage {
-                Image(nsImage: characterImage).interpolation(.none).resizable().frame(width: 28, height: 26)
-            }
-            (Text("Alfa").foregroundColor(.accentBlue) + Text("Hub").foregroundColor(.white))
-                .font(.system(size: 17, weight: .bold, design: .rounded))
             Spacer()
             HStack(spacing: 6) {
                 Circle().fill(model.tibiaRunning ? Color.green : Color.muted).frame(width: 7, height: 7)
@@ -802,22 +983,22 @@ struct TopBar: View {
 }
 
 enum HubPage: String, CaseIterable, Identifiable {
-    case timers, mirrors, overlay, shortcuts, sound
+    case timers, audio, mirrors, shortcuts, sound
     var id: String { rawValue }
     var title: String {
         switch self {
         case .timers: "Timers"
+        case .audio: "Tibia Audio"
         case .mirrors: "Espejos"
-        case .overlay: "Overlay"
         case .shortcuts: "Atajos"
         case .sound: "Sonido"
         }
     }
     var subtitle: String {
         switch self {
-        case .timers: "Cuentas atrás y rotaciones con aviso"
+        case .timers: "Cuentas atrás y rotaciones con aviso; cada uno con su contador sobre Tibia"
+        case .audio: "Un aviso sonoro cuando una habilidad vuelve a estar lista"
         case .mirrors: "Copia las partes de Tibia que necesitas donde quieras"
-        case .overlay: "El contador que ves encima de Tibia"
         case .shortcuts: "Controla los timers sin salir del juego"
         case .sound: "Volumen de los beeps y sonidos de aviso"
         }
@@ -825,8 +1006,8 @@ enum HubPage: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .timers: "timer"
+        case .audio: "waveform"
         case .mirrors: "square.on.square.dashed"
-        case .overlay: "rectangle.on.rectangle"
         case .shortcuts: "keyboard"
         case .sound: "speaker.wave.2"
         }
@@ -842,8 +1023,8 @@ struct Sidebar: View {
         VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Principal")
             item(.timers, badge: model.runningCount)
+            item(.audio)
             item(.mirrors)
-            item(.overlay)
             SectionLabel("Ajustes").padding(.top, 14)
             item(.shortcuts)
             item(.sound)
@@ -935,11 +1116,11 @@ struct MirrorActions {
 
 struct HubView: View {
     @ObservedObject var model: HubModel
-    let resetOverlayPosition: () -> Void
     var mirrorActions = MirrorActions()
     @AppStorage("hubPage") private var page: HubPage = .timers
     @State private var editing: UUID?
     @State private var editingMirror: UUID?
+    @State private var editingAudio: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -947,7 +1128,7 @@ struct HubView: View {
             Divider().overlay(Color.white.opacity(0.06))
             HStack(spacing: 0) {
                 Sidebar(model: model, page: $page, editing: $editing)
-                    .onChange(of: page) { editingMirror = nil }
+                    .onChange(of: page) { editingMirror = nil; editingAudio = nil }
                 Divider().overlay(Color.white.opacity(0.06))
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -975,9 +1156,11 @@ struct HubView: View {
                 MirrorsPage(model: model, pickWindow: mirrorActions.pickWindow, add: mirrorActions.add,
                             reselect: mirrorActions.reselect) { editingMirror = $0 }
             }
-        case .overlay:
-            PageContainer(page: .overlay) {
-                OverlaySettings(model: model, run: model.selected, resetOverlayPosition: resetOverlayPosition)
+        case .audio:
+            if let id = editingAudio, let audio = model.audios.first(where: { $0.id == id }) {
+                AudioEditor(model: model, audio: audio) { editingAudio = nil }
+            } else {
+                AudioPage(model: model) { editingAudio = $0 }
             }
         case .shortcuts:
             PageContainer(page: .shortcuts) { ShortcutSettings(model: model) }
@@ -1028,12 +1211,14 @@ struct TimersPage: View {
                 .menuIndicator(.hidden)
                 .buttonStyle(.plain)
                 .fixedSize()
-                .disabled(model.runs.count >= HubModel.maxTimers)
             }
             HStack(spacing: 10) {
-                Text("\(model.runs.count) de \(HubModel.maxTimers) · \(model.runningCount) en marcha")
+                Text("\(model.runs.count) \(model.runs.count == 1 ? "timer" : "timers") · \(model.runningCount) en marcha")
                     .font(.system(size: 12)).foregroundStyle(Color.muted)
                 Spacer()
+                SmallButton(title: model.overlayUnlocked ? "Bloquear contadores" : "Desbloquear para moverlos",
+                            icon: model.overlayUnlocked ? "lock" : "lock.open") { model.overlayUnlocked.toggle() }
+                    .help("Muestra todos los contadores sobre la pantalla para arrastrarlos a su sitio")
                 SmallButton(title: "Pausar todos", icon: "pause.fill") { model.runs.filter(\.running).forEach { model.toggle($0) } }
                 SmallButton(title: "Reiniciar todos", icon: "arrow.counterclockwise") { model.runs.forEach { model.reset($0) } }
             }
@@ -1077,8 +1262,8 @@ struct TimerRow: View {
 
     var body: some View {
         let d = run.display
-        let stateColor: Color = d.finished ? model.alertColor : !run.started ? Color.white.opacity(0.15)
-            : !run.running ? Color.amber : d.critical ? model.alertColor : Color.green
+        let stateColor: Color = d.finished ? run.config.overlay.alert : !run.started ? Color.white.opacity(0.15)
+            : !run.running ? Color.amber : d.critical ? run.config.overlay.alert : Color.green
         HStack(spacing: 14) {
             RoundedRectangle(cornerRadius: 2).fill(stateColor).frame(width: 4)
             VStack(alignment: .leading, spacing: 3) {
@@ -1091,9 +1276,9 @@ struct TimerRow: View {
             VStack(alignment: .trailing, spacing: 4) {
                 Text(d.text)
                     .font(.system(size: 22, weight: .bold, design: .monospaced))
-                    .foregroundStyle(d.critical || d.finished ? model.alertColor : Color.accent)
+                    .foregroundStyle(d.critical || d.finished ? run.config.overlay.alert : Color.accent)
                     .modifier(Pulsing(active: d.critical && run.running))
-                ProgressBar(value: run.started ? d.progress : 0, color: d.critical ? model.alertColor : Color.accent)
+                ProgressBar(value: run.started ? d.progress : 0, color: d.critical ? run.config.overlay.alert : Color.accent)
                     .frame(width: 90)
             }
             HStack(spacing: 6) {
@@ -1141,7 +1326,8 @@ struct TimerRow: View {
             parts.append("Cada \(mmss(c.cycle))")
         }
         parts.append(c.shortcut?.display ?? "Sin atajo")
-        parts.append(c.soundPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? "Beep")
+        parts.append(soundName(c.sound, c.soundPath))
+        if !c.overlay.show { parts.append("Sin overlay") }
         return parts.joined(separator: " · ")
     }
 }
@@ -1254,12 +1440,12 @@ struct HeroView: View {
     var body: some View {
         let d = run.display
         // El hub usa blanco hueso; el color del contador solo aplica al overlay.
-        let accent = d.critical ? model.alertColor : Color.accent
+        let accent = d.critical ? run.config.overlay.alert : Color.accent
         HStack(spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 10) {
                     Text(run.config.name).font(.system(size: 20, weight: .bold)).lineLimit(1)
-                    StatusChip(running: run.running, critical: d.critical, finished: d.finished, alertColor: model.alertColor)
+                    StatusChip(running: run.running, critical: d.critical, finished: d.finished, alertColor: run.config.overlay.alert)
                 }
                 Text(d.detail).font(.system(size: 12, design: .monospaced)).foregroundStyle(Color.muted)
                 HStack(spacing: 10) {
@@ -1334,6 +1520,8 @@ struct StatusChip: View {
 struct ShortcutRecorder: View {
     @ObservedObject var model: HubModel
     let current: Shortcut?
+    var allowPlain = false
+    var emptyTitle = "Sin atajo"
     let assign: (Shortcut?) -> Void
     @State private var recording = false
     @State private var monitor: Any?
@@ -1343,7 +1531,7 @@ struct ShortcutRecorder: View {
             Button {
                 recording ? stop() : start()
             } label: {
-                Text(recording ? "Pulsa la combinación…" : current?.display ?? "Sin atajo")
+                Text(recording ? (allowPlain ? "Pulsa la tecla…" : "Pulsa la combinación…") : current?.display ?? emptyTitle)
                     .font(.system(size: 12, weight: .medium, design: recording ? .default : .rounded))
                     .foregroundStyle(recording ? Color.amber : current == nil ? Color.muted : .white)
                     .frame(minWidth: 130)
@@ -1365,7 +1553,7 @@ struct ShortcutRecorder: View {
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if Int(event.keyCode) == kVK_Escape {
                 stop()
-            } else if let shortcut = Shortcut(event: event) {
+            } else if let shortcut = Shortcut(event: event, allowPlain: allowPlain) {
                 assign(shortcut)
                 stop()
             } else {
@@ -1419,6 +1607,8 @@ struct TimerSettings: View {
                             config.id = run.config.id
                             config.shortcut = run.config.shortcut
                             config.soundPath = run.config.soundPath
+                            config.sound = run.config.sound
+                            config.overlay = run.config.overlay
                             run.config = config
                         }
                     }
@@ -1483,23 +1673,8 @@ struct TimerSettings: View {
             }
 
             Section {
-                LabeledContent("Sonido de aviso") {
-                    HStack(spacing: 6) {
-                        Text(run.config.soundPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Beep")
-                            .lineLimit(1).truncationMode(.middle)
-                            .foregroundStyle(Color.muted)
-                            .frame(maxWidth: 120, alignment: .trailing)
-                        Button("Elegir…", action: chooseSound)
-                        if run.config.soundPath != nil {
-                            Button { run.config.soundPath = nil } label: {
-                                Image(systemName: "xmark.circle.fill").foregroundStyle(Color.muted)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Volver al beep")
-                        }
-                    }
-                }
-                Button("Probar sonido") { run.playAlert() }
+                SoundChooser(title: "Sonido de aviso", sound: $run.config.sound, path: $run.config.soundPath,
+                             fileMessage: "Elige el sonido de aviso para \(run.config.name)") { run.playAlert() }
                 LabeledContent("Atajo iniciar / pausar") {
                     ShortcutRecorder(model: model, current: run.config.shortcut) { model.setShortcut($0, for: run) }
                 }
@@ -1509,6 +1684,8 @@ struct TimerSettings: View {
                 Text("El sonido de aviso suena al empezar cada ciclo (o cada dirección) y al terminar. Los beeps de los últimos segundos son aparte.")
                     .foregroundStyle(.secondary)
             }
+
+            OverlayStyleSection(run: run)
 
             if model.runs.count > 1 {
                 Section {
@@ -1522,65 +1699,108 @@ struct TimerSettings: View {
         // Sin foco inicial en "Nombre": así una tecla pulsada por error no lo sobrescribe.
         .onAppear { DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(nil) } }
     }
+}
 
-    private func chooseSound() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.audio]
-        panel.allowsMultipleSelection = false
-        panel.message = "Elige el sonido de aviso para \(run.config.name)"
-        if panel.runModal() == .OK, let url = panel.url { run.config.soundPath = url.path }
+/// Sección "Overlay" del editor de un timer: su contador sobre Tibia.
+struct OverlayStyleSection: View {
+    @ObservedObject var run: TimerRun
+    @State private var previewAlert = false
+
+    private func color(_ key: WritableKeyPath<OverlayStyle, String>) -> Binding<Color> {
+        Binding(get: { Color(hex: run.config.overlay[keyPath: key]) }, set: { run.config.overlay[keyPath: key] = $0.hex })
+    }
+
+    var body: some View {
+        let style = run.config.overlay
+        Section {
+            Toggle("Mostrar en el overlay", isOn: $run.config.overlay.show)
+            ZStack {
+                // Fondo que imita el mapa de Tibia, para juzgar colores y tamaño.
+                LinearGradient(colors: [Color(red: 0.29, green: 0.36, blue: 0.20), Color(red: 0.20, green: 0.16, blue: 0.12)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                CounterBadge(style: style, text: previewAlert ? "00:05" : run.display.text,
+                             critical: previewAlert, running: true, preview: true)
+            }
+            .frame(height: max(90, 60 * style.scale))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
+            Toggle("Ver en alerta", isOn: $previewAlert)
+            LabeledContent("Tamaño") {
+                HStack {
+                    Slider(value: $run.config.overlay.scale, in: 0.6...3)
+                    Text("\(Int(style.scale * 100)) %").monospacedDigit().foregroundStyle(Color.muted).frame(width: 48)
+                }
+            }
+            LabeledContent("Opacidad") {
+                HStack {
+                    Slider(value: $run.config.overlay.opacity, in: 0.2...1)
+                    Text("\(Int(style.opacity * 100)) %").monospacedDigit().foregroundStyle(Color.muted).frame(width: 48)
+                }
+            }
+            ColorPicker("Contador", selection: color(\.counterColor), supportsOpacity: false)
+            ColorPicker("Contador en alerta", selection: color(\.alertColor), supportsOpacity: false)
+            ColorPicker("Fondo", selection: color(\.backgroundColor), supportsOpacity: true)
+            HStack {
+                Button("Restaurar colores") {
+                    run.config.overlay.counterColor = OverlayStyle.defaultCounter
+                    run.config.overlay.alertColor = OverlayStyle.defaultAlert
+                    run.config.overlay.backgroundColor = OverlayStyle.defaultBackground
+                }
+                Button("Volver a su sitio automático") {
+                    run.config.overlay.right = nil
+                    run.config.overlay.top = nil
+                }
+                .disabled(style.right == nil)
+            }
+        } header: {
+            Text("Overlay")
+        } footer: {
+            Text("El contador de este timer sobre Tibia: solo aparece con Tibia al frente y deja pasar los clics. Para moverlo, pulsa “Desbloquear para moverlos” en la lista de timers y arrástralo. Baja la opacidad del fondo a cero para ver solo el número.")
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
-struct OverlaySettings: View {
-    @ObservedObject var model: HubModel
-    @ObservedObject var run: TimerRun
-    let resetOverlayPosition: () -> Void
-    @State private var previewAlert = false
+/// Nombre corto de un sonido: el archivo propio o el incluido.
+func soundName(_ sound: String?, _ path: String?) -> String {
+    path.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? BuiltInSound.named(sound).title
+}
+
+/// Elige un sonido incluido (suena al elegirlo) o un archivo propio.
+struct SoundChooser: View {
+    let title: String
+    @Binding var sound: String?
+    @Binding var path: String?
+    var fileMessage = "Elige un sonido"
+    let play: () -> Void
 
     var body: some View {
-        Form {
-            Section {
-                ZStack {
-                    // Fondo que imita el mapa de Tibia, para juzgar colores y tamaño.
-                    LinearGradient(colors: [Color(red: 0.29, green: 0.36, blue: 0.20), Color(red: 0.20, green: 0.16, blue: 0.12)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                    CounterBadge(model: model, text: previewAlert ? "00:05" : run.display.text,
-                                 critical: previewAlert, running: true, preview: true)
-                }
-                .frame(height: max(90, 60 * model.overlayScale))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .listRowInsets(EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8))
-                Toggle("Ver en alerta", isOn: $previewAlert)
-            } header: {
-                Text("Vista previa")
-            }
-
-            Section {
-                Toggle("Mostrar overlay", isOn: $model.overlayVisible)
-                LabeledContent("Tamaño") { Slider(value: $model.overlayScale, in: 0.6...3) }
-                LabeledContent("Opacidad") { Slider(value: $model.overlayOpacity, in: 0.2...1) }
-                Toggle("Desbloquear para moverlo", isOn: $model.overlayUnlocked)
-                Button("Volver a la esquina superior derecha", action: resetOverlayPosition)
-            } header: {
-                Text("En Tibia")
-            } footer: {
-                Text("Muestra los timers en marcha (con su nombre si hay más de uno). Solo aparece con Tibia al frente y deja pasar los clics al juego; desbloquéalo para arrastrarlo a su sitio.")
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                ColorPicker("Contador", selection: $model.counterColor, supportsOpacity: false)
-                ColorPicker("Contador en alerta", selection: $model.alertColor, supportsOpacity: false)
-                ColorPicker("Fondo", selection: $model.backgroundColor, supportsOpacity: true)
-                Button("Restaurar colores") { model.restoreColors() }
-            } header: {
-                Text("Colores")
-            } footer: {
-                Text("Baja la opacidad del color de fondo a cero para ver solo el número.")
-                    .foregroundStyle(.secondary)
+        Picker(title, selection: Binding(
+            get: { path != nil ? "file" : BuiltInSound.named(sound).rawValue },
+            set: { value in
+                guard value != "file" else { return }
+                path = nil
+                sound = value
+                play()
+            })) {
+            ForEach(BuiltInSound.allCases) { Text($0.title).tag($0.rawValue) }
+            if let path {
+                Divider()
+                Text(URL(fileURLWithPath: path).lastPathComponent).tag("file")
             }
         }
+        HStack {
+            Button("Archivo propio…", action: chooseFile)
+            Button("Probar sonido", action: play)
+        }
+    }
+
+    private func chooseFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.audio]
+        panel.allowsMultipleSelection = false
+        panel.message = fileMessage
+        if panel.runModal() == .OK, let url = panel.url { path = url.path }
     }
 }
 
@@ -1638,7 +1858,7 @@ struct SoundSettings: View {
                 }
                 Button("Probar beep") { Beeper.shared.beep(1200, 0.15) }
             } footer: {
-                Text("El sonido de aviso de cada timer (beep o un archivo propio) se elige al editar el timer.")
+                Text("El sonido de cada timer y de cada habilidad de Tibia Audio se elige al editarlos: hay 14 sonidos incluidos o puedes usar un archivo propio.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -1690,7 +1910,8 @@ enum HotKeys {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = HubModel()
-    private var overlay: OverlayPanel!
+    private lazy var overlays = OverlayController(model: model)
+    private lazy var keyListener = KeyListener(model: model)
     private var hub: NSWindow!
     private var statusItem: NSStatusItem!
     private var ticker: Timer?
@@ -1708,8 +1929,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activity = ProcessInfo.processInfo.beginActivity(options: .userInitiated, reason: "Timer de Tibia en marcha")
 
         buildMainMenu()
-        buildOverlay()
         buildHub()
+        watchOverlayUnlock()
         buildStatusItem()
 
         Publishers.CombineLatest(model.$shortcutsVersion, model.$recordingShortcut)
@@ -1721,9 +1942,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let ticker = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.model.tick()
-                self?.refreshTibiaActive()
-                if let self, self.tickCount % 2 == 0 { self.mirrorController.sync(tibiaActive: self.tibiaActive.value) }
+                guard let self else { return }
+                self.model.tick()
+                self.refreshTibiaActive()
+                self.overlays.sync(tibiaActive: self.tibiaActive.value)
+                self.keyListener.tibiaActive = self.tibiaActive.value
+                if self.tickCount % 2 == 0 { self.mirrorController.sync(tibiaActive: self.tibiaActive.value) }
+                if self.tickCount % 10 == 0 { self.keyListener.sync() }
             }
         }
         RunLoop.main.add(ticker, forMode: .common)
@@ -1755,30 +1980,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    private func buildOverlay() {
-        overlay = OverlayPanel()
-        overlay.contentView = FirstMouseHostingView(rootView: OverlayView(model: model))
-        if !overlay.setFrameUsingName("AlfaHubOverlay") { placeOverlayTopRight() }
-        overlay.setFrameAutosaveName("AlfaHubOverlay")
-
-        model.$overlayOpacity.sink { [weak self] in self?.overlay.alphaValue = $0 }.store(in: &bag)
-        model.$overlayUnlocked.sink { [weak self] unlocked in
-            guard let overlay = self?.overlay else { return }
-            overlay.ignoresMouseEvents = !unlocked
-            if unlocked { self?.model.overlayVisible = true }
-        }.store(in: &bag)
-
-        // Solo se ve con el cliente de Tibia al frente (o desbloqueado, para poder colocarlo).
-        // (se actualiza en cada tick: el aviso de cambio de app no siempre llega al salir de pantalla completa)
-        refreshTibiaActive()
-        Publishers.CombineLatest3(model.$overlayVisible, model.$overlayUnlocked, tibiaActive)
-            .map { visible, unlocked, tibia in visible && (tibia || unlocked) }
-            .removeDuplicates()
-            .sink { [weak self] show in
-                guard let overlay = self?.overlay else { return }
-                if show { overlay.orderFrontRegardless() } else { overlay.orderOut(nil) }
-            }
-            .store(in: &bag)
+    private func watchOverlayUnlock() {
+        // Desbloquear muestra los contadores aunque el overlay estuviera oculto.
+        model.$overlayUnlocked.sink { [weak self] unlocked in if unlocked { self?.model.overlayVisible = true } }.store(in: &bag)
     }
 
     /// Tibia cuenta como activo si es la app al frente y además tiene una ventana visible en el
@@ -1816,8 +2020,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                     pickWindow: { [weak self] in self?.mirrorController.presentPicker() },
                                     reselect: { [weak self] id in self?.reselectMirror(id) })
         hub.contentViewController = NSHostingController(
-            rootView: HubView(model: model, resetOverlayPosition: { [weak self] in self?.placeOverlayTopRight() },
-                              mirrorActions: actions))
+            rootView: HubView(model: model, mirrorActions: actions))
         hub.setContentSize(NSSize(width: 900, height: min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 60)))
         hub.contentMinSize = NSSize(width: 820, height: 600)
         if !hub.setFrameUsingName("AlfaHubWindow2") { hub.center() }
@@ -1896,7 +2099,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func addMirror() {
-        guard model.mirrors.count < HubModel.maxMirrors else { return }
         selectRegion { [weak self] region, frame in
             guard let self else { return }
             var mirror = MirrorConfig()
@@ -1949,12 +2151,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleTimer() { model.toggle(model.selected) }
     @objc private func resetTimer() { model.reset(model.selected) }
-
-    private func placeOverlayTopRight() {
-        guard let screen = NSScreen.main?.visibleFrame else { return }
-        let size = overlay.frame.size
-        overlay.setFrameOrigin(NSPoint(x: screen.maxX - size.width - 20, y: screen.maxY - size.height - 20))
-    }
 }
 
 let app = NSApplication.shared
