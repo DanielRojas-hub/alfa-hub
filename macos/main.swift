@@ -1,19 +1,19 @@
-// Alfa Hub — timer de ciclos para Tibia, basado en el "Peixe Timer" de cueistoreservices.com.br/timer.
+// Alfa Hub — timers para Tibia con overlay, basado en los timers de cueistoreservices.com.br/timer.
 //
 // Dos ventanas:
-//  • Overlay: solo el contador, encima de Tibia (también en pantalla completa) y solo
-//    mientras el cliente de Tibia está al frente. Los clics lo atraviesan y llegan al juego.
-//  • Hub: ventana normal con los controles y todos los ajustes (duración del ciclo, alertas,
-//    sonido, colores, atajos y tamaño/opacidad/posición del overlay).
-// Atajos globales editables (por defecto ⌃⌥P iniciar/pausar, ⌃⌥R reiniciar, ⌃⌥O overlay).
+//  • Overlay: solo los contadores de los timers en marcha, encima de Tibia (también en pantalla
+//    completa) y solo mientras el cliente de Tibia está al frente. Los clics lo atraviesan.
+//  • Hub: los timers (Pez, Bakragore, Pilar o personalizados), cada uno con su duración, avisos,
+//    sonido propio y atajo; más el aspecto del overlay y los atajos globales.
 
 import AppKit
 import AVFoundation
 import Carbon.HIToolbox
 import Combine
 import SwiftUI
+import UniformTypeIdentifiers
 
-// MARK: - Sonido (beeps senoidales como los del sitio)
+// MARK: - Sonido
 
 @MainActor
 final class Beeper {
@@ -23,12 +23,23 @@ final class Beeper {
     private var cache: [String: Data] = [:]
     private var players: [AVAudioPlayer] = []
 
+    /// Beep senoidal como los del sitio original.
     func beep(_ freq: Double, _ duration: Double) {
         guard !muted, volume > 0 else { return }
         let key = "\(freq)-\(duration)"
         let data = cache[key] ?? Self.wav(freq: freq, duration: duration)
         cache[key] = data
-        guard let player = try? AVAudioPlayer(data: data) else { return }
+        play(try? AVAudioPlayer(data: data))
+    }
+
+    /// Sonido elegido por el usuario (wav, mp3, aiff, m4a…). Si no se puede abrir, suena un beep.
+    func play(file path: String, fallback: () -> Void) {
+        guard !muted, volume > 0 else { return }
+        if let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: path)) { play(player) } else { fallback() }
+    }
+
+    private func play(_ player: AVAudioPlayer?) {
+        guard let player else { return }
         player.volume = Float(volume)
         player.play()
         players.removeAll { !$0.isPlaying }
@@ -128,27 +139,26 @@ struct Shortcut: Codable, Equatable {
     }
 }
 
-enum HotKeyAction: String, CaseIterable, Identifiable {
-    case toggle, reset, overlay
+/// Atajos que no dependen de un timer concreto.
+enum GlobalAction: String, CaseIterable, Identifiable {
+    case reset, overlay
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .toggle: "Iniciar / pausar"
-        case .reset: "Reiniciar"
+        case .reset: "Reiniciar el último timer usado"
         case .overlay: "Mostrar / ocultar overlay"
         }
     }
     var defaultShortcut: Shortcut {
         let mods = controlKey | optionKey
         switch self {
-        case .toggle: return Shortcut(keyCode: kVK_ANSI_P, modifiers: mods, key: "P")
         case .reset: return Shortcut(keyCode: kVK_ANSI_R, modifiers: mods, key: "R")
         case .overlay: return Shortcut(keyCode: kVK_ANSI_O, modifiers: mods, key: "O")
         }
     }
 }
 
-// MARK: - Modelo
+// MARK: - Timers
 
 /// Cronómetro basado en reloj real: no se desfasa aunque macOS frene el timer.
 struct Stopwatch {
@@ -161,26 +171,203 @@ struct Stopwatch {
     mutating func reset() { accumulated = 0; startedAt = nil }
 }
 
-@MainActor
-final class HubModel: ObservableObject {
-    static let defaultCycle = 120, defaultWarning = 25, defaultBeeps = 5
-    static let defaultCounterColor = "A873FA", defaultAlertColor = "F54D4D", defaultBackgroundColor = "111827D9"
+enum TimerKind: String, Codable, CaseIterable, Identifiable {
+    /// Cuenta atrás que puede repetirse (Pez) y tener una duración total (Bakragore).
+    case cycle
+    /// Rotación de direcciones cada pocos segundos (Pilar del Rotten Blood).
+    case rotation
+    var id: String { rawValue }
+    var title: String { self == .cycle ? "Cuenta atrás" : "Rotación" }
+}
 
-    // Estado del timer
-    @Published private(set) var watch = Stopwatch()
-    @Published private(set) var seconds = 0
+/// Direcciones de la rotación de los Totens: Norte → Derecha → Sur → Izquierda.
+let directions = [("↑", "Norte"), ("→", "Derecha"), ("↓", "Sur"), ("←", "Izquierda")]
 
-    // Ajustes (se guardan entre aperturas)
-    @Published var cycle: Int {
-        didSet {
-            let clamped = max(5, min(3600, cycle))
-            if clamped != cycle { cycle = clamped; return }  // con @Published, reasignar vuelve a llamar didSet
-            save(cycle, "cycle")
+struct TimerConfig: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var name: String
+    var kind: TimerKind = .cycle
+    // Cuenta atrás
+    var cycle = 120          // segundos de cada ciclo
+    var repeats = true       // al llegar a 0 vuelve a empezar
+    var total = 0            // duración total en segundos (0 = sin límite)
+    var warning = 25         // rojo en los últimos N s
+    var cycleBeep = true     // sonido de aviso al empezar cada ciclo
+    // Rotación
+    var step = 6             // segundos por dirección
+    var startDirection = 0
+    // Ambos
+    var beepSeconds = 5      // beeps en los últimos N s
+    var soundPath: String?   // sonido de aviso propio (nil = beep)
+    var shortcut: Shortcut?  // iniciar / pausar este timer
+}
+
+enum TimerPreset: String, CaseIterable, Identifiable {
+    case pez, bakragore, pilar, custom
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .pez: "Pez"
+        case .bakragore: "Bakragore"
+        case .pilar: "Pilar"
+        case .custom: "Personalizado"
         }
     }
-    @Published var warning: Int { didSet { save(warning, "warning") } }
-    @Published var beepSeconds: Int { didSet { save(beepSeconds, "beepSeconds") } }
-    @Published var cycleBeep: Bool { didSet { save(cycleBeep, "cycleBeep") } }
+    var detail: String {
+        switch self {
+        case .pez: "Cada 2:00, alerta en los últimos 25 s"
+        case .bakragore: "Mecánica cada 1:30 durante 25 min"
+        case .pilar: "Rotación de los Totens cada 6 s"
+        case .custom: "Cuenta atrás de 1:00 que no se repite"
+        }
+    }
+    var config: TimerConfig {
+        switch self {
+        case .pez:
+            return TimerConfig(name: "Pez", cycle: 120, repeats: true, total: 0, warning: 25, cycleBeep: true, beepSeconds: 5)
+        case .bakragore:
+            return TimerConfig(name: "Bakragore", cycle: 90, repeats: true, total: 25 * 60, warning: 10, cycleBeep: false, beepSeconds: 5)
+        case .pilar:
+            return TimerConfig(name: "Pilar", kind: .rotation, step: 6, startDirection: 0, beepSeconds: 2)
+        case .custom:
+            return TimerConfig(name: "Timer", cycle: 60, repeats: false, total: 0, warning: 10, cycleBeep: true, beepSeconds: 3)
+        }
+    }
+}
+
+/// Lo que se muestra de un timer en un instante.
+struct TimerDisplay: Equatable {
+    var text = "00:00"        // contador ("01:30" o "↑ 6")
+    var detail = ""           // "Ciclo 2 · Total 03:10", "Norte · luego Derecha"…
+    var progress = 0.0
+    var critical = false
+    var finished = false
+}
+
+/// Un timer en marcha: su configuración, su cronómetro y lo que muestra.
+@MainActor
+final class TimerRun: ObservableObject, Identifiable {
+    @Published var config: TimerConfig { didSet { refresh(sound: false); onConfigChange() } }
+    @Published private(set) var watch = Stopwatch()
+    @Published private(set) var display = TimerDisplay()
+    var onConfigChange: () -> Void = {}
+    private var lastSecond = -1, lastSlot = -1, lastCount = -1
+
+    let id: UUID
+
+    init(_ config: TimerConfig) {
+        id = config.id
+        self.config = config
+        refresh(sound: false)
+    }
+
+    var running: Bool { watch.running }
+    /// En marcha o pausado a medias: se muestra en el overlay.
+    var started: Bool { watch.running || watch.elapsed > 0 }
+
+    func toggle() {
+        if running {
+            watch.pause()
+        } else {
+            if display.finished { reset() }
+            watch.start()
+        }
+        refresh(sound: true)
+    }
+
+    func reset() {
+        watch.reset()
+        lastSecond = -1; lastSlot = -1; lastCount = -1
+        refresh(sound: false)
+    }
+
+    func tick() { if running { refresh(sound: true) } }
+
+    /// Sonido de aviso del timer: el archivo elegido o el beep por defecto.
+    func playAlert(long: Bool = false) {
+        let beep = { Beeper.shared.beep(880, long ? 0.6 : 0.25) }
+        if let path = config.soundPath { Beeper.shared.play(file: path, fallback: beep) } else { beep() }
+    }
+
+    private func refresh(sound: Bool) {
+        let next = config.kind == .cycle ? cycleDisplay(sound: sound) : rotationDisplay(sound: sound)
+        if next != display { display = next }
+    }
+
+    private func cycleDisplay(sound: Bool) -> TimerDisplay {
+        let cycle = max(5, config.cycle)
+        let limit = config.repeats ? (config.total > 0 ? config.total : Int.max) : cycle
+        let e = min(Int(watch.elapsed), limit)
+        let finished = e >= limit
+        let remaining = finished ? 0 : cycle - e % cycle
+
+        if sound && e != lastSecond {
+            lastSecond = e
+            if finished {
+                watch.pause()
+                playAlert(long: true)
+            } else {
+                if config.cycleBeep && e > 0 && e % cycle == 0 { playAlert() }
+                if config.beepSeconds > 0 && (1...config.beepSeconds).contains(remaining) { Beeper.shared.beep(1200, 0.15) }
+            }
+        }
+
+        var d = TimerDisplay()
+        d.text = mmss(remaining)
+        d.finished = finished
+        d.critical = !finished && remaining <= config.warning
+        d.progress = finished ? 1 : Double(e % cycle) / Double(cycle)
+        let cycleNumber = min(e, limit - 1) / cycle + 1
+        if finished {
+            d.detail = "Terminado · \(mmss(e))"
+        } else if !config.repeats {
+            d.detail = "Cuenta atrás · \(mmss(cycle))"
+        } else if config.total > 0 {
+            d.detail = "Ciclo \(cycleNumber) · Quedan \(mmss(limit - e))"
+        } else {
+            d.detail = "Ciclo \(cycleNumber) · Total \(mmss(e))"
+        }
+        return d
+    }
+
+    private func rotationDisplay(sound: Bool) -> TimerDisplay {
+        let step = Double(max(1, config.step))
+        let t = watch.elapsed
+        let slot = Int(t / step)
+        let dir = (config.startDirection + slot) % directions.count
+        let count = max(1, Int((step - (t - Double(slot) * step)).rounded(.up)))
+
+        if sound && running {
+            if slot != lastSlot {
+                lastSlot = slot; lastCount = count
+                playAlert()
+            } else if count != lastCount {
+                lastCount = count
+                if config.beepSeconds > 0 && (1...config.beepSeconds).contains(count) { Beeper.shared.beep(1200, 0.15) }
+            }
+        }
+
+        var d = TimerDisplay()
+        d.text = "\(directions[dir].0) \(count)"
+        d.detail = "\(directions[dir].1) · luego \(directions[(dir + 1) % directions.count].1)"
+        d.critical = running && count <= config.beepSeconds
+        d.progress = (t - Double(slot) * step) / step
+        return d
+    }
+}
+
+// MARK: - Modelo
+
+@MainActor
+final class HubModel: ObservableObject {
+    static let defaultCounterColor = "A873FA", defaultAlertColor = "F54D4D", defaultBackgroundColor = "111827D9"
+    static let maxTimers = 8
+
+    @Published private(set) var runs: [TimerRun] = []
+    @Published var selectedID: UUID? { didSet { defaults.set(selectedID?.uuidString, forKey: "selectedTimer") } }
+    /// El último timer iniciado o pausado: el atajo "Reiniciar" actúa sobre él.
+    private(set) var lastUsedID: UUID?
+
     @Published var volume: Double { didSet { Beeper.shared.volume = volume; save(volume, "volume") } }
     @Published var muted: Bool { didSet { Beeper.shared.muted = muted; save(muted, "muted") } }
     @Published var overlayVisible: Bool { didSet { save(overlayVisible, "overlayVisible") } }
@@ -189,12 +376,18 @@ final class HubModel: ObservableObject {
     @Published var counterColor: Color { didSet { save(counterColor.hex, "counterColor") } }
     @Published var alertColor: Color { didSet { save(alertColor.hex, "alertColor") } }
     @Published var backgroundColor: Color { didSet { save(backgroundColor.hex, "backgroundColor") } }
-    @Published private(set) var shortcuts: [HotKeyAction: Shortcut] {
+    @Published private(set) var globalShortcuts: [GlobalAction: Shortcut] {
         didSet {
-            let raw = Dictionary(uniqueKeysWithValues: shortcuts.map { ($0.key.rawValue, $0.value) })
-            save((try? JSONEncoder().encode(raw)) ?? Data(), "shortcuts")
+            let raw = Dictionary(uniqueKeysWithValues: globalShortcuts.map { ($0.key.rawValue, $0.value) })
+            save((try? JSONEncoder().encode(raw)) ?? Data(), "globalShortcuts")
         }
     }
+    /// Cambia cuando cambia cualquier atajo (globales o de un timer), para volver a registrarlos.
+    @Published private(set) var shortcutsVersion = 0
+    /// Cuántos timers están en marcha (para la barra lateral y la lista).
+    @Published private(set) var runningCount = 0
+    /// Si el cliente de Tibia está abierto (se muestra en la barra superior).
+    @Published var tibiaRunning = false
     /// Solo mientras está activo el overlay recibe clics (para arrastrarlo). No se guarda.
     @Published var overlayUnlocked = false
     /// Mientras se graba un atajo, los globales se desactivan para poder capturar cualquier combinación.
@@ -204,10 +397,6 @@ final class HubModel: ObservableObject {
     private func save(_ value: Any, _ key: String) { defaults.set(value, forKey: key) }
 
     init() {
-        cycle = defaults.object(forKey: "cycle") as? Int ?? Self.defaultCycle
-        warning = defaults.object(forKey: "warning") as? Int ?? Self.defaultWarning
-        beepSeconds = defaults.object(forKey: "beepSeconds") as? Int ?? Self.defaultBeeps
-        cycleBeep = defaults.object(forKey: "cycleBeep") as? Bool ?? true
         volume = defaults.object(forKey: "volume") as? Double ?? 0.5
         muted = defaults.object(forKey: "muted") as? Bool ?? false
         overlayVisible = defaults.object(forKey: "overlayVisible") as? Bool ?? true
@@ -216,65 +405,137 @@ final class HubModel: ObservableObject {
         counterColor = Color(hex: defaults.string(forKey: "counterColor") ?? Self.defaultCounterColor)
         alertColor = Color(hex: defaults.string(forKey: "alertColor") ?? Self.defaultAlertColor)
         backgroundColor = Color(hex: defaults.string(forKey: "backgroundColor") ?? Self.defaultBackgroundColor)
-        if let data = defaults.data(forKey: "shortcuts"),
-           let raw = try? JSONDecoder().decode([String: Shortcut].self, from: data) {
-            shortcuts = Dictionary(uniqueKeysWithValues: raw.compactMap { k, v in HotKeyAction(rawValue: k).map { ($0, v) } })
-        } else {
-            shortcuts = Dictionary(uniqueKeysWithValues: HotKeyAction.allCases.map { ($0, $0.defaultShortcut) })
+
+        // Atajos de la versión anterior (un solo timer): "toggle" pasa al timer Pez.
+        var legacy: [String: Shortcut] = [:]
+        if let data = defaults.data(forKey: "shortcuts"), let raw = try? JSONDecoder().decode([String: Shortcut].self, from: data) {
+            legacy = raw
         }
+        if let data = defaults.data(forKey: "globalShortcuts"), let raw = try? JSONDecoder().decode([String: Shortcut].self, from: data) {
+            globalShortcuts = Dictionary(uniqueKeysWithValues: raw.compactMap { k, v in GlobalAction(rawValue: k).map { ($0, v) } })
+        } else if !legacy.isEmpty {
+            globalShortcuts = Dictionary(uniqueKeysWithValues: GlobalAction.allCases.compactMap { a in legacy[a.rawValue].map { (a, $0) } })
+        } else {
+            globalShortcuts = Dictionary(uniqueKeysWithValues: GlobalAction.allCases.map { ($0, $0.defaultShortcut) })
+        }
+
+        let configs: [TimerConfig]
+        if let data = defaults.data(forKey: "timers"), let saved = try? JSONDecoder().decode([TimerConfig].self, from: data), !saved.isEmpty {
+            configs = saved
+        } else {
+            // Primera vez (o migración): Pez con los ajustes de antes, Bakragore y Pilar.
+            var pez = TimerPreset.pez.config
+            pez.cycle = defaults.object(forKey: "cycle") as? Int ?? pez.cycle
+            pez.warning = defaults.object(forKey: "warning") as? Int ?? pez.warning
+            pez.beepSeconds = defaults.object(forKey: "beepSeconds") as? Int ?? pez.beepSeconds
+            pez.cycleBeep = defaults.object(forKey: "cycleBeep") as? Bool ?? pez.cycleBeep
+            pez.shortcut = legacy.isEmpty
+                ? Shortcut(keyCode: kVK_ANSI_P, modifiers: controlKey | optionKey, key: "P")
+                : legacy["toggle"]
+            configs = [pez, TimerPreset.bakragore.config, TimerPreset.pilar.config]
+        }
+        runs = configs.map(makeRun)
+        let saved = defaults.string(forKey: "selectedTimer").flatMap(UUID.init(uuidString:))
+        selectedID = runs.first { $0.id == saved }?.id ?? runs.first?.id
+        saveTimers()
         Beeper.shared.volume = volume
         Beeper.shared.muted = muted
     }
 
-    var running: Bool { watch.running }
-    var remaining: Int { cycle - seconds % cycle }
-    var progress: Double { Double(seconds % cycle) / Double(cycle) }
-    var cycles: Int { seconds / cycle }
-    var critical: Bool { remaining <= warning }
-
-    func toggle() { if running { watch.pause() } else { watch.start() } }
-    func reset() { watch.reset(); seconds = 0 }
-
-    func restoreTimerDefaults() {
-        cycle = Self.defaultCycle
-        warning = Self.defaultWarning
-        beepSeconds = Self.defaultBeeps
-        cycleBeep = true
+    private func makeRun(_ config: TimerConfig) -> TimerRun {
+        let run = TimerRun(config)
+        run.onConfigChange = { [weak self] in self?.saveTimers() }
+        return run
     }
+
+    private func saveTimers() {
+        save((try? JSONEncoder().encode(runs.map(\.config))) ?? Data(), "timers")
+        shortcutsVersion += 1
+    }
+
+    var selected: TimerRun { runs.first { $0.id == selectedID } ?? runs[0] }
+
+    /// Timers que se ven en el overlay: los que están en marcha o a medias; si no hay, el elegido.
+    var overlayRuns: [TimerRun] {
+        let started = runs.filter(\.started)
+        return started.isEmpty ? [selected] : started
+    }
+
+    func add(_ preset: TimerPreset) {
+        guard runs.count < Self.maxTimers else { return }
+        var config = preset.config
+        let names = Set(runs.map(\.config.name))
+        if names.contains(config.name) {
+            var n = 2
+            while names.contains("\(config.name) \(n)") { n += 1 }
+            config.name = "\(config.name) \(n)"
+        }
+        let run = makeRun(config)
+        runs.append(run)
+        selectedID = run.id
+        saveTimers()
+    }
+
+    func duplicate(_ run: TimerRun) {
+        guard runs.count < Self.maxTimers else { return }
+        var config = run.config
+        config.id = UUID()
+        config.shortcut = nil  // una combinación solo puede estar en un timer
+        config.name += " (copia)"
+        let copy = makeRun(config)
+        runs.insert(copy, at: (runs.firstIndex { $0.id == run.id } ?? runs.count - 1) + 1)
+        saveTimers()
+    }
+
+    func remove(_ run: TimerRun) {
+        guard runs.count > 1, let index = runs.firstIndex(where: { $0.id == run.id }) else { return }
+        runs.remove(at: index)
+        if selectedID == run.id { selectedID = runs[min(index, runs.count - 1)].id }
+        saveTimers()
+    }
+
+    func toggle(_ run: TimerRun) { run.toggle(); lastUsedID = run.id }
+    func reset(_ run: TimerRun) { run.reset(); lastUsedID = run.id }
+
+    func perform(_ action: GlobalAction) {
+        switch action {
+        case .reset: (runs.first { $0.id == lastUsedID } ?? selected).reset()
+        case .overlay: overlayVisible.toggle()
+        }
+    }
+
     func restoreColors() {
         counterColor = Color(hex: Self.defaultCounterColor)
         alertColor = Color(hex: Self.defaultAlertColor)
         backgroundColor = Color(hex: Self.defaultBackgroundColor)
     }
-    func restoreShortcuts() {
-        shortcuts = Dictionary(uniqueKeysWithValues: HotKeyAction.allCases.map { ($0, $0.defaultShortcut) })
+
+    func restoreGlobalShortcuts() {
+        globalShortcuts = Dictionary(uniqueKeysWithValues: GlobalAction.allCases.map { ($0, $0.defaultShortcut) })
+        shortcutsVersion += 1
     }
 
-    /// Asigna un atajo; si otra acción tenía la misma combinación, se la quita.
-    func setShortcut(_ shortcut: Shortcut?, for action: HotKeyAction) {
-        var updated = shortcuts
-        if let shortcut {
-            for (other, existing) in updated where other != action && existing == shortcut { updated[other] = nil }
-        }
-        updated[action] = shortcut
-        shortcuts = updated
+    /// Quita una combinación de todos los sitios (antes de asignarla a otro).
+    private func release(_ shortcut: Shortcut) {
+        for (action, existing) in globalShortcuts where existing == shortcut { globalShortcuts[action] = nil }
+        for run in runs where run.config.shortcut == shortcut { run.config.shortcut = nil }
     }
 
-    func perform(_ action: HotKeyAction) {
-        switch action {
-        case .toggle: toggle()
-        case .reset: reset()
-        case .overlay: overlayVisible.toggle()
-        }
+    func setShortcut(_ shortcut: Shortcut?, for action: GlobalAction) {
+        if let shortcut { release(shortcut) }
+        globalShortcuts[action] = shortcut
+        shortcutsVersion += 1
+    }
+
+    func setShortcut(_ shortcut: Shortcut?, for run: TimerRun) {
+        if let shortcut { release(shortcut) }
+        run.config.shortcut = shortcut
     }
 
     func tick() {
-        guard running else { return }
-        let e = Int(watch.elapsed)
-        guard e != seconds else { return }
-        seconds = e
-        if cycleBeep && e > 0 && e % cycle == 0 { Beeper.shared.beep(880, 0.25) }
-        if beepSeconds > 0 && (1...beepSeconds).contains(remaining) { Beeper.shared.beep(1200, 0.15) }
+        runs.forEach { $0.tick() }
+        let count = runs.filter(\.running).count
+        if count != runningCount { runningCount = count }
     }
 }
 
@@ -290,17 +551,6 @@ extension Color {
 }
 
 func mmss(_ s: Int) -> String { String(format: "%02d:%02d", s / 60, s % 60) }
-
-struct Caps: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-    var body: some View {
-        Text(text.uppercased())
-            .font(.system(size: 9, weight: .semibold))
-            .tracking(1.2)
-            .foregroundStyle(Color.muted)
-    }
-}
 
 struct ProgressBar: View {
     let value: Double
@@ -329,74 +579,81 @@ struct Pulsing: ViewModifier {
     }
 }
 
-struct PillButton: View {
-    let title: String
-    let symbol: String
-    var fill: Color = .accentBlue
-    var outline = false
-    let action: () -> Void
+// MARK: - Overlay
 
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: symbol).font(.system(size: 11, weight: .bold))
-                Text(title).font(.system(size: 12, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 8).fill(outline ? Color.black.opacity(0.35) : fill))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(outline ? Color.white.opacity(0.15) : .clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Overlay (solo el contador)
-
-/// El contador tal como se ve sobre Tibia. Se reutiliza en la vista previa del hub.
+/// Un contador tal como se ve sobre Tibia. Se reutiliza en la vista previa del hub.
 struct CounterBadge: View {
     @ObservedObject var model: HubModel
+    let text: String
+    let critical: Bool
+    let running: Bool
+    var label: String? = nil
     var preview = false
-    var previewAlert = false
 
     var body: some View {
         let s = model.overlayScale
-        let critical = preview ? previewAlert : model.critical
-        let running = preview || model.running
         let alert = critical && running
         let unlocked = model.overlayUnlocked && !preview
         // Sin fondo (o casi), una sombra mantiene el número legible sobre el juego.
         let bare = model.backgroundColor.alpha < 0.3 && !unlocked
-        Text(preview ? mmss(previewAlert ? min(model.warning, model.cycle) : model.cycle) : mmss(model.remaining))
-            .font(.system(size: 28 * s, weight: .bold, design: .monospaced))
-            .foregroundStyle(critical ? model.alertColor : model.counterColor)
-            .shadow(color: .black.opacity(bare ? 0.9 : 0), radius: 2)
-            .opacity(running ? 1 : 0.6)
-            .modifier(Pulsing(active: alert))
-            .padding(.horizontal, 12 * s)
-            .padding(.vertical, 4 * s)
-            .background(
-                RoundedRectangle(cornerRadius: 9 * s)
-                    .fill(unlocked && bare ? Color.black.opacity(0.6) : model.backgroundColor)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 9 * s)
-                    .stroke(unlocked ? Color.amber : alert && !bare ? model.alertColor.opacity(0.6) : .clear,
-                            style: StrokeStyle(lineWidth: 1.5, dash: unlocked ? [5, 3] : []))
-            )
-            .opacity(preview ? model.overlayOpacity : 1)
-            .fixedSize()
+        HStack(alignment: .firstTextBaseline, spacing: 8 * s) {
+            if let label {
+                Text(label)
+                    .font(.system(size: 12 * s, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(bare ? 0.9 : 0), radius: 1.5)
+            }
+            Text(text)
+                .font(.system(size: 28 * s, weight: .bold, design: .monospaced))
+                .foregroundStyle(critical ? model.alertColor : model.counterColor)
+                .shadow(color: .black.opacity(bare ? 0.9 : 0), radius: 2)
+        }
+        .opacity(running ? 1 : 0.6)
+        .modifier(Pulsing(active: alert))
+        .padding(.horizontal, 12 * s)
+        .padding(.vertical, 4 * s)
+        .background(
+            RoundedRectangle(cornerRadius: 9 * s)
+                .fill(unlocked && bare ? Color.black.opacity(0.6) : model.backgroundColor)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 9 * s)
+                .stroke(unlocked ? Color.amber : alert && !bare ? model.alertColor.opacity(0.6) : .clear,
+                        style: StrokeStyle(lineWidth: 1.5, dash: unlocked ? [5, 3] : []))
+        )
+        .opacity(preview ? model.overlayOpacity : 1)
+        .fixedSize()
+    }
+}
+
+/// Contador de un timer concreto (se observa a sí mismo para actualizarse cada segundo).
+struct RunBadge: View {
+    @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
+    let showName: Bool
+
+    var body: some View {
+        CounterBadge(model: model, text: run.display.text, critical: run.display.critical,
+                     running: run.running, label: showName ? run.config.name : nil)
     }
 }
 
 struct OverlayView: View {
     @ObservedObject var model: HubModel
+    /// Se reevalúa cada décima para enterarse de qué timers empiezan o paran.
+    @State private var tick = 0
 
     var body: some View {
-        CounterBadge(model: model)
-            .gesture(WindowDragGesture())  // solo actúa cuando está desbloqueado (si no, no recibe clics)
+        let runs = model.overlayRuns
+        VStack(alignment: .trailing, spacing: 4 * model.overlayScale) {
+            ForEach(runs) { run in RunBadge(model: model, run: run, showName: runs.count > 1) }
+        }
+        .fixedSize()
+        .gesture(WindowDragGesture())  // solo actúa cuando está desbloqueado (si no, no recibe clics)
+        .onReceive(Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()) { _ in
+            let ids = model.overlayRuns.map(\.id).hashValue
+            if ids != tick { tick = ids }
+        }
     }
 }
 
@@ -424,16 +681,32 @@ final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override var mouseDownCanMoveWindow: Bool { false }
 }
 
-// MARK: - Hub
+// MARK: - Hub: estructura (barra superior, barra lateral y páginas)
 
 /// Sprite del personaje (Outfiter de TibiaWiki), empaquetado en Resources/character.png.
 let characterImage: NSImage? = Bundle.main.image(forResource: "character")
 
-/// Nube de diálogo con la punta a la derecha (hacia el personaje).
+extension Color {
+    static let windowBackground = Color(red: 0.11, green: 0.11, blue: 0.12)
+    static let sidebarBackground = Color(red: 0.085, green: 0.085, blue: 0.095)
+    static let rowBackground = Color.white.opacity(0.05)
+}
+
+/// Nube de diálogo con la punta hacia el personaje (abajo o a la derecha).
 struct BubbleShape: Shape {
+    var tailAtBottom = false
     var tail: CGFloat = 9
 
     func path(in rect: CGRect) -> Path {
+        if tailAtBottom {
+            let body = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - tail)
+            var path = Path(roundedRect: body, cornerRadius: min(12, body.height / 2))
+            path.move(to: CGPoint(x: body.midX - 7, y: body.maxY - 1))
+            path.addLine(to: CGPoint(x: body.midX + 2, y: rect.maxY))
+            path.addLine(to: CGPoint(x: body.midX + 6, y: body.maxY - 1))
+            path.closeSubpath()
+            return path
+        }
         let body = CGRect(x: rect.minX, y: rect.minY, width: rect.width - tail, height: rect.height)
         var path = Path(roundedRect: body, cornerRadius: min(12, body.height / 2))
         path.move(to: CGPoint(x: body.maxX - 1, y: body.midY - 6))
@@ -446,88 +719,506 @@ struct BubbleShape: Shape {
 
 struct SpeechBubble: View {
     let text: String
+    var tailAtBottom = false
+
     var body: some View {
         Text(text)
-            .font(.system(size: 12.5, weight: .bold, design: .rounded))
+            .font(.system(size: 12, weight: .bold, design: .rounded))
             .foregroundStyle(Color(white: 0.1))
-            .padding(.leading, 12)
-            .padding(.trailing, 21)  // 12 + punta
-            .padding(.vertical, 7)
-            .background(BubbleShape().fill(Color(white: 0.96)).shadow(color: .black.opacity(0.35), radius: 3, y: 1))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 12)
+            .padding(.top, 7)
+            .padding(.bottom, tailAtBottom ? 16 : 7)  // 7 + punta
+            .padding(.trailing, tailAtBottom ? 0 : 9)
+            .background(BubbleShape(tailAtBottom: tailAtBottom).fill(Color(white: 0.96)).shadow(color: .black.opacity(0.35), radius: 3, y: 1))
             .fixedSize()
     }
 }
 
-/// Franja con el personaje y su frase, encima de la tarjeta del timer, alineada a la derecha.
-struct CharacterView: View {
+/// El personaje con su frase, al pie de la barra lateral.
+struct Mascot: View {
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            Spacer(minLength: 0)
-            SpeechBubble(text: "Slayer macaco e mielda")
-                .offset(y: -8)  // a la altura de la cabeza
+        VStack(spacing: 2) {
+            SpeechBubble(text: "Slayer macaco e mielda", tailAtBottom: true)
             if let characterImage {
                 Image(nsImage: characterImage)
                     .interpolation(.none)
                     .resizable()
                     .frame(width: characterImage.size.width * 2, height: characterImage.size.height * 2)
-            } else {
-                Image(systemName: "person.fill").font(.system(size: 40)).foregroundStyle(Color.muted)
             }
         }
-        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity)
     }
 }
 
-/// Tarjeta del timer: estado, contador, progreso y controles.
-struct HeroView: View {
+/// Barra superior: logo, nombre y estado de Tibia. Ocupa la barra de título (los botones de la
+/// ventana quedan a la izquierda).
+struct TopBar: View {
     @ObservedObject var model: HubModel
 
     var body: some View {
-        // El hub usa el azul de la app; el color del contador solo aplica al overlay.
-        let accent = model.critical ? model.alertColor : Color.accent
-        VStack(spacing: 12) {
-            HStack {
-                StatusChip(running: model.running, critical: model.critical, alertColor: model.alertColor)
-                Spacer()
-                Text("Ciclo \(model.cycles + 1) · Total \(mmss(model.seconds))")
-                    .font(.system(size: 11, design: .monospaced))
+        HStack(spacing: 10) {
+            Spacer().frame(width: 70)  // botones de la ventana
+            if let characterImage {
+                Image(nsImage: characterImage).interpolation(.none).resizable().frame(width: 28, height: 26)
+            }
+            (Text("Alfa").foregroundColor(.accentBlue) + Text("Hub").foregroundColor(.white))
+                .font(.system(size: 17, weight: .bold, design: .rounded))
+            Spacer()
+            HStack(spacing: 6) {
+                Circle().fill(model.tibiaRunning ? Color.green : Color.muted).frame(width: 7, height: 7)
+                Text(model.tibiaRunning ? "Tibia abierto" : "Tibia cerrado")
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color.muted)
             }
-            Text(mmss(model.remaining))
-                .font(.system(size: 56, weight: .bold, design: .monospaced))
-                .foregroundStyle(accent)
-                .modifier(Pulsing(active: model.critical && model.running))
-                .contentTransition(.numericText(countsDown: true))
-                .animation(.snappy, value: model.remaining)
-            ProgressBar(value: model.progress, color: accent)
-            HStack(spacing: 10) {
-                Button { model.toggle() } label: {
-                    Label(model.running ? "Pausar" : "Iniciar", systemImage: model.running ? "pause.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(model.running ? Color.amber : Color.accentBlue))
-                        .foregroundStyle(.white)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(model.shortcuts[.toggle].map { "Atajo: \($0.display)" } ?? "")
+            .help("El overlay solo se muestra con Tibia al frente")
+            Button { model.overlayVisible.toggle() } label: {
+                Label(model.overlayVisible ? "Overlay visible" : "Overlay oculto",
+                      systemImage: model.overlayVisible ? "eye" : "eye.slash")
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(0.08)))
+                    .foregroundStyle(model.overlayVisible ? .white : Color.muted)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .frame(height: 52)
+    }
+}
 
-                Button { model.reset() } label: {
-                    Label("Reiniciar", systemImage: "arrow.counterclockwise")
-                        .font(.system(size: 14, weight: .semibold))
-                        .padding(.vertical, 9)
-                        .padding(.horizontal, 16)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.06)))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.1)))
-                        .foregroundStyle(.white)
-                        .contentShape(Rectangle())
+enum HubPage: String, CaseIterable, Identifiable {
+    case timers, overlay, shortcuts, sound
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .timers: "Timers"
+        case .overlay: "Overlay"
+        case .shortcuts: "Atajos"
+        case .sound: "Sonido"
+        }
+    }
+    var subtitle: String {
+        switch self {
+        case .timers: "Cuentas atrás y rotaciones con aviso"
+        case .overlay: "El contador que ves encima de Tibia"
+        case .shortcuts: "Controla los timers sin salir del juego"
+        case .sound: "Volumen de los beeps y sonidos de aviso"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .timers: "timer"
+        case .overlay: "rectangle.on.rectangle"
+        case .shortcuts: "keyboard"
+        case .sound: "speaker.wave.2"
+        }
+    }
+}
+
+struct Sidebar: View {
+    @ObservedObject var model: HubModel
+    @Binding var page: HubPage
+    @Binding var editing: UUID?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            SectionLabel("Principal")
+            item(.timers, badge: model.runningCount)
+            item(.overlay)
+            SectionLabel("Ajustes").padding(.top, 14)
+            item(.shortcuts)
+            item(.sound)
+            Spacer()
+            Mascot().padding(.bottom, 14)
+        }
+        .padding(.horizontal, 10)
+        .padding(.top, 8)
+        .frame(width: 200)
+        .background(Color.sidebarBackground)
+    }
+
+    private func item(_ target: HubPage, badge: Int = 0) -> some View {
+        let selected = page == target
+        return Button {
+            page = target
+            editing = nil
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: target.icon).frame(width: 18)
+                Text(target.title)
+                Spacer()
+                if badge > 0 {
+                    Text("\(badge)")
+                        .font(.system(size: 10, weight: .bold))
+                        .padding(.horizontal, 6).padding(.vertical, 1)
+                        .background(Capsule().fill(Color.green.opacity(0.25)))
+                        .foregroundStyle(Color.green)
                 }
-                .buttonStyle(.plain)
-                .help(model.shortcuts[.reset].map { "Atajo: \($0.display)" } ?? "")
+            }
+            .font(.system(size: 13, weight: selected ? .semibold : .regular))
+            .foregroundStyle(selected ? .white : Color.white.opacity(0.75))
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8).fill(selected ? Color.white.opacity(0.08) : .clear)
+                    .overlay(alignment: .leading) {
+                        if selected { Capsule().fill(Color.accentBlue).frame(width: 3, height: 18).offset(x: -4) }
+                    }
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct SectionLabel: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(1)
+            .foregroundStyle(Color.muted)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+    }
+}
+
+/// Título y subtítulo de una página, con acciones a la derecha.
+struct PageHeader<Actions: View>: View {
+    let title: String
+    let subtitle: String
+    @ViewBuilder var actions: Actions
+
+    var body: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 24, weight: .bold))
+                Text(subtitle).font(.system(size: 13)).foregroundStyle(Color.muted)
+            }
+            Spacer()
+            actions
+        }
+    }
+}
+
+extension PageHeader where Actions == EmptyView {
+    init(title: String, subtitle: String) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
+    }
+}
+
+struct HubView: View {
+    @ObservedObject var model: HubModel
+    let resetOverlayPosition: () -> Void
+    @AppStorage("hubPage") private var page: HubPage = .timers
+    @State private var editing: UUID?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TopBar(model: model)
+            Divider().overlay(Color.white.opacity(0.06))
+            HStack(spacing: 0) {
+                Sidebar(model: model, page: $page, editing: $editing)
+                Divider().overlay(Color.white.opacity(0.06))
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
-        .padding(16)
+        .background(Color.windowBackground)
+        .frame(minWidth: 820, minHeight: 600)
+        .textFieldStyle(.roundedBorder)
+        .ignoresSafeArea(.container, edges: .top)  // la barra superior ocupa la barra de título
+    }
+
+    @ViewBuilder private var content: some View {
+        switch page {
+        case .timers:
+            if let id = editing, let run = model.runs.first(where: { $0.id == id }) {
+                TimerEditor(model: model, run: run) { editing = nil }
+            } else {
+                TimersPage(model: model) { editing = $0 }
+            }
+        case .overlay:
+            PageContainer(page: .overlay) {
+                OverlaySettings(model: model, run: model.selected, resetOverlayPosition: resetOverlayPosition)
+            }
+        case .shortcuts:
+            PageContainer(page: .shortcuts) { ShortcutSettings(model: model) }
+        case .sound:
+            PageContainer(page: .sound) { SoundSettings(model: model) }
+        }
+    }
+}
+
+/// Página con cabecera y un formulario agrupado debajo.
+struct PageContainer<Content: View>: View {
+    let page: HubPage
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            PageHeader(title: page.title, subtitle: page.subtitle)
+                .padding(.horizontal, 28).padding(.top, 22)
+            content
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 8)
+        }
+    }
+}
+
+// MARK: - Hub: página de timers
+
+struct TimersPage: View {
+    @ObservedObject var model: HubModel
+    let edit: (UUID) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            PageHeader(title: "Timers", subtitle: HubPage.timers.subtitle) {
+                Menu {
+                    ForEach(TimerPreset.allCases) { preset in
+                        Button("\(preset.title) — \(preset.detail)") { model.add(preset) }
+                    }
+                } label: {
+                    Label("Añadir timer", systemImage: "plus")
+                        .font(.system(size: 13, weight: .bold))
+                        .padding(.horizontal, 14).padding(.vertical, 8)
+                        .background(Capsule().fill(Color.accentBlue))
+                        .foregroundStyle(.white)
+                }
+                .menuStyle(.button)
+                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
+                .fixedSize()
+                .disabled(model.runs.count >= HubModel.maxTimers)
+            }
+            HStack(spacing: 10) {
+                Text("\(model.runs.count) de \(HubModel.maxTimers) · \(model.runningCount) en marcha")
+                    .font(.system(size: 12)).foregroundStyle(Color.muted)
+                Spacer()
+                SmallButton(title: "Pausar todos", icon: "pause.fill") { model.runs.filter(\.running).forEach { model.toggle($0) } }
+                SmallButton(title: "Reiniciar todos", icon: "arrow.counterclockwise") { model.runs.forEach { model.reset($0) } }
+            }
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(model.runs) { run in
+                        TimerRow(model: model, run: run) { edit(run.id) }
+                    }
+                }
+                .padding(.bottom, 16)
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 22)
+    }
+}
+
+struct SmallButton: View {
+    let title: String
+    let icon: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.07)))
+                .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.white.opacity(0.08)))
+                .foregroundStyle(.white)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Una fila de la lista de timers: estado, nombre, contador y acciones.
+struct TimerRow: View {
+    @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
+    let edit: () -> Void
+
+    var body: some View {
+        let d = run.display
+        let stateColor: Color = d.finished ? model.alertColor : !run.started ? Color.white.opacity(0.15)
+            : !run.running ? Color.amber : d.critical ? model.alertColor : Color.green
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 2).fill(stateColor).frame(width: 4)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(run.config.name).font(.system(size: 14, weight: .semibold)).lineLimit(1)
+                Text(summary).font(.system(size: 11)).foregroundStyle(Color.muted).lineLimit(1)
+            }
+            .frame(minWidth: 150, alignment: .leading)
+            .layoutPriority(1)
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(d.text)
+                    .font(.system(size: 22, weight: .bold, design: .monospaced))
+                    .foregroundStyle(d.critical || d.finished ? model.alertColor : Color.accent)
+                    .modifier(Pulsing(active: d.critical && run.running))
+                ProgressBar(value: run.started ? d.progress : 0, color: d.critical ? model.alertColor : Color.accent)
+                    .frame(width: 90)
+            }
+            HStack(spacing: 6) {
+                CircleButton(icon: run.running ? "pause.fill" : "play.fill",
+                             fill: run.running ? Color.amber : Color.accentBlue,
+                             help: run.running ? "Pausar" : "Iniciar") { model.toggle(run) }
+                CircleButton(icon: "arrow.counterclockwise", fill: Color.white.opacity(0.1), help: "Reiniciar") { model.reset(run) }
+            }
+            Button(action: edit) {
+                Label("Editar", systemImage: "pencil")
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 11).padding(.vertical, 6)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Color.white.opacity(0.08)))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            Menu {
+                Button("Duplicar") { model.duplicate(run) }
+                if model.runs.count > 1 {
+                    Button("Eliminar", role: .destructive) { model.remove(run) }
+                }
+            } label: {
+                Image(systemName: "ellipsis").rotationEffect(.degrees(90)).frame(width: 18, height: 26)
+            }
+            .menuStyle(.button)
+            .menuIndicator(.hidden)
+            .buttonStyle(.plain)
+            .fixedSize()
+        }
+        .padding(.vertical, 12)
+        .padding(.leading, 10)
+        .padding(.trailing, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 10).fill(Color.rowBackground)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(model.selectedID == run.id ? Color.accentBlue.opacity(0.5) : Color.white.opacity(0.06)))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { model.selectedID = run.id }
+        .onTapGesture(count: 2, perform: edit)
+    }
+
+    private var summary: String {
+        let c = run.config
+        var parts: [String] = []
+        if c.kind == .rotation {
+            parts.append("Rotación cada \(c.step) s")
+        } else if !c.repeats {
+            parts.append("Cuenta atrás \(mmss(c.cycle))")
+        } else if c.total > 0 {
+            parts.append("Cada \(mmss(c.cycle)) durante \(c.total / 60) min")
+        } else {
+            parts.append("Cada \(mmss(c.cycle))")
+        }
+        parts.append(c.shortcut?.display ?? "Sin atajo")
+        parts.append(c.soundPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? "Beep")
+        return parts.joined(separator: " · ")
+    }
+}
+
+struct CircleButton: View {
+    let icon: String
+    let fill: Color
+    var help = ""
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .bold))
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(fill))
+                .foregroundStyle(.white)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+/// Detalle de un timer: tarjeta con el contador y sus ajustes.
+struct TimerEditor: View {
+    @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
+    let back: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: back) {
+                Label("Volver a Timers", systemImage: "chevron.left")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.accentBlue)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 28)
+            .padding(.top, 18)
+            HeroView(model: model, run: run)
+                .padding(.horizontal, 28)
+            TimerSettings(model: model, run: run, onDelete: back)
+                .formStyle(.grouped)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 8)
+                .padding(.top, -14)
+        }
+        .onAppear { model.selectedID = run.id }
+    }
+}
+
+/// Tarjeta con el contador grande de un timer y sus controles.
+struct HeroView: View {
+    @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
+
+    var body: some View {
+        let d = run.display
+        // El hub usa blanco hueso; el color del contador solo aplica al overlay.
+        let accent = d.critical ? model.alertColor : Color.accent
+        HStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    Text(run.config.name).font(.system(size: 20, weight: .bold)).lineLimit(1)
+                    StatusChip(running: run.running, critical: d.critical, finished: d.finished, alertColor: model.alertColor)
+                }
+                Text(d.detail).font(.system(size: 12, design: .monospaced)).foregroundStyle(Color.muted)
+                HStack(spacing: 10) {
+                    Button { model.toggle(run) } label: {
+                        Label(run.running ? "Pausar" : "Iniciar", systemImage: run.running ? "pause.fill" : "play.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .frame(width: 110)
+                            .padding(.vertical, 8)
+                            .background(RoundedRectangle(cornerRadius: 9).fill(run.running ? Color.amber : Color.accentBlue))
+                            .foregroundStyle(.white)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .help(run.config.shortcut.map { "Atajo: \($0.display)" } ?? "")
+                    Button { model.reset(run) } label: {
+                        Label("Reiniciar", systemImage: "arrow.counterclockwise")
+                            .font(.system(size: 13, weight: .semibold))
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 14)
+                            .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.06)))
+                            .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.white.opacity(0.1)))
+                            .foregroundStyle(.white)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 4)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 8) {
+                Text(d.text)
+                    .font(.system(size: 54, weight: .bold, design: .monospaced))
+                    .foregroundStyle(accent)
+                    .modifier(Pulsing(active: d.critical && run.running))
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(.snappy, value: d.text)
+                ProgressBar(value: d.progress, color: accent).frame(width: 200)
+            }
+        }
+        .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.white.opacity(0.05))
@@ -539,10 +1230,12 @@ struct HeroView: View {
 struct StatusChip: View {
     let running: Bool
     let critical: Bool
+    let finished: Bool
     let alertColor: Color
 
     var body: some View {
-        let (label, color): (String, Color) = !running ? ("En pausa", Color.muted)
+        let (label, color): (String, Color) = finished ? ("Terminado", alertColor)
+            : !running ? ("En pausa", Color.muted)
             : critical ? ("¡Alerta!", alertColor) : ("En marcha", Color.green)
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 7, height: 7)
@@ -554,10 +1247,13 @@ struct StatusChip: View {
     }
 }
 
+// MARK: - Hub: ajustes
+
 /// Botón que graba una combinación de teclas al pulsarlo. Esc cancela.
 struct ShortcutRecorder: View {
     @ObservedObject var model: HubModel
-    let action: HotKeyAction
+    let current: Shortcut?
+    let assign: (Shortcut?) -> Void
     @State private var recording = false
     @State private var monitor: Any?
 
@@ -566,15 +1262,13 @@ struct ShortcutRecorder: View {
             Button {
                 recording ? stop() : start()
             } label: {
-                Text(recording ? "Pulsa la combinación…" : model.shortcuts[action]?.display ?? "Sin atajo")
+                Text(recording ? "Pulsa la combinación…" : current?.display ?? "Sin atajo")
                     .font(.system(size: 12, weight: .medium, design: recording ? .default : .rounded))
-                    .foregroundStyle(recording ? Color.amber : model.shortcuts[action] == nil ? Color.muted : .white)
+                    .foregroundStyle(recording ? Color.amber : current == nil ? Color.muted : .white)
                     .frame(minWidth: 130)
             }
-            if model.shortcuts[action] != nil && !recording {
-                Button {
-                    model.setShortcut(nil, for: action)
-                } label: {
+            if current != nil && !recording {
+                Button { assign(nil) } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(Color.muted)
                 }
                 .buttonStyle(.plain)
@@ -591,7 +1285,7 @@ struct ShortcutRecorder: View {
             if Int(event.keyCode) == kVK_Escape {
                 stop()
             } else if let shortcut = Shortcut(event: event) {
-                model.setShortcut(shortcut, for: action)
+                assign(shortcut)
                 stop()
             } else {
                 NSSound.beep()  // sin modificador: no sirve como atajo global
@@ -608,116 +1302,158 @@ struct ShortcutRecorder: View {
     }
 }
 
-enum HubTab: String, CaseIterable, Identifiable {
-    case timer, overlay, shortcuts
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .timer: "Ciclo y sonido"
-        case .overlay: "Overlay"
-        case .shortcuts: "Atajos"
-        }
-    }
-}
-
-struct HubView: View {
-    @ObservedObject var model: HubModel
-    let resetOverlayPosition: () -> Void
-    @AppStorage("hubTab") private var tab: HubTab = .timer
-
-    var body: some View {
-        VStack(spacing: 12) {
-            CharacterView()
-            HeroView(model: model)
-            Picker("", selection: $tab) {
-                ForEach(HubTab.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            Group {
-                switch tab {
-                case .timer: TimerSettings(model: model)
-                case .overlay: OverlaySettings(model: model, resetOverlayPosition: resetOverlayPosition)
-                case .shortcuts: ShortcutSettings(model: model)
-                }
-            }
-            .formStyle(.grouped)
-            .scrollContentBackground(.hidden)
-            .padding(.horizontal, -20)  // el Form agrupado ya trae su propio margen
-            .padding(.top, -16)
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 12)
-        .frame(width: 420)
-        .frame(minHeight: 520, idealHeight: 760)
-        .textFieldStyle(.roundedBorder)
-    }
-}
-
+/// Ajustes del timer elegido.
 struct TimerSettings: View {
     @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
+    var onDelete: () -> Void = {}
     private static let presets = [60, 90, 120, 150, 180]
 
     private var minutes: Binding<Int> {
-        Binding(get: { model.cycle / 60 },
-                set: { model.cycle = max(0, $0) * 60 + model.cycle % 60 })
+        Binding(get: { run.config.cycle / 60 },
+                set: { run.config.cycle = max(5, max(0, $0) * 60 + run.config.cycle % 60) })
     }
     private var secs: Binding<Int> {
-        Binding(get: { model.cycle % 60 },
-                set: { model.cycle = model.cycle / 60 * 60 + max(0, min(59, $0)) })
+        Binding(get: { run.config.cycle % 60 },
+                set: { run.config.cycle = max(5, run.config.cycle / 60 * 60 + max(0, min(59, $0))) })
+    }
+    private var totalMinutes: Binding<Int> {
+        Binding(get: { run.config.total / 60 }, set: { run.config.total = max(0, $0) * 60 })
     }
 
     var body: some View {
         Form {
             Section {
-                HStack(spacing: 6) {
-                    ForEach(Self.presets, id: \.self) { preset in
-                        Button(mmss(preset)) { model.cycle = preset }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            .padding(.horizontal, 9).padding(.vertical, 5)
-                            .background(Capsule().fill(model.cycle == preset ? Color.accentBlue : Color.white.opacity(0.08)))
-                            .foregroundStyle(.white)
-                    }
+                LabeledContent("Nombre") {
+                    TextField("", text: $run.config.name).frame(width: 160).multilineTextAlignment(.trailing)
                 }
-                .frame(maxWidth: .infinity)
-                LabeledContent("Personalizado") {
-                    HStack(spacing: 4) {
-                        TextField("", value: minutes, format: .number)
-                            .frame(width: 38).multilineTextAlignment(.trailing)
-                        Text("min")
-                        TextField("", value: secs, format: .number)
-                            .frame(width: 38).multilineTextAlignment(.trailing)
-                        Text("s")
-                        Stepper("", value: $model.cycle, in: 5...3600, step: 5).labelsHidden()
+                Picker("Tipo", selection: $run.config.kind) {
+                    ForEach(TimerKind.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Menu("Cargar preset") {
+                    ForEach(TimerPreset.allCases) { preset in
+                        Button("\(preset.title) — \(preset.detail)") {
+                            var config = preset.config
+                            config.id = run.config.id
+                            config.shortcut = run.config.shortcut
+                            config.soundPath = run.config.soundPath
+                            run.config = config
+                        }
                     }
                 }
             } header: {
-                Text("Tiempo entre ciclos")
+                Text("Timer")
             }
 
-            Section("Avisos") {
-                Stepper("Alerta en los últimos \(model.warning) s", value: $model.warning, in: 0...max(0, model.cycle))
-                Stepper("Beeps en los últimos \(model.beepSeconds) s", value: $model.beepSeconds, in: 0...30)
-                Toggle("Tono al empezar cada ciclo", isOn: $model.cycleBeep)
-                Button("Restaurar valores del Pez (2:00 · 25 s · 5 s)") { model.restoreTimerDefaults() }
+            if run.config.kind == .cycle {
+                Section("Duración") {
+                    HStack(spacing: 6) {
+                        ForEach(Self.presets, id: \.self) { preset in
+                            Button(mmss(preset)) { run.config.cycle = preset }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .padding(.horizontal, 9).padding(.vertical, 5)
+                                .background(Capsule().fill(run.config.cycle == preset ? Color.accentBlue : Color.white.opacity(0.08)))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    LabeledContent("Personalizado") {
+                        HStack(spacing: 4) {
+                            TextField("", value: minutes, format: .number).frame(width: 38).multilineTextAlignment(.trailing)
+                            Text("min")
+                            TextField("", value: secs, format: .number).frame(width: 38).multilineTextAlignment(.trailing)
+                            Text("s")
+                            Stepper("", value: $run.config.cycle, in: 5...3600, step: 5).labelsHidden()
+                        }
+                    }
+                    Toggle("Repetir al llegar a cero", isOn: $run.config.repeats)
+                    if run.config.repeats {
+                        LabeledContent("Duración total") {
+                            HStack(spacing: 4) {
+                                TextField("", value: totalMinutes, format: .number).frame(width: 44).multilineTextAlignment(.trailing)
+                                Text("min")
+                                Stepper("", value: totalMinutes, in: 0...600).labelsHidden()
+                            }
+                        }
+                    }
+                }
+                Section {
+                    Stepper("Alerta en los últimos \(run.config.warning) s", value: $run.config.warning, in: 0...max(0, run.config.cycle))
+                    Stepper("Beeps en los últimos \(run.config.beepSeconds) s", value: $run.config.beepSeconds, in: 0...30)
+                    Toggle("Sonido de aviso al empezar cada ciclo", isOn: $run.config.cycleBeep)
+                } header: {
+                    Text("Avisos")
+                } footer: {
+                    Text(run.config.repeats && run.config.total == 0
+                         ? "Duración total en 0: se repite hasta que lo pares."
+                         : "Al terminar suena el sonido de aviso.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Section("Rotación") {
+                    Stepper("Segundos por dirección: \(run.config.step)", value: $run.config.step, in: 1...60)
+                    Picker("Dirección inicial", selection: $run.config.startDirection) {
+                        ForEach(0..<directions.count, id: \.self) { i in Text("\(directions[i].0) \(directions[i].1)").tag(i) }
+                    }
+                    Stepper("Beeps en los últimos \(run.config.beepSeconds) s", value: $run.config.beepSeconds, in: 0...run.config.step)
+                }
             }
 
-            Section("Sonido") {
-                Toggle("Silenciar", isOn: $model.muted)
-                LabeledContent("Volumen") {
-                    HStack {
-                        Slider(value: $model.volume, in: 0...1).disabled(model.muted)
-                        Button("Probar") { Beeper.shared.beep(1200, 0.15) }
+            Section {
+                LabeledContent("Sonido de aviso") {
+                    HStack(spacing: 6) {
+                        Text(run.config.soundPath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Beep")
+                            .lineLimit(1).truncationMode(.middle)
+                            .foregroundStyle(Color.muted)
+                            .frame(maxWidth: 120, alignment: .trailing)
+                        Button("Elegir…", action: chooseSound)
+                        if run.config.soundPath != nil {
+                            Button { run.config.soundPath = nil } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(Color.muted)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Volver al beep")
+                        }
+                    }
+                }
+                Button("Probar sonido") { run.playAlert() }
+                LabeledContent("Atajo iniciar / pausar") {
+                    ShortcutRecorder(model: model, current: run.config.shortcut) { model.setShortcut($0, for: run) }
+                }
+            } header: {
+                Text("Sonido y atajo")
+            } footer: {
+                Text("El sonido de aviso suena al empezar cada ciclo (o cada dirección) y al terminar. Los beeps de los últimos segundos son aparte.")
+                    .foregroundStyle(.secondary)
+            }
+
+            if model.runs.count > 1 {
+                Section {
+                    Button("Eliminar este timer", role: .destructive) {
+                        model.remove(run)
+                        onDelete()
                     }
                 }
             }
         }
+        // Sin foco inicial en "Nombre": así una tecla pulsada por error no lo sobrescribe.
+        .onAppear { DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(nil) } }
+    }
+
+    private func chooseSound() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.audio]
+        panel.allowsMultipleSelection = false
+        panel.message = "Elige el sonido de aviso para \(run.config.name)"
+        if panel.runModal() == .OK, let url = panel.url { run.config.soundPath = url.path }
     }
 }
 
 struct OverlaySettings: View {
     @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
     let resetOverlayPosition: () -> Void
     @State private var previewAlert = false
 
@@ -728,7 +1464,8 @@ struct OverlaySettings: View {
                     // Fondo que imita el mapa de Tibia, para juzgar colores y tamaño.
                     LinearGradient(colors: [Color(red: 0.29, green: 0.36, blue: 0.20), Color(red: 0.20, green: 0.16, blue: 0.12)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing)
-                    CounterBadge(model: model, preview: true, previewAlert: previewAlert)
+                    CounterBadge(model: model, text: previewAlert ? "00:05" : run.display.text,
+                                 critical: previewAlert, running: true, preview: true)
                 }
                 .frame(height: max(90, 60 * model.overlayScale))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -747,7 +1484,7 @@ struct OverlaySettings: View {
             } header: {
                 Text("En Tibia")
             } footer: {
-                Text("Solo aparece con Tibia al frente y deja pasar los clics al juego. Mientras está desbloqueado se ve siempre, para que puedas arrastrarlo a su sitio; luego vuelve a bloquearlo.")
+                Text("Muestra los timers en marcha (con su nombre si hay más de uno). Solo aparece con Tibia al frente y deja pasar los clics al juego; desbloquéalo para arrastrarlo a su sitio.")
                     .foregroundStyle(.secondary)
             }
 
@@ -772,14 +1509,55 @@ struct ShortcutSettings: View {
     var body: some View {
         Form {
             Section {
-                ForEach(HotKeyAction.allCases) { action in
-                    LabeledContent(action.title) { ShortcutRecorder(model: model, action: action) }
-                }
-                Button("Restaurar atajos") { model.restoreShortcuts() }
+                ForEach(model.runs) { run in ShortcutRow(model: model, run: run) }
             } header: {
-                Text("Funcionan con Tibia al frente")
+                Text("Iniciar / pausar cada timer")
+            }
+
+            Section {
+                ForEach(GlobalAction.allCases) { action in
+                    LabeledContent(action.title) {
+                        ShortcutRecorder(model: model, current: model.globalShortcuts[action]) { model.setShortcut($0, for: action) }
+                    }
+                }
+                Button("Restaurar atajos globales") { model.restoreGlobalShortcuts() }
+            } header: {
+                Text("Globales")
             } footer: {
-                Text("Haz clic en un atajo y pulsa la nueva combinación (Esc cancela). Usa al menos ⌃, ⌥, ⇧ o ⌘, o una tecla F sola.")
+                Text("Funcionan con Tibia al frente. Haz clic en un atajo y pulsa la nueva combinación (Esc cancela); usa al menos ⌃, ⌥, ⇧ o ⌘, o una tecla F sola. Una combinación solo puede estar en un sitio.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+struct ShortcutRow: View {
+    @ObservedObject var model: HubModel
+    @ObservedObject var run: TimerRun
+
+    var body: some View {
+        LabeledContent(run.config.name) {
+            ShortcutRecorder(model: model, current: run.config.shortcut) { model.setShortcut($0, for: run) }
+        }
+    }
+}
+
+struct SoundSettings: View {
+    @ObservedObject var model: HubModel
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Silenciar", isOn: $model.muted)
+                LabeledContent("Volumen") {
+                    HStack {
+                        Slider(value: $model.volume, in: 0...1).disabled(model.muted)
+                        Text("\(Int(model.volume * 100)) %").monospacedDigit().foregroundStyle(Color.muted).frame(width: 44)
+                    }
+                }
+                Button("Probar beep") { Beeper.shared.beep(1200, 0.15) }
+            } footer: {
+                Text("El sonido de aviso de cada timer (beep o un archivo propio) se elige al editar el timer.")
                     .foregroundStyle(.secondary)
             }
         }
@@ -840,6 +1618,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// El launcher (/Applications/Tibia.app) es com.tibia.launcher; el juego en sí es este.
     private static let tibiaClientID = "com.tibia.client"
     private let tibiaActive = CurrentValueSubject<Bool, Never>(false)
+    private var tickCount = -1
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Evita que App Nap ralentice el timer mientras Tibia está en primer plano.
@@ -850,13 +1629,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildHub()
         buildStatusItem()
 
-        Publishers.CombineLatest(model.$shortcuts, model.$recordingShortcut)
-            .sink { [weak self] shortcuts, recording in
-                guard let self else { return }
-                let bindings: [(Shortcut, () -> Void)] = recording ? [] : HotKeyAction.allCases.compactMap { action in
-                    shortcuts[action].map { shortcut in (shortcut, { [weak self] in self?.model.perform(action) }) }
-                }
-                HotKeys.set(bindings)
+        Publishers.CombineLatest(model.$shortcutsVersion, model.$recordingShortcut)
+            .sink { [weak self] _, recording in
+                // El modelo publica antes de aplicar el cambio: se registra en la siguiente vuelta.
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.registerHotKeys(recording: recording) } }
             }
             .store(in: &bag)
 
@@ -870,6 +1646,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.ticker = ticker
 
         showHub()
+    }
+
+    private func registerHotKeys(recording: Bool) {
+        guard !recording else { HotKeys.set([]); return }
+        var bindings: [(Shortcut, () -> Void)] = []
+        for action in GlobalAction.allCases {
+            if let shortcut = model.globalShortcuts[action] {
+                bindings.append((shortcut, { [weak self] in self?.model.perform(action) }))
+            }
+        }
+        for run in model.runs {
+            if let shortcut = run.config.shortcut {
+                bindings.append((shortcut, { [weak self, weak run] in if let run { self?.model.toggle(run) } }))
+            }
+        }
+        HotKeys.set(bindings)
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -909,6 +1701,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Space actual (si está en pantalla completa en otro Space, macOS puede darlo por "al frente"
     /// mientras se ve otra cosa).
     private func refreshTibiaActive() {
+        tickCount += 1
+        if tickCount % 10 == 0 {
+            let running = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == Self.tibiaClientID }
+            if running != model.tibiaRunning { model.tibiaRunning = running }
+        }
         var active = false
         if let front = NSWorkspace.shared.frontmostApplication, front.bundleIdentifier == Self.tibiaClientID {
             let pid = front.processIdentifier
@@ -922,18 +1719,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func buildHub() {
-        hub = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 760),
-                       styleMask: [.titled, .closable, .miniaturizable, .resizable],
+        hub = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 640),
+                       styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                        backing: .buffered, defer: false)
         hub.title = "Alfa Hub"
+        hub.titleVisibility = .hidden
+        hub.titlebarAppearsTransparent = true
         hub.isReleasedWhenClosed = false
         hub.isRestorable = false
         hub.appearance = NSAppearance(named: .darkAqua)
         hub.contentViewController = NSHostingController(
             rootView: HubView(model: model) { [weak self] in self?.placeOverlayTopRight() })
-        hub.setContentSize(NSSize(width: 420, height: min(760, (NSScreen.main?.visibleFrame.height ?? 800) - 60)))
-        if !hub.setFrameUsingName("AlfaHubWindow") { hub.center() }
-        hub.setFrameAutosaveName("AlfaHubWindow")
+        hub.setContentSize(NSSize(width: 900, height: min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 60)))
+        hub.contentMinSize = NSSize(width: 820, height: 600)
+        if !hub.setFrameUsingName("AlfaHubWindow2") { hub.center() }
+        hub.setFrameAutosaveName("AlfaHubWindow2")
     }
 
     private func buildStatusItem() {
@@ -941,8 +1741,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image = NSImage(systemSymbolName: "timer", accessibilityDescription: "Alfa Hub")
         let menu = NSMenu()
         menu.addItem(withTitle: "Abrir Alfa Hub", action: #selector(showHub), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Iniciar / pausar", action: #selector(toggleTimer), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "Reiniciar", action: #selector(resetTimer), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Iniciar / pausar el timer elegido", action: #selector(toggleTimer), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Reiniciar el timer elegido", action: #selector(resetTimer), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Salir", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
@@ -982,8 +1782,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
     }
 
-    @objc private func toggleTimer() { model.toggle() }
-    @objc private func resetTimer() { model.reset() }
+    @objc private func toggleTimer() { model.toggle(model.selected) }
+    @objc private func resetTimer() { model.reset(model.selected) }
 
     private func placeOverlayTopRight() {
         guard let screen = NSScreen.main?.visibleFrame else { return }
