@@ -13,11 +13,11 @@
 import AppKit
 
 struct OutfitConfig: Codable, Hashable {
-    var outfit = 235          // Captains: el personaje original de Alfa Hub
+    var outfit = 1            // Hunter: el de un personaje recién creado (el original de Alfa Hub)
     var female = false
-    var addon1 = true
+    var addon1 = false
     var addon2 = false
-    var c1 = 95, c2 = 95, c3 = 95, c4 = 114
+    var c1 = 95, c2 = 113, c3 = 39, c4 = 115
     var facing = 2            // 0 norte, 1 este, 2 sur, 3 oeste
     var mount = 0             // montura elegida en la lista
     var mounted = false       // montado encima (casilla Montura)

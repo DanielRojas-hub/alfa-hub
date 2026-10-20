@@ -84,7 +84,7 @@ Atajos por defecto: **⌃⌥P** (timer Pez), **⌃⌥R** (reiniciar el último t
 
 ## Ícono y personaje
 
-El personaje sale del [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter?o=235&a1&c1=95&c2=95&c3=95&c4=114)
+El personaje sale del [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter?o=1&c1=95&c2=113&c3=39&c4=115)
 (`assets/outfit64.png`). `swift assets/make_icons.swift` lo recorta, lo centra y genera
 `macos/AppIcon.icns`, `windows/AlfaHub.ico` y el sprite del hub. El ícono no lleva fondo, igual que
 el de Tibia: en macOS el sistema le pone la misma placa gris.

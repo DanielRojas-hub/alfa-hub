@@ -23,11 +23,11 @@ namespace AlfaHub
     [DataContract]
     sealed class OutfitConfig
     {
-        [DataMember] public int Outfit = 235;     // Captains: el personaje original de Alfa Hub
+        [DataMember] public int Outfit = 1;       // Hunter: el de un personaje recién creado (el original de Alfa Hub)
         [DataMember] public bool Female;
-        [DataMember] public bool Addon1 = true;
+        [DataMember] public bool Addon1;
         [DataMember] public bool Addon2;
-        [DataMember] public int C1 = 95, C2 = 95, C3 = 95, C4 = 114;
+        [DataMember] public int C1 = 95, C2 = 113, C3 = 39, C4 = 115;
         [DataMember] public int Facing = 2;       // 0 norte, 1 este, 2 sur, 3 oeste
         [DataMember] public int Mount;            // montura elegida en la lista
         [DataMember] public int Mc1, Mc2, Mc3, Mc4;
@@ -52,7 +52,7 @@ namespace AlfaHub
         [OnDeserializing]
         void Defaults(StreamingContext context)
         {
-            Outfit = 235; Addon1 = true; C1 = 95; C2 = 95; C3 = 95; C4 = 114; Facing = 2;
+            Outfit = 1; Addon1 = false; C1 = 95; C2 = 113; C3 = 39; C4 = 115; Facing = 2;
         }
     }
 

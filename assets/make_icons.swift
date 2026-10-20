@@ -1,5 +1,5 @@
 // Genera los íconos de Alfa Hub a partir del sprite del personaje (outfit64.png, sacado del
-// Outfiter de TibiaWiki: o=235, addon 1, colores 95/95/95/114).
+// Outfiter de TibiaWiki: Hunter sin addons, colores 95/113/39/115, el de un personaje recién creado).
 //
 //   swift assets/make_icons.swift
 //
