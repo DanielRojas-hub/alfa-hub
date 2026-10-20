@@ -127,7 +127,7 @@ final class OutfitManager: ObservableObject {
 enum OutfitIcons {
     static func apply(_ sprite: CGImage?, statusItem: NSStatusItem?) {
         // nil: el ícono del .app (el personaje original).
-        NSApp.applicationIconImage = sprite.map { OutfitRenderer.icon($0, size: 512) }
+        NSApp.applicationIconImage = sprite.map { OutfitRenderer.icon($0, size: 512, plate: true) }
         if let sprite {
             let image = OutfitRenderer.icon(sprite, size: 44)
             image.size = NSSize(width: 22, height: 22)

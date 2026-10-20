@@ -412,20 +412,50 @@ enum OutfitRenderer {
         return box.isNull ? full : full.cropping(to: box) ?? full
     }
 
-    /// Ícono cuadrado: el personaje centrado sin fondo, lo más grande posible y con escala entera
-    /// (igual que assets/make_icons.swift).
-    static func icon(_ sprite: CGImage, size: Int) -> NSImage {
+    /// Ícono cuadrado: el personaje centrado, lo más grande posible y con escala entera (igual que
+    /// assets/make_icons.swift). Con plate, sobre la placa gris que macOS pone a los íconos de las apps
+    /// (al ícono del .app se la pone el sistema; al que se cambia en marcha, no).
+    static func icon(_ sprite: CGImage, size: Int, plate: Bool = false) -> NSImage {
         let s = CGFloat(size)
         let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8,
                                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
                                    bytesPerRow: 0, bitsPerPixel: 0)!
         let ctx = NSGraphicsContext(bitmapImageRep: rep)!.cgContext
-        let maxSide = s * 0.9
+        var area = CGRect(x: 0, y: 0, width: s, height: s)
+        if plate {
+            // Medidas y colores sacados del ícono del .app tal como lo dibuja macOS.
+            let body = area.insetBy(dx: s * 50 / 512, dy: s * 50 / 512)
+            let path = CGPath(roundedRect: body, cornerWidth: body.width * 0.25, cornerHeight: body.width * 0.25, transform: nil)
+            ctx.saveGState()
+            ctx.setShadow(offset: CGSize(width: 0, height: -s * 4 / 512), blur: s * 10 / 512, color: CGColor(gray: 0, alpha: 0.35))
+            ctx.addPath(path)
+            ctx.setFillColor(CGColor(gray: 0.8, alpha: 1))
+            ctx.fillPath()
+            ctx.restoreGState()
+            ctx.saveGState()
+            ctx.addPath(path)
+            ctx.clip()
+            let gradient = CGGradient(colorSpace: CGColorSpace(name: CGColorSpace.genericGrayGamma2_2)!,
+                                      colorComponents: [0.87, 1, 0.73, 1] as [CGFloat], locations: [0, 1], count: 2)!
+            ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: body.maxY), end: CGPoint(x: 0, y: body.minY), options: [])
+            // Borde claro arriba, como la luz de la placa del sistema.
+            ctx.addPath(path)
+            ctx.setStrokeColor(CGColor(gray: 1, alpha: 0.85))
+            ctx.setLineWidth(s * 4 / 512)
+            ctx.replacePathWithStrokedPath()
+            ctx.clip()
+            let rim = CGGradient(colorSpace: CGColorSpace(name: CGColorSpace.genericGrayGamma2_2)!,
+                                 colorComponents: [1, 0.9, 1, 0] as [CGFloat], locations: [0, 0.5], count: 2)!
+            ctx.drawLinearGradient(rim, start: CGPoint(x: 0, y: body.maxY), end: CGPoint(x: 0, y: body.minY), options: [])
+            ctx.restoreGState()
+            area = body.insetBy(dx: body.width * 0.12, dy: body.width * 0.12)
+        }
+        let maxSide = plate ? area.width : s * 0.9
         var scale = min(maxSide / CGFloat(sprite.width), maxSide / CGFloat(sprite.height))
         if scale >= 1 { scale = floor(scale) }
         let w = CGFloat(sprite.width) * scale, h = CGFloat(sprite.height) * scale
         ctx.interpolationQuality = scale >= 1 ? .none : .high
-        ctx.draw(sprite, in: CGRect(x: ((s - w) / 2).rounded(), y: ((s - h) / 2).rounded(), width: w, height: h))
+        ctx.draw(sprite, in: CGRect(x: (area.midX - w / 2).rounded(), y: (area.midY - h / 2).rounded(), width: w, height: h))
         let image = NSImage(size: NSSize(width: size, height: size))
         image.addRepresentation(rep)
         return image
