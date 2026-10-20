@@ -1,100 +1,76 @@
-# Diseño de referencia (versión de macOS)
+# Diseño de referencia
 
-La versión de **macOS es la referencia visual**. La de Windows debe verse lo más parecida posible:
-misma estructura, mismos colores, mismos tamaños y mismo comportamiento. Las capturas están en
-[`docs/capturas/`](capturas/) (tomadas en macOS a 2×, así que **1 pt = 2 px** en las imágenes).
+Las dos versiones (macOS y Windows) comparten diseño: ventana ancha con **barra superior**,
+**barra lateral** y una **página** a la derecha, inspirada en TibiaVision. Las capturas de
+[`docs/capturas/`](capturas/) son de la versión de macOS (a 2×: **1 pt = 2 px**). La de Windows se
+verifica con el workflow *Capturas Windows* (GitHub Actions), que sube sus capturas como artefacto.
 
-> **Para la sesión de Claude en Windows:** la UI de Windows (`windows/HubForm.cs`) usa hoy controles
-> estándar de WinForms y se ve distinta. El objetivo es que se parezca a estas capturas. WinForms no trae
-> interruptores, tarjetas redondeadas ni pestañas segmentadas, así que hay que **dibujarlos a mano**
-> (controles propios con `OnPaint`), igual que ya se hace con `HeroPanel`, `MascotPanel` y `PreviewPanel`.
-> Trabaja en una rama nueva y abre un PR. Compila con `dotnet build -c Release` en `windows/`.
-> No cambies la lógica del timer, del overlay ni de los atajos: solo el aspecto del hub.
-
-## Capturas
+## Capturas (macOS)
 
 | Captura | Qué muestra |
 | --- | --- |
-| [01-hub-ciclo-y-sonido.png](capturas/01-hub-ciclo-y-sonido.png) | Hub completo, pestaña **Ciclo y sonido**, timer en pausa |
-| [02-hub-overlay.png](capturas/02-hub-overlay.png) | Pestaña **Overlay**: vista previa y sección "En Tibia" |
-| [03-hub-overlay-colores.png](capturas/03-hub-overlay-colores.png) | Pestaña **Overlay** desplazada: sección "Colores" |
-| [04-hub-atajos.png](capturas/04-hub-atajos.png) | Pestaña **Atajos** (en Windows se muestran como `Ctrl+Alt+P`, etc.) |
-| [05-tarjeta-en-marcha.png](capturas/05-tarjeta-en-marcha.png) | Tarjeta del timer **en marcha** (botón Pausar ámbar, estado verde) |
-| [06-tarjeta-alerta.png](capturas/06-tarjeta-alerta.png) | Tarjeta del timer en **alerta** (últimos 25 s: rojo y parpadeo) |
-| [07-overlay-alerta-sobre-tibia.png](capturas/07-overlay-alerta-sobre-tibia.png) | El **overlay** en alerta, encima de Tibia |
-| [08-overlay-en-contexto.png](capturas/08-overlay-en-contexto.png) | El overlay en su sitio dentro de la ventana de Tibia |
+| [01-timers.png](capturas/01-timers.png) | Página **Timers**: lista de timers en pausa |
+| [02-editor-cuenta-atras.png](capturas/02-editor-cuenta-atras.png) | Editor de un timer de **cuenta atrás** (Pez) |
+| [03-editor-rotacion.png](capturas/03-editor-rotacion.png) | Editor de un timer de **rotación** (Pilar) |
+| [04-overlay.png](capturas/04-overlay.png) | Página **Overlay**: vista previa, ajustes y colores |
+| [05-atajos.png](capturas/05-atajos.png) | Página **Atajos**: uno por timer y los globales |
+| [06-sonido.png](capturas/06-sonido.png) | Página **Sonido** |
+| [07-timers-en-marcha.png](capturas/07-timers-en-marcha.png) | Lista con dos timers en marcha |
+| [08-overlay-sobre-tibia.png](capturas/08-overlay-sobre-tibia.png) | El **overlay** con dos timers apilados, encima de Tibia |
 
-## Estructura del hub (de arriba abajo)
+## Estructura
 
-Ventana de **420 pt de ancho**, márgenes laterales de 16 pt, margen superior de 12 pt,
-separación vertical de 12 pt entre bloques. Sin fondos de color: todo en grises oscuros neutros.
+Ventana de ~900 × 640 pt (mínimo 820 × 600).
 
-1. **Franja del personaje** (alineada a la derecha, sin fondo, **sin sombra** bajo los pies)
-   - Sprite `character.png` a **2×**, pixel-art sin suavizado (nearest neighbor).
-   - A su izquierda, a 6 pt, una **nube de diálogo** blanca con el texto **"Slayer macaco e mielda"**,
-     subida 8 pt para quedar a la altura de la cabeza.
-2. **Tarjeta del timer** (padding 16 pt, esquinas de 14 pt, borde fino)
-   - Fila superior: **chip de estado** a la izquierda y `Ciclo N · Total mm:ss` a la derecha.
-   - Contador `mm:ss` **centrado**.
-   - Barra de progreso del ciclo (5 pt de alto, extremos redondeados).
-   - Botones: **Iniciar/Pausar** (ocupa el resto del ancho) y **Reiniciar** (a la derecha), 10 pt de separación.
-3. **Pestañas segmentadas**: "Ciclo y sonido" · "Overlay" · "Atajos" (la seleccionada en azul).
-4. **Contenido de la pestaña**, con scroll si no cabe: secciones con título y filas agrupadas en
-   tarjetas redondeadas (estilo "formulario agrupado"), separadores finos entre filas.
+1. **Barra superior** (52 pt): personaje pequeño + "**Alfa**Hub" ("Alfa" en azul); a la derecha,
+   el estado "● Tibia abierto / cerrado" y un botón cápsula "Overlay visible / oculto".
+2. **Barra lateral** (200 pt, fondo más oscuro):
+   - Sección **PRINCIPAL**: *Timers* (con un contador verde de timers en marcha) y *Overlay*.
+   - Sección **AJUSTES**: *Atajos* y *Sonido*.
+   - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
+   - Al pie: la **nube de diálogo** "Slayer macaco e mielda" (punta hacia abajo) y el personaje a 2×.
+3. **Página** (márgenes de 28 pt): título grande + subtítulo gris, y el contenido.
+
+### Página Timers
+
+- Cabecera con el botón azul **＋ Añadir timer** (menú: Pez, Bakragore, Pilar, Personalizado).
+- Línea "3 de 8 · 1 en marcha" y botones **Pausar todos** / **Reiniciar todos**.
+- Una **fila por timer** (tarjeta redondeada): barra de estado de 4 pt a la izquierda
+  (gris parado, verde en marcha, ámbar en pausa, rojo en alerta o terminado), nombre en negrita y
+  resumen gris ("Cada 02:00 · F7 · Beep"), contador monoespaciado con barra de progreso, botones
+  redondos ▶/❚❚ (azul/ámbar) y ↺, botón **Editar** y menú ⋮ (Duplicar, Eliminar).
+
+### Editor de un timer
+
+- "‹ Volver a Timers" en azul.
+- Tarjeta con nombre, chip de estado, detalle, botones Iniciar/Reiniciar y contador grande a la derecha.
+- Secciones: **Timer** (nombre, tipo *Cuenta atrás / Rotación*, cargar preset), **Duración**
+  (botones 01:00…03:00, personalizado, repetir, duración total) o **Rotación** (segundos por
+  dirección, dirección inicial, beeps), **Avisos**, **Sonido y atajo** (sonido propio o beep,
+  probar, atajo iniciar/pausar) y **Eliminar este timer**.
 
 ## Colores
 
 | Uso | Color |
 | --- | --- |
-| Fondo de la ventana | `#323030` (gris muy oscuro) |
-| Tarjeta del timer | `#413E3E` (blanco al 5 % sobre el fondo), borde blanco al 8 % |
-| Filas de las secciones | `#3B3A39` |
-| Texto principal | blanco |
-| Texto secundario (`Ciclo 1 · Total`, notas) | blanco al 55 % |
-| **Contador del hub** y su barra de progreso | **`#EDEDED` (blanco hueso)** |
-| Pista de la barra de progreso | blanco al 12 % |
-| **Azul** (Iniciar, pestaña seleccionada, duración elegida, interruptores activados, deslizadores) | **`#0A84FF`** |
-| Ámbar (botón Pausar) | `#D97805` |
-| Alerta (contador y barra en los últimos segundos, chip "¡Alerta!") | color de alerta del usuario, por defecto `#F54D4D` |
-| Chip "En marcha" | verde `#30D158` |
-| Chip "En pausa" | blanco al 55 % |
-| Botón Reiniciar | fondo blanco al 6 %, borde blanco al 10 % |
-| Nube de diálogo | fondo `#F5F5F5`, texto `#1A1A1A`, sombra negra al 35 % (3 pt de desenfoque, 1 pt hacia abajo) |
+| Contenido | `#1C1C1E` |
+| Barra lateral y superior | `#151517` |
+| Filas, secciones | blanco al 5 % sobre el contenido (`#28282B`) |
+| Separadores | `#28282B` |
+| Contadores del hub y sus barras | blanco hueso `#EDEDED` |
+| **Azul** (botones principales, selección, interruptores, deslizadores) | `#0A84FF` |
+| Ámbar (pausar, timer pausado) | `#D97805` |
+| Verde (en marcha, Tibia abierto) | `#30D158` |
+| Alerta | color de alerta del usuario (por defecto `#F54D4D`) |
+| Texto secundario | blanco al 55 % |
+| Nube de diálogo | `#F5F5F5`, texto `#1A1A1A` |
 
-El **color del contador del overlay** es otra cosa: lo elige el usuario y por defecto es morado
-`#A873FA`. **No** se usa en el hub.
+El **contador del overlay** usa el color que elige el usuario (por defecto morado `#A873FA`).
 
-## Tipografía y tamaños
+## Overlay
 
-| Elemento | Fuente |
-| --- | --- |
-| Contador del hub | monoespaciada **negrita 56 pt** (en Windows: Cascadia Mono / Consolas Bold) |
-| `Ciclo N · Total mm:ss` | monoespaciada 11 pt |
-| Chip de estado | 11 pt seminegrita; punto de 7 pt; padding 8×3 pt; cápsula con el color al 15 % |
-| Botones Iniciar / Reiniciar | 14 pt seminegrita, padding vertical 9 pt, esquinas de 10 pt, ícono ▶ / ❚❚ / ↺ delante |
-| Pestañas segmentadas | 12–13 pt; la seleccionada con fondo azul y texto blanco |
-| Títulos de sección ("Tiempo entre ciclos", "Avisos"…) | 13 pt seminegrita |
-| Filas | 13 pt |
-| Notas al pie de sección | 11 pt, blanco al 55 % |
-| Nube de diálogo | 12,5 pt negrita redondeada (en Windows: Segoe UI Bold); padding 12 pt a la izquierda, 7 pt arriba/abajo; punta de 9 pt hacia el personaje |
-| Botones de duración (01:00…03:00) | monoespaciada 12 pt seminegrita, cápsulas con padding 9×5 pt; elegida en azul, resto blanco al 8 % |
-
-## Controles a imitar en Windows
-
-| macOS | Equivalente a dibujar en Windows |
-| --- | --- |
-| Interruptor (toggle) azul | `ToggleSwitch` propio: pastilla de 38×22 pt, azul `#0A84FF` activado / gris `#5A5A5E` desactivado, círculo blanco |
-| Deslizador | Pista fina gris con tramo azul hasta el pulgar y pulgar blanco redondo |
-| Control segmentado | Tres botones planos dentro de una cápsula gris; el seleccionado con fondo azul |
-| Formulario agrupado | Panel con esquinas de 10 pt, fondo `#3B3A39`, filas de ~36 pt con separador de 1 px |
-| Stepper (▲▼) | Campo numérico oscuro sin borde claro, alineado a la derecha |
-| Selector de color | Botón cápsula de 36×20 pt relleno con el color |
-
-## Overlay (sobre Tibia)
-
-- Solo el contador `mm:ss`, monoespaciado negrita (28 pt × tamaño), con fondo redondeado
-  (esquinas 9 pt × tamaño) en el color de fondo elegido (por defecto `#111827` al 85 %).
-- En alerta: color de alerta, borde fino del mismo color y parpadeo suave (opacidad entre 55 % y 100 %, ~1 s).
-- En pausa: el número al 60 % de opacidad.
-- Con el fondo transparente: contorno negro alrededor de los números para que se lean sobre el juego.
-- Desbloqueado para moverlo: borde ámbar discontinuo.
+- Muestra los timers **en marcha o a medias**, uno debajo de otro y alineados a la derecha;
+  si no hay ninguno, el timer elegido. Con más de un timer, cada contador lleva su nombre delante.
+- Cuenta atrás: `mm:ss`. Rotación: flecha y segundos (`↑ 6`).
+- En alerta: color de alerta y parpadeo; en pausa: al 60 %; sin fondo: contorno negro;
+  desbloqueado: borde ámbar discontinuo.

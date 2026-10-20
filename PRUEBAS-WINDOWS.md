@@ -1,14 +1,19 @@
 # Pruebas de Alfa Hub en Windows
 
-Lista de funcionalidades para probar `AlfaHub.exe` (Release
-[v1.0.0](https://github.com/DanielRojas-hub/alfa-hub/releases/tag/v1.0.0)) en un PC con Windows 10/11.
-La versión de macOS ya está probada; la de Windows se compiló desde macOS y **nunca se ha ejecutado en Windows**.
+Lista de funcionalidades para probar `AlfaHub.exe` (última
+[Release](https://github.com/DanielRojas-hub/alfa-hub/releases/latest)) en un PC con Windows 10/11.
+
+Lo que ya está verificado sin Tibia, en un Windows real (workflow *Capturas Windows* de GitHub Actions):
+el hub y sus páginas, iniciar/pausar timers, el editor, dos timers a la vez, la alerta y el overlay
+desbloqueado con varios timers. **Falta todo lo que necesita Tibia** (secciones 5, 6 y 9) y el escalado
+de pantalla distinto de 100 %.
 
 > **Para la sesión de Claude en Windows:** guía al usuario punto por punto, pídele capturas cuando algo
 > se vea mal y anota el resultado de cada punto en `RESULTADOS-WINDOWS.md` (✅ / ❌ + qué pasó).
 > Si corriges código, hazlo en una rama nueva y abre un PR; no subas directamente a `main`.
 > El código de Windows está en `windows/` y se compila con `dotnet build -c Release` dentro de esa carpeta
-> (requiere el SDK de .NET; apunta a .NET Framework 4.8).
+> (requiere el SDK de .NET; apunta a .NET Framework 4.8). Referencia visual:
+> [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md).
 >
 > **No pruebes nada que toque el cliente de Tibia** (abrir su proceso, leer memoria, enviar teclas):
 > la app está diseñada para no hacerlo por BattlEye.
@@ -17,92 +22,78 @@ La versión de macOS ya está probada; la de Windows se compiló desde macOS y *
 
 - [ ] Al abrir `AlfaHub.exe`, si aparece "Windows protegió su PC", **Más información → Ejecutar de todas formas** funciona.
 - [ ] El `.exe` muestra el ícono del personaje (sin fondo) en el Explorador.
-- [ ] Se abre el hub con la barra de título oscura.
+- [ ] Se abre el hub con la barra de título oscura, la barra superior "AlfaHub" y la barra lateral.
 - [ ] Aparece el ícono del personaje en la bandeja del sistema (junto al reloj).
 - [ ] Abrir el `.exe` por segunda vez muestra "Alfa Hub ya está abierto" y no abre otra copia.
+- [ ] Si venías de una versión anterior, el timer **Pez** conserva tu duración y tu atajo, y aparecen también **Bakragore** y **Pilar**.
 
 ## 2. Aspecto del hub
 
-Referencia visual: [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md) y las capturas de
-[docs/capturas/](docs/capturas/) (versión de macOS). Si el hub de Windows no se parece, ajustarlo
-siguiendo esa guía antes de seguir con el resto de pruebas.
+- [ ] Se parece a las capturas de [docs/capturas/](docs/capturas/) (macOS).
+- [ ] Barra superior: "● Tibia abierto" en verde con Tibia abierto y "Tibia cerrado" en gris sin él.
+- [ ] Barra lateral: Timers (con un contador verde de timers en marcha), Overlay, Atajos, Sonido; personaje y nube al pie.
+- [ ] Con el escalado de Windows al 125 % y al 150 %, nada se corta ni se solapa.
 
-- [ ] Arriba a la derecha: el personaje (pixel-art nítido, sin sombra) con una **nube de diálogo blanca** a su izquierda que dice "Slayer macaco e mielda", con la punta hacia él.
-- [ ] Tarjeta gris neutra con: estado ("En pausa"), "Ciclo 1 · Total 00:00", contador **02:00 en blanco hueso** centrado, barra de progreso, botón **Iniciar azul** y botón Reiniciar gris.
-- [ ] Pestañas "Ciclo y sonido", "Overlay", "Atajos": la seleccionada en azul y cambian el contenido.
-- [ ] Con el escalado de Windows al 125 % y al 150 %, nada se corta ni se solapa (textos de botones, campos, nube).
-- [ ] Se puede redimensionar la ventana en alto y las pestañas hacen scroll si no caben.
+## 3. Timers
 
-## 3. Timer
-
-- [ ] **Iniciar** arranca la cuenta atrás; el botón pasa a **Pausar** (ámbar) y el estado a "En marcha" (verde).
-- [ ] **Pausar** detiene; al reanudar sigue desde donde estaba.
-- [ ] **Reiniciar** vuelve a 02:00 y a "Ciclo 1 · Total 00:00".
-- [ ] En los **últimos 25 s** el contador se pone rojo, parpadea y el estado dice "¡Alerta!".
-- [ ] Suenan **beeps** en los últimos 5 s de cada ciclo.
-- [ ] Suena un **tono** al empezar cada ciclo nuevo y el contador de ciclos aumenta.
+- [ ] **＋ Añadir timer** ofrece Pez, Bakragore, Pilar y Personalizado, y abre el editor del nuevo (máximo 8).
+- [ ] En la lista, ▶ inicia y ❚❚ pausa cada timer por separado; ↺ lo reinicia; la barra de color de cada fila cambia (verde, ámbar, rojo).
+- [ ] Varios timers pueden ir a la vez y "N en marcha" se actualiza.
+- [ ] **Pausar todos** y **Reiniciar todos** funcionan.
+- [ ] Menú ⋮: **Duplicar** crea una copia (sin atajo) y **Eliminar** la quita (no deja borrar el último).
+- [ ] **Pez**: cuenta atrás de 2:00 que se repite; rojo y parpadeo en los últimos 25 s; beeps en los últimos 5 s; sonido de aviso al empezar cada ciclo.
+- [ ] **Bakragore**: mecánica cada 1:30; el detalle dice "Quedan mm:ss" y a los 25 min se detiene con "Terminado".
+- [ ] **Pilar**: flecha y segundos (`↑ 6` → `→ 6` → `↓ 6` → `← 6`), sonido al cambiar de dirección y beeps en los últimos 2 s.
+- [ ] **Personalizado**: cuenta atrás de 1:00 que no se repite y termina con el sonido de aviso.
 - [ ] El tiempo no se desfasa: tras ~5 min con el hub minimizado, "Total" coincide con un cronómetro.
 
-## 4. Pestaña "Ciclo y sonido"
+## 4. Editor de un timer
 
-- [ ] Los botones 01:00 / 01:30 / 02:00 / 02:30 / 03:00 cambian la duración y el elegido queda en azul.
-- [ ] "Personalizado" (min / s) cambia la duración; por debajo de 5 s se corrige a 5 s.
-- [ ] "Alerta en los últimos (s)" y "Beeps en los últimos (s)" cambian el comportamiento.
-- [ ] "Tono al empezar cada ciclo" se puede desactivar.
-- [ ] "Restaurar valores del Pez" vuelve a 2:00 · 25 s · 5 s.
-- [ ] "Silenciar" quita todo sonido y desactiva el volumen; "Volumen" + "Probar" funcionan.
+- [ ] **Editar** abre el detalle; "‹ Volver a Timers" vuelve a la lista.
+- [ ] Cambiar el **nombre** (Enter o salir del campo) se refleja en la lista, el overlay y Atajos.
+- [ ] **Tipo** Cuenta atrás / Rotación cambia las secciones del editor.
+- [ ] **Cargar preset** cambia la configuración y conserva el sonido y el atajo.
+- [ ] Duración: botones 01:00…03:00, personalizado (min / s, mínimo 5 s), repetir y duración total.
+- [ ] Rotación: segundos por dirección, dirección inicial y beeps.
+- [ ] **Sonido de aviso → Elegir…** acepta un `.wav` y un `.mp3`; **Probar sonido** lo reproduce con el volumen de la app; ✕ vuelve al beep.
+- [ ] Si el archivo de sonido se borra o mueve, suena el beep en su lugar.
+- [ ] **Atajo iniciar / pausar** de cada timer funciona con Tibia al frente.
+- [ ] **Eliminar este timer** lo borra y vuelve a la lista.
 
 ## 5. Overlay (lo más importante)
 
 Probar con Tibia abierto, primero en **modo ventana** y luego en **pantalla completa**.
 
-- [ ] El overlay (solo el contador) aparece **solo cuando Tibia está al frente**.
-- [ ] Al pasar a otra ventana (Alt+Tab, el hub, el navegador) el overlay **desaparece**; al volver a Tibia, reaparece.
-- [ ] Se ve **encima de Tibia** en modo ventana.
-- [ ] Se ve encima de Tibia en pantalla completa. Si no se ve, anotar qué modo de pantalla usa Tibia.
-- [ ] Los **clics atraviesan** el overlay y llegan a Tibia (clic sobre el contador mueve/ataca en el juego).
-- [ ] El overlay **no roba el foco**: se puede seguir escribiendo/jugando en Tibia sin interrupciones.
-- [ ] En la alerta el overlay se pone rojo y parpadea.
-- [ ] "Desbloquear para moverlo": aparece con borde ámbar discontinuo, se puede arrastrar y, al volver a bloquear, los clics vuelven a atravesarlo.
-- [ ] La posición se mantiene tras cerrar y abrir la app.
-- [ ] "Volver a la esquina superior derecha" lo recoloca.
-- [ ] "Tamaño" y "Opacidad" se aplican al overlay en vivo.
-- [ ] "Mostrar overlay" desactivado lo oculta aunque Tibia esté al frente.
-- [ ] La **vista previa** de la pestaña refleja tamaño, opacidad y colores; "Ver en alerta" la muestra en rojo.
-
-### Colores
-
-- [ ] "Contador", "Contador en alerta" y "Fondo" abren el selector de color y se aplican al overlay y a la vista previa.
-- [ ] "Opacidad del fondo" a 0 deja solo el número, con contorno oscuro legible sobre el juego.
-- [ ] "Restaurar colores" vuelve al morado por defecto del contador y al fondo oscuro.
+- [ ] El overlay aparece **solo cuando Tibia está al frente**; al cambiar de ventana desaparece y al volver reaparece.
+- [ ] Con un solo timer en marcha muestra solo su contador; con varios, uno debajo de otro y con su nombre.
+- [ ] Se ve **encima de Tibia** en modo ventana y en pantalla completa (si no, anotar el modo de pantalla de Tibia).
+- [ ] Los **clics atraviesan** el overlay y llegan a Tibia.
+- [ ] El overlay **no roba el foco**: se puede seguir escribiendo/jugando en Tibia.
+- [ ] Al añadir un segundo timer el overlay crece hacia la izquierda sin salirse de la pantalla.
+- [ ] "Desbloquear para moverlo": borde ámbar, se arrastra y al bloquear los clics vuelven a atravesarlo; la posición se conserva al reiniciar la app.
+- [ ] "Volver a la esquina superior derecha", "Tamaño", "Opacidad" y "Mostrar overlay" funcionan.
+- [ ] Botón "Overlay visible / oculto" de la barra superior y atajo Ctrl+Alt+O.
+- [ ] Colores: contador, alerta, fondo y opacidad del fondo (a 0 deja solo el número con contorno); "Restaurar colores".
 
 ## 6. Atajos
 
-- [ ] Con **Tibia al frente**: Ctrl+Alt+P inicia/pausa, Ctrl+Alt+R reinicia, Ctrl+Alt+O muestra/oculta el overlay.
-- [ ] En la pestaña Atajos, clic en un atajo → "Pulsa la combinación…" → pulsar p. ej. **F8** lo asigna y funciona con Tibia al frente.
-- [ ] **Esc** cancela la grabación sin cambiar nada.
-- [ ] Una tecla sin modificador (p. ej. solo "P") se rechaza con un sonido.
-- [ ] Asignar a una acción la combinación de otra deja a la otra "Sin atajo".
-- [ ] El botón ✕ quita el atajo.
+- [ ] Página Atajos: un atajo por timer y los globales (Ctrl+Alt+R reinicia el último timer usado, Ctrl+Alt+O el overlay).
+- [ ] Con **Tibia al frente**, cada atajo funciona y no escribe nada en el chat de Tibia.
+- [ ] Grabar un atajo nuevo (p. ej. **F8**); **Esc** cancela; una tecla sin modificador se rechaza.
+- [ ] Una combinación solo puede estar en un sitio: asignarla a otro timer la quita del anterior.
 - [ ] Si otro programa ya usa la combinación, aparece un aviso en la bandeja.
-- [ ] "Restaurar atajos" vuelve a Ctrl+Alt+P / R / O.
-- [ ] Usar un atajo en el juego no escribe nada raro en el chat de Tibia.
 
-## 7. Bandeja del sistema y cierre
+## 7. Sonido, bandeja y ajustes guardados
 
-- [ ] Cerrar el hub con la X lo oculta; el timer y el overlay siguen funcionando.
-- [ ] Doble clic en el ícono de la bandeja vuelve a abrir el hub.
-- [ ] Menú de la bandeja: "Abrir Alfa Hub", "Iniciar / pausar", "Reiniciar" y "Salir" funcionan.
-- [ ] "Salir" cierra la app por completo (desaparece el ícono y el overlay).
+- [ ] Página Sonido: Silenciar, Volumen (con %) y Probar beep.
+- [ ] Cerrar el hub con la X lo oculta; los timers y el overlay siguen. Doble clic en la bandeja lo abre.
+- [ ] Menú de la bandeja: Abrir, Iniciar/pausar y Reiniciar el timer elegido, Salir.
+- [ ] Tras "Salir" y volver a abrir se conservan timers, sonidos, atajos, colores y posición del overlay
+      (`%APPDATA%\AlfaHub\timers.json` y `ajustes.ini`).
 
-## 8. Ajustes guardados
+## 8. BattlEye
 
-- [ ] Tras cambiar duración, colores, atajos, tamaño y posición, cerrar con "Salir" y abrir de nuevo: todo se conserva.
-- [ ] Existe `%APPDATA%\AlfaHub\ajustes.ini` con esos valores.
-
-## 9. BattlEye
-
-- [ ] Jugar una sesión normal (30+ min) con Alfa Hub abierto y el overlay visible: sin avisos, expulsiones ni errores de BattlEye.
+- [ ] Jugar una sesión normal (30+ min) con Alfa Hub abierto, varios timers y el overlay visible: sin avisos, expulsiones ni errores de BattlEye.
 
 ## Qué devolver
 

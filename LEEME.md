@@ -1,11 +1,13 @@
 # Alfa Hub
 
-Timer de ciclos para Tibia (basado en el "Peixe Timer" de cueistoreservices.com.br/timer).
+Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/timer), para macOS y Windows.
 
-- **Overlay**: solo el contador, encima de Tibia y únicamente mientras Tibia está al frente.
-  Los clics lo atraviesan y llegan al juego.
-- **Hub**: Iniciar/Pausar, Reiniciar, tiempo entre ciclos, alertas, sonido, colores,
-  tamaño/opacidad/posición del overlay y atajos editables.
+- **Timers**: varios a la vez, con presets **Pez** (cada 2:00), **Bakragore** (mecánica cada 1:30
+  durante 25 min), **Pilar** (rotación de los Totens cada 6 s) o personalizados. Cada uno tiene su
+  duración, avisos, sonido propio (.wav/.mp3 o beep) y atajo de iniciar/pausar.
+- **Overlay**: los contadores de los timers en marcha, encima de Tibia y únicamente mientras Tibia
+  está al frente. Los clics lo atraviesan y llegan al juego.
+- **Hub**: barra lateral con Timers, Overlay, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
 
 ## Windows
 
@@ -18,8 +20,9 @@ Descarga `AlfaHub.exe` desde la última **Release** del repositorio. No necesita
 3. Al cerrar el hub, Alfa Hub sigue en la bandeja del sistema (junto al reloj);
    desde ahí se vuelve a abrir o se sale.
 
-Atajos por defecto: **Ctrl+Alt+P** iniciar/pausar, **Ctrl+Alt+R** reiniciar, **Ctrl+Alt+O** mostrar/ocultar overlay.
-Los ajustes se guardan en `%APPDATA%\AlfaHub\ajustes.ini`.
+Atajos por defecto: **Ctrl+Alt+P** iniciar/pausar el timer Pez, **Ctrl+Alt+R** reiniciar el último
+timer usado, **Ctrl+Alt+O** mostrar/ocultar overlay. Cada timer puede tener su propio atajo.
+Los ajustes se guardan en `%APPDATA%\AlfaHub\ajustes.ini` y los timers en `timers.json`.
 
 Si el overlay no se ve encima de Tibia, pon Tibia en modo ventana o pantalla completa sin bordes
 (una pantalla completa exclusiva no deja dibujar ventanas encima).
@@ -42,7 +45,7 @@ garantizarlo al 100 %. La única confirmación definitiva es preguntar al soport
 `macos/Alfa Hub.app` (se genera con `macos/build.sh`). Igual que en Windows, no toca el cliente:
 solo consulta qué app está al frente y si tiene una ventana visible.
 
-Atajos por defecto: **⌃⌥P**, **⌃⌥R**, **⌃⌥O**.
+Atajos por defecto: **⌃⌥P** (timer Pez), **⌃⌥R** (reiniciar el último timer usado), **⌃⌥O** (overlay).
 
 ## Ícono y personaje
 
@@ -55,3 +58,5 @@ el de Tibia: en macOS el sistema le pone la misma placa gris.
 
 - macOS: `macos/build.sh` (requiere Xcode).
 - Windows: `dotnet build -c Release` dentro de `windows/` (funciona también desde macOS/Linux con el SDK de .NET).
+- El workflow *Capturas Windows* compila el `.exe` en un Windows real, lo abre, recorre el hub y sube
+  capturas como artefacto (se lanza solo al cambiar `windows/` o `ci/`).
