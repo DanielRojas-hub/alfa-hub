@@ -69,7 +69,8 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     static private(set) var allowed = CGPreflightScreenCaptureAccess()
     private static var probing = false
 
-    /// Comprueba el permiso pidiendo la lista de ventanas a ScreenCaptureKit (sin mostrar nada).
+    /// Comprueba el permiso pidiendo la lista de ventanas a ScreenCaptureKit. Solo se llama al pulsar
+    /// "Ya lo activé — comprobar": sin permiso, macOS vuelve a mostrar su aviso en cada llamada.
     static func refreshPermission() {
         guard !probing else { return }
         if CGPreflightScreenCaptureAccess() { allowed = true; return }
@@ -80,17 +81,12 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             probing = false
         }
     }
-    /// Pide el permiso. macOS solo muestra su aviso la primera vez; en macOS 15+ también lo muestra al
-    /// pedir la lista de ventanas a ScreenCaptureKit.
-    static func requestAccess() {
-        _ = CGRequestScreenCaptureAccess()
-        Task { _ = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) }
-    }
+    /// Pide el permiso (macOS muestra su aviso como mucho una vez).
+    static func requestAccess() { _ = CGRequestScreenCaptureAccess() }
 
     /// Abre Ajustes del Sistema en Grabación de pantalla y muestra la app en Finder, para poder
     /// arrastrarla a la lista si no aparece.
     static func openSettings() {
-        requestAccess()
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
         NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
@@ -409,11 +405,14 @@ struct MirrorsPage: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.amber)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Falta el permiso de Grabación de pantalla").font(.system(size: 13, weight: .semibold))
-                        Text("macOS lo pide para que los espejos puedan copiar la ventana de Tibia. En Ajustes, activa Alfa Hub (si no aparece, pulsa + o arrastra la app desde Finder) y vuelve a abrir la app.")
+                        Text("macOS lo pide para que los espejos puedan copiar la ventana de Tibia. En Ajustes, activa Alfa Hub (si no aparece, pulsa + o arrastra la app desde Finder) y luego pulsa “Ya lo activé — comprobar”.")
                             .font(.system(size: 11)).foregroundStyle(Color.muted)
                     }
                     Spacer()
-                    SmallButton(title: "Abrir Ajustes", icon: "gear") { MirrorCapture.openSettings() }
+                    VStack(alignment: .trailing, spacing: 6) {
+                        SmallButton(title: "Abrir Ajustes", icon: "gear") { MirrorCapture.openSettings() }
+                        SmallButton(title: "Ya lo activé — comprobar", icon: "checkmark") { MirrorCapture.refreshPermission() }
+                    }
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.amber.opacity(0.12)))
