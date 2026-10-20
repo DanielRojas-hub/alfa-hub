@@ -139,41 +139,50 @@ Assert-Running
 $script:hub = Find-ByName $UIA::RootElement 'Alfa Hub' 20
 $script:hwnd = [IntPtr] $script:hub.Current.NativeWindowHandle
 Write-Host "Hub: $([Shot]::Size($script:hwnd))"
-# Arriba del todo: PrintWindow captura la ventana entera aunque no quepa en la pantalla del runner.
-[void] [Shot]::SetWindowPos($script:hwnd, [IntPtr]::Zero, 40, 0, 0, 0, 0x5)  # mover (NOSIZE | NOZORDER)
+# Arriba a la izquierda, para que quepa entera en la pantalla del runner (1024×768).
+[void] [Shot]::SetWindowPos($script:hwnd, [IntPtr]::Zero, 0, 0, 0, 0, 0x5)  # mover (NOSIZE | NOZORDER)
 [void] [Shot]::SetForegroundWindow($script:hwnd)
 Start-Sleep -Seconds 1
 
-Capture-Hub '01-hub-ciclo-y-sonido.png'
-Click 'Overlay'
-Capture-Hub '02-hub-overlay.png'
-$r = $script:hub.Current.BoundingRectangle
-[Shot]::Wheel([int]($r.X + $r.Width / 2), [int]($r.Y + $r.Height - 120), -15)
-Start-Sleep -Milliseconds 800
-Capture-Hub '02b-hub-overlay-colores.png'
-Click 'Atajos'
-Capture-Hub '03-hub-atajos.png'
-Click 'Ciclo y sonido'
+Capture-Hub '01-timers.png'
 
-# Timer en marcha y en alerta (ciclo de 1:00: la alerta empieza a los 35 s).
+# Pez a 01:00 (la alerta empieza a los 35 s) y en marcha desde su editor.
+Click 'Editar Pez'
 Click '01:00'
+Capture-Hub '02-editor-pez.png'
 Click '▶  Iniciar'
-Start-Sleep -Seconds 3
-Capture-Hub '04-tarjeta-en-marcha.png'
-Start-Sleep -Seconds 35
-Capture-Hub '05-tarjeta-alerta.png'
+$pezStart = Get-Date
+Click '‹  Volver a Timers'
+
+# Pilar (rotación) en marcha desde la lista.
+Click 'Iniciar Pilar'
+Start-Sleep -Seconds 2
+Capture-Hub '03-timers-en-marcha.png'
+Click 'Editar Pilar'
+Capture-Hub '04-editor-pilar.png'
+Click '‹  Volver a Timers'
+Click 'Editar Bakragore'
+Capture-Hub '05-editor-bakragore.png'
+Click '‹  Volver a Timers'
 Assert-Running
 
-# El overlay solo aparece con Tibia al frente; desbloqueado se ve siempre (borde ámbar).
+# Overlay: sin Tibia solo se ve desbloqueado (borde ámbar). Debe mostrar Pez y Pilar apilados.
 Click 'Overlay'
+Capture-Hub '06-overlay.png'
 Toggle 'Desbloquear para moverlo'
-Start-Sleep -Seconds 2
-[Shot]::Screen((Join-Path $Out '06-pantalla-overlay-desbloqueado.png'))
-Write-Host 'captura: 06-pantalla-overlay-desbloqueado.png'
+$wait = 37 - ((Get-Date) - $pezStart).TotalSeconds
+if ($wait -gt 0) { Start-Sleep -Seconds $wait }
+[Shot]::Screen((Join-Path $Out '07-pantalla-overlay-dos-timers-alerta.png'))
+Write-Host 'captura: 07-pantalla-overlay-dos-timers-alerta.png'
 Toggle 'Desbloquear para moverlo'
 Start-Sleep -Seconds 1
-[Shot]::Screen((Join-Path $Out '07-pantalla-overlay-bloqueado.png'))
-Write-Host 'captura: 07-pantalla-overlay-bloqueado.png (sin Tibia, el overlay no debe verse)'
+[Shot]::Screen((Join-Path $Out '08-pantalla-overlay-bloqueado.png'))
+Write-Host 'captura: 08-pantalla-overlay-bloqueado.png (sin Tibia, el overlay no debe verse)'
+
+Click 'Atajos'
+Capture-Hub '09-atajos.png'
+Click 'Sonido'
+Capture-Hub '10-sonido.png'
 
 Assert-Running
 Stop-Process -Id $script:process.Id

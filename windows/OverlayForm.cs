@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -12,24 +13,38 @@ namespace AlfaHub
     {
         public static Font MakeFont(float zoom) => new Font("Consolas", 28f * zoom, FontStyle.Bold, GraphicsUnit.Pixel);
 
-        public static Size Measure(float zoom)
+        public static Font MakeLabelFont(float zoom) => new Font("Segoe UI Semibold", 12f * zoom, GraphicsUnit.Pixel);
+
+        static SizeF MeasureText(string text, Font font)
         {
-            using (var font = MakeFont(zoom))
             using (var bmp = new Bitmap(1, 1))
             using (var g = Graphics.FromImage(bmp))
+                return g.MeasureString(text, font, PointF.Empty, StringFormat.GenericTypographic);
+        }
+
+        /// Tamaño de un contador de 5 caracteres ("00:00"), para la vista previa.
+        public static Size Measure(float zoom) => Measure(zoom, "00:00", null);
+
+        public static Size Measure(float zoom, string text, string label)
+        {
+            using (var font = MakeFont(zoom))
+            using (var labelFont = MakeLabelFont(zoom))
             {
-                SizeF text = g.MeasureString("00:00", font, PointF.Empty, StringFormat.GenericTypographic);
-                return new Size((int)Math.Ceiling(text.Width + 24 * zoom), (int)Math.Ceiling(text.Height + 8 * zoom));
+                SizeF t = MeasureText(text, font);
+                float w = t.Width + 24 * zoom;
+                if (label != null) w += MeasureText(label, labelFont).Width + 8 * zoom;
+                return new Size((int)Math.Ceiling(w), (int)Math.Ceiling(t.Height + 8 * zoom));
             }
         }
 
-        public static Bitmap Draw(Model model, float zoom, string text, bool critical, bool running, bool unlocked)
+        public static Bitmap Draw(Model model, float zoom, string text, bool critical, bool running, bool unlocked, string label = null)
         {
-            Size size = Measure(zoom);
+            Size size = Measure(zoom, text, label);
             bool alert = critical && running;
             var bmp = new Bitmap(size.Width, size.Height, PixelFormat.Format32bppArgb);
             using (var g = Graphics.FromImage(bmp))
             using (var font = MakeFont(zoom))
+            using (var labelFont = MakeLabelFont(zoom))
             {
                 g.Clear(Color.Transparent);
                 g.SmoothingMode = SmoothingMode.AntiAlias;
@@ -50,16 +65,29 @@ namespace AlfaHub
                             g.DrawPath(pen, shape);
                 }
 
-                Color color = critical ? model.AlertColor : model.CounterColor;
-                if (!running) color = Color.FromArgb(153, color);
+                float x = 12 * zoom;
+                int alpha = running ? 255 : 153;
                 using (var path = new GraphicsPath())
                 {
-                    path.AddString(text, font.FontFamily, (int)FontStyle.Bold, font.Size,
-                        new PointF(12 * zoom, 4 * zoom), StringFormat.GenericTypographic);
+                    if (label != null)
+                    {
+                        SizeF l = MeasureText(label, labelFont);
+                        float baseline = 4 * zoom + MeasureText(text, font).Height * 0.62f - l.Height * 0.62f;
+                        path.AddString(label, labelFont.FontFamily, (int)FontStyle.Bold, labelFont.Size,
+                            new PointF(x, baseline), StringFormat.GenericTypographic);
+                        if (bare)
+                            using (var outline = new Pen(Color.FromArgb(210, 0, 0, 0), 2.5f * zoom) { LineJoin = LineJoin.Round })
+                                g.DrawPath(outline, path);
+                        using (var brush = new SolidBrush(Color.FromArgb(alpha * 220 / 255, Color.White))) g.FillPath(brush, path);
+                        x += l.Width + 8 * zoom;
+                        path.Reset();
+                    }
+                    Color color = critical ? model.AlertColor : model.CounterColor;
+                    path.AddString(text, font.FontFamily, (int)FontStyle.Bold, font.Size, new PointF(x, 4 * zoom), StringFormat.GenericTypographic);
                     if (bare)
                         using (var outline = new Pen(Color.FromArgb(210, 0, 0, 0), 3f * zoom) { LineJoin = LineJoin.Round })
                             g.DrawPath(outline, path);
-                    using (var brush = new SolidBrush(color)) g.FillPath(brush, path);
+                    using (var brush = new SolidBrush(Color.FromArgb(alpha, color))) g.FillPath(brush, path);
                 }
             }
             return bmp;
@@ -118,7 +146,11 @@ namespace AlfaHub
 
         float Zoom => (float)(model.OverlayScale * DeviceDpi / 96.0);
 
-        public Size MeasureSize() => CounterRenderer.Measure(Zoom);
+        /// Tamaño actual del overlay (todos los contadores visibles).
+        public Size MeasureSize()
+        {
+            using (var bmp = Compose(out _)) return bmp.Size;
+        }
 
         public void SetUnlocked(bool value)
         {
@@ -164,20 +196,64 @@ namespace AlfaHub
         public void Render(bool force = false)
         {
             if (!IsHandleCreated) return;
-            bool alert = model.Critical && model.Running;
-            string text = Model.Mmss(model.Remaining);
-            string signature = string.Join("|", text, model.Critical, model.Running, unlocked, model.OverlayScale,
-                model.OverlayOpacity, model.CounterColor.ToArgb(), model.AlertColor.ToArgb(), model.BackgroundColor.ToArgb());
-            if (!force && !alert && signature == lastSignature) return;
+            var runs = model.OverlayRuns;
+            bool anyAlert = runs.Any(r => r.Display.Critical && r.Running);
+            string signature = string.Join("|", runs.Select(r => r.Id + r.Display.Signature + r.Running + r.Config.Name))
+                + string.Join("|", unlocked, model.OverlayScale, model.OverlayOpacity, model.CounterColor.ToArgb(),
+                    model.AlertColor.ToArgb(), model.BackgroundColor.ToArgb());
+            if (!force && !anyAlert && signature == lastSignature) return;
             lastSignature = signature;
 
-            using (var bmp = CounterRenderer.Draw(model, Zoom, text, model.Critical, model.Running, unlocked))
-                Push(bmp, (byte)Math.Round(255 * model.OverlayOpacity * CounterRenderer.Pulse(alert)));
+            using (var bmp = Compose(out _))
+                Push(bmp, (byte)Math.Round(255 * model.OverlayOpacity));
+        }
+
+        /// Dibuja los contadores de los timers visibles, uno debajo de otro y alineados a la derecha.
+        /// Los que están en alerta parpadean (cada uno por separado).
+        Bitmap Compose(out int count)
+        {
+            var runs = model.OverlayRuns;
+            count = runs.Count;
+            bool showNames = runs.Count > 1;
+            float zoom = Zoom;
+            var badges = runs.Select(r => new
+            {
+                Bitmap = CounterRenderer.Draw(model, zoom, r.Display.Text, r.Display.Critical, r.Running, unlocked,
+                    showNames ? r.Config.Name : null),
+                Pulse = (float)CounterRenderer.Pulse(r.Display.Critical && r.Running),
+            }).ToList();
+            int gap = (int)(4 * zoom);
+            int width = badges.Max(b => b.Bitmap.Width);
+            int height = badges.Sum(b => b.Bitmap.Height) + gap * (badges.Count - 1);
+            var result = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(result))
+            {
+                g.Clear(Color.Transparent);
+                int y = 0;
+                foreach (var b in badges)
+                {
+                    using (var attributes = new ImageAttributes())
+                    {
+                        attributes.SetColorMatrix(new ColorMatrix { Matrix33 = b.Pulse });
+                        g.DrawImage(b.Bitmap, new Rectangle(width - b.Bitmap.Width, y, b.Bitmap.Width, b.Bitmap.Height),
+                            0, 0, b.Bitmap.Width, b.Bitmap.Height, GraphicsUnit.Pixel, attributes);
+                    }
+                    y += b.Bitmap.Height + gap;
+                    b.Bitmap.Dispose();
+                }
+            }
+            return result;
         }
 
         void Push(Bitmap bmp, byte alpha)
         {
-            if (Size != bmp.Size) Size = bmp.Size;
+            if (Size != bmp.Size)
+            {
+                // Crece o encoge hacia la izquierda: el borde derecho queda fijo (suele estar en la esquina).
+                int right = Left + Width;
+                Size = bmp.Size;
+                if (right > 0) Left = right - bmp.Width;
+            }
             IntPtr screenDc = Native.GetDC(IntPtr.Zero);
             IntPtr memDc = Native.CreateCompatibleDC(screenDc);
             IntPtr hBitmap = bmp.GetHbitmap(Color.FromArgb(0));

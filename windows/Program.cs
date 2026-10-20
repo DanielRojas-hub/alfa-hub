@@ -52,7 +52,7 @@ namespace AlfaHub
             hub.ShortcutsChanged += RegisterHotKeys;
             hub.RecordingShortcut += recording => { recordingShortcut = recording; RegisterHotKeys(); };
             hub.ResetOverlayPosition += PlaceOverlayTopRight;
-            hub.HotKeyPressed += id => Perform((HotKeyAction)id);
+            hub.HotKeyPressed += OnHotKey;
             hub.CreateControl();
             var _ = hub.Handle;  // los atajos globales se registran en esta ventana
 
@@ -76,8 +76,8 @@ namespace AlfaHub
         {
             var menu = new ContextMenuStrip();
             menu.Items.Add("Abrir Alfa Hub", null, (s, e) => ShowHub());
-            menu.Items.Add("Iniciar / pausar", null, (s, e) => Perform(HotKeyAction.Toggle));
-            menu.Items.Add("Reiniciar", null, (s, e) => Perform(HotKeyAction.Reset));
+            menu.Items.Add("Iniciar / pausar el timer elegido", null, (s, e) => { model.Toggle(model.Selected); hub.RefreshTimer(); });
+            menu.Items.Add("Reiniciar el timer elegido", null, (s, e) => { model.Reset(model.Selected); hub.RefreshTimer(); });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Salir", null, (s, e) => Quit());
             return menu;
@@ -88,7 +88,9 @@ namespace AlfaHub
             model.Tick();
             if (hub.Visible) hub.RefreshTimer();
 
-            if (tickCount++ % 5 == 0) tibiaInFront = TibiaInFront();  // cada 250 ms basta
+            if (tickCount % 5 == 0) tibiaInFront = TibiaInFront();  // cada 250 ms basta
+            if (tickCount % 20 == 0) model.TibiaRunning = TibiaRunning();  // cada segundo
+            tickCount++;
             bool show = model.OverlayVisible && (model.OverlayUnlocked || tibiaInFront);
             if (show) overlay.ShowOnTop();
             else overlay.HideOverlay();
@@ -103,38 +105,68 @@ namespace AlfaHub
                    && title.StartsWith("Tibia", StringComparison.OrdinalIgnoreCase);
         }
 
-        void Perform(HotKeyAction action)
+        /// Si el cliente de Tibia está abierto (para la barra superior). Usa la lista de procesos del
+        /// sistema y el título de su ventana, sin abrir el proceso de Tibia.
+        static bool TibiaRunning()
         {
-            switch (action)
+            foreach (var process in System.Diagnostics.Process.GetProcessesByName("client"))
             {
-                case HotKeyAction.Toggle: model.Toggle(); break;
-                case HotKeyAction.Reset: model.Reset(); break;
-                case HotKeyAction.Overlay:
-                    model.OverlayVisible = !model.OverlayVisible;
+                using (process)
+                {
+                    try { if (process.MainWindowTitle.StartsWith("Tibia", StringComparison.OrdinalIgnoreCase)) return true; }
+                    catch (InvalidOperationException) { }  // el proceso terminó
+                }
+            }
+            return false;
+        }
+
+        // Ids de RegisterHotKey: 1–2 atajos globales (GlobalAction) y 100 + n el timer n.
+        const int TimerHotKeyBase = 100;
+
+        void OnHotKey(int id)
+        {
+            if (id >= TimerHotKeyBase)
+            {
+                int index = id - TimerHotKeyBase;
+                if (index < model.Runs.Count) model.Toggle(model.Runs[index]);
+            }
+            else
+            {
+                model.Perform((GlobalAction)id);
+                if ((GlobalAction)id == GlobalAction.Overlay)
+                {
                     model.Save();
                     hub.OnOverlayVisibilityToggled();
-                    break;
+                }
             }
             hub.RefreshTimer();
             overlay.Render(force: true);
         }
 
+        void UnregisterAll()
+        {
+            foreach (GlobalAction action in Enum.GetValues(typeof(GlobalAction))) Native.UnregisterHotKey(hub.Handle, (int)action);
+            for (int i = 0; i < Model.MaxTimers; i++) Native.UnregisterHotKey(hub.Handle, TimerHotKeyBase + i);
+        }
+
         void RegisterHotKeys()
         {
-            foreach (HotKeyAction action in Enum.GetValues(typeof(HotKeyAction)))
-                Native.UnregisterHotKey(hub.Handle, (int)action);
+            UnregisterAll();
             if (recordingShortcut) return;  // mientras se graba, cualquier combinación debe llegar al hub
 
+            var bindings = new System.Collections.Generic.List<(int id, Keys keys)>();
+            foreach (var pair in model.GlobalShortcuts) bindings.Add(((int)pair.Key, pair.Value));
+            for (int i = 0; i < model.Runs.Count; i++) bindings.Add((TimerHotKeyBase + i, (Keys)model.Runs[i].Config.Shortcut));
+
             var failed = new System.Collections.Generic.List<string>();
-            foreach (var pair in model.Shortcuts)
+            foreach (var (id, keys) in bindings)
             {
-                Keys keys = pair.Value;
                 if (keys == Keys.None) continue;
                 uint mods = Native.MOD_NOREPEAT;
                 if ((keys & Keys.Control) != 0) mods |= Native.MOD_CONTROL;
                 if ((keys & Keys.Alt) != 0) mods |= Native.MOD_ALT;
                 if ((keys & Keys.Shift) != 0) mods |= Native.MOD_SHIFT;
-                if (!Native.RegisterHotKey(hub.Handle, (int)pair.Key, mods, (uint)(keys & Keys.KeyCode)))
+                if (!Native.RegisterHotKey(hub.Handle, id, mods, (uint)(keys & Keys.KeyCode)))
                     failed.Add(Model.Describe(keys));
             }
             if (failed.Count > 0)
@@ -177,8 +209,7 @@ namespace AlfaHub
         void Quit()
         {
             ticker.Stop();
-            foreach (HotKeyAction action in Enum.GetValues(typeof(HotKeyAction)))
-                Native.UnregisterHotKey(hub.Handle, (int)action);
+            UnregisterAll();
             model.Save();
             tray.Visible = false;
             tray.Dispose();

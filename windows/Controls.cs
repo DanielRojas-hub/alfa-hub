@@ -337,6 +337,44 @@ namespace AlfaHub
         }
     }
 
+    /// Campo de texto oscuro y redondeado.
+    sealed class TextField : PaintedControl
+    {
+        readonly TextBox box = new TextBox();
+
+        public event EventHandler TextCommitted;
+
+        public TextField()
+        {
+            Size = new Size(170, 26);
+            box.BorderStyle = BorderStyle.None;
+            box.TextAlign = HorizontalAlignment.Right;
+            box.BackColor = Theme.Field;
+            box.ForeColor = Color.White;
+            box.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { TextCommitted?.Invoke(this, EventArgs.Empty); e.SuppressKeyPress = true; } };
+            box.Leave += (s, e) => TextCommitted?.Invoke(this, EventArgs.Empty);
+            Controls.Add(box);
+        }
+
+        public string Value { get => box.Text; set => box.Text = value; }
+
+        protected override void OnLayout(LayoutEventArgs e)
+        {
+            base.OnLayout(e);
+            int pad = (int)(8 * K);
+            box.Font = Font;
+            box.SetBounds(pad, (Height - box.PreferredHeight) / 2, Width - pad * 2, box.PreferredHeight);
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = Begin(e);
+            var r = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
+            Fill(g, r, 5 * K, Theme.Field);
+            Stroke(g, r, 5 * K, Color.FromArgb(40, 255, 255, 255));
+        }
+    }
+
     /// Flechas ⌃⌄ en una cápsula, como el Stepper de macOS.
     sealed class StepperArrows : PaintedControl
     {
@@ -479,6 +517,9 @@ namespace AlfaHub
                 SelectedIndexChanged?.Invoke(value);
             }
         }
+
+        /// Cambia la opción elegida sin avisar (para sincronizar con el modelo).
+        public void SetSelected(int index) { selected = index; Restyle(); }
 
         void Restyle()
         {
