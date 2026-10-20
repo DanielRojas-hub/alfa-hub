@@ -65,6 +65,12 @@ namespace AlfaHub
     {
         Color fill = Theme.ControlFill;
         bool hover, pressed;
+        string caption;
+
+        /// Texto que se dibuja, si es distinto del nombre del control (Text). Así un botón "▶" puede
+        /// llamarse "Iniciar Pez" para UI Automation y lectores de pantalla.
+        public string Caption { get => caption; set { caption = value; Refit(); Invalidate(); } }
+        string Shown => caption ?? Text;
 
         public RoundButton()
         {
@@ -93,7 +99,7 @@ namespace AlfaHub
 
         void Refit()
         {
-            if (fitPadding >= 0) Width = TextRenderer.MeasureText(Text, Font).Width + (int)(fitPadding * 2 * K);
+            if (fitPadding >= 0) Width = TextRenderer.MeasureText(Shown, Font).Width + (int)(fitPadding * 2 * K);
         }
 
         protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); Refit(); }
@@ -126,7 +132,7 @@ namespace AlfaHub
             if (Enabled && (hover || pressed)) Fill(g, r, radius, Color.FromArgb(pressed ? 18 : 30, 255, 255, 255));
             if (BorderColor != Color.Empty) Stroke(g, r, radius, BorderColor);
             Color text = Enabled ? ForeColor : Color.FromArgb(110, ForeColor);
-            CenterText(g, Text, Font, text, new RectangleF(0, 0, Width, Height));
+            CenterText(g, Shown, Font, text, new RectangleF(0, 0, Width, Height));
         }
     }
 

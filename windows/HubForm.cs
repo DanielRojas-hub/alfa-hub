@@ -885,13 +885,10 @@ namespace AlfaHub
             this.run = run;
             BackColor = Theme.Back;
             toggle = new RoundButton { Pill = true, Size = new Size(30, 30), BackColor = Theme.Row };
-            reset = new RoundButton { Text = "↺", Pill = true, Size = new Size(30, 30), FillColor = Theme.ControlFill, BackColor = Theme.Row };
-            reset.AccessibleName = "Reiniciar " + run.Config.Name;
-            edit = new RoundButton { Text = "✎  Editar", Height = 28, FillColor = Theme.ControlFill, BackColor = Theme.Row };
+            reset = new RoundButton { Caption = "↺", Text = "Reiniciar " + run.Config.Name, Pill = true, Size = new Size(30, 30), FillColor = Theme.ControlFill, BackColor = Theme.Row };
+            edit = new RoundButton { Caption = "✎  Editar", Text = "Editar " + run.Config.Name, Height = 28, FillColor = Theme.ControlFill, BackColor = Theme.Row };
             edit.FitText(11);
-            edit.AccessibleName = "Editar " + run.Config.Name;
-            more = new RoundButton { Text = "⋮", Size = new Size(22, 28), FillColor = Theme.Row, BackColor = Theme.Row };
-            more.AccessibleName = "Más opciones " + run.Config.Name;
+            more = new RoundButton { Caption = "⋮", Text = "Más opciones " + run.Config.Name, Size = new Size(22, 28), FillColor = Theme.Row, BackColor = Theme.Row };
             toggle.Click += (s, e) => ToggleClicked?.Invoke();
             reset.Click += (s, e) => ResetClicked?.Invoke();
             edit.Click += (s, e) => EditClicked?.Invoke();
@@ -914,9 +911,9 @@ namespace AlfaHub
 
         public void UpdateState()
         {
-            toggle.Text = run.Running ? "❚❚" : "▶";
+            toggle.Caption = run.Running ? "❚❚" : "▶";
+            toggle.Text = (run.Running ? "Pausar " : "Iniciar ") + run.Config.Name;
             toggle.FillColor = run.Running ? Theme.Amber : Theme.Blue;
-            toggle.AccessibleName = (run.Running ? "Pausar " : "Iniciar ") + run.Config.Name;
             string state = run.Display.Signature + run.Running + run.Started + (model.SelectedId == run.Id) + run.Config.Name + run.Summary;
             if (state != lastState || (run.Display.Critical && run.Running))
             {
