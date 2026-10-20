@@ -230,7 +230,7 @@ namespace AlfaHub
         {
             string q = search.Text.Trim();
             shown = catalog.SortedOutfits.Where(i => q.Length == 0 || catalog.Title(i).IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-            Fill(list, shown, catalog.Title, state.Draft.Outfit);
+            Fill(list, shown, i => catalog.Title(i), state.Draft.Outfit);
         }
 
         void FillMounts()
