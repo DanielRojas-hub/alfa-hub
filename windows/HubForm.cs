@@ -1071,7 +1071,7 @@ namespace AlfaHub
             reset = new RoundButton { Caption = "↺", Text = "Reiniciar " + run.Config.Name, Pill = true, Size = new Size(30, 30), FillColor = Theme.ControlFill, BackColor = Theme.Row };
             edit = new RoundButton { Caption = "✎  Editar", Text = "Editar " + run.Config.Name, Height = 28, FillColor = Theme.ControlFill, BackColor = Theme.Row };
             edit.FitText(11);
-            more = new RoundButton { Caption = "⋮", Text = "Más opciones " + run.Config.Name, Size = new Size(22, 28), FillColor = Theme.Row, BackColor = Theme.Row };
+            more = new RoundButton { Caption = "⋮", Text = "Más opciones " + run.Config.Name, Pill = true, Size = new Size(30, 30), FillColor = Theme.Row, BackColor = Theme.Row };
             toggle.Click += (s, e) => ToggleClicked?.Invoke();
             reset.Click += (s, e) => ResetClicked?.Invoke();
             edit.Click += (s, e) => EditClicked?.Invoke();
@@ -1080,7 +1080,7 @@ namespace AlfaHub
                 var menu = DarkMenu.Create();
                 menu.Items.Add("Duplicar", null, (a, b) => DuplicateClicked?.Invoke());
                 if (model.Runs.Count > 1) menu.Items.Add("Eliminar", null, (a, b) => DeleteClicked?.Invoke());
-                menu.Show(more, new Point(0, more.Height));
+                menu.Show(more, new Point(0, more.Height + 2));
             };
             Controls.AddRange(new Control[] { toggle, reset, edit, more });
             Cursor = Cursors.Hand;
@@ -1173,7 +1173,7 @@ namespace AlfaHub
             opacityLabel = new Caption($"{mirror.Opacity} %") { Width = 44, BackColor = Theme.Row };
             edit = new RoundButton { Caption = "✎  Editar", Text = "Editar " + mirror.Name, Height = 28, FillColor = Theme.ControlFill, BackColor = Theme.Row };
             edit.FitText(11);
-            more = new RoundButton { Caption = "⋮", Text = "Más opciones " + mirror.Name, Size = new Size(22, 28), FillColor = Theme.Row, BackColor = Theme.Row };
+            more = new RoundButton { Caption = "⋮", Text = "Más opciones " + mirror.Name, Pill = true, Size = new Size(30, 30), FillColor = Theme.Row, BackColor = Theme.Row };
             visible.CheckedChanged += (s, e) => { mirror.Visible = visible.Checked; Invalidate(); Changed?.Invoke(); };
             opacity.ValueChanged += (s, e) => { mirror.Opacity = opacity.Value; opacityLabel.Text = $"{opacity.Value} %"; Changed?.Invoke(); };
             edit.Click += (s, e) => EditClicked?.Invoke();
@@ -1182,7 +1182,7 @@ namespace AlfaHub
                 var menu = DarkMenu.Create();
                 menu.Items.Add("Volver a elegir la región", null, (a, b) => ReselectClicked?.Invoke());
                 menu.Items.Add("Eliminar", null, (a, b) => DeleteClicked?.Invoke());
-                menu.Show(more, new Point(0, more.Height));
+                menu.Show(more, new Point(0, more.Height + 2));
             };
             Controls.AddRange(new Control[] { visible, opacity, opacityLabel, edit, more });
         }

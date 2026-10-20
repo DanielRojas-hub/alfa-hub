@@ -132,6 +132,19 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate, SCContent
         }
     }
 
+    /// Apaga el selector del sistema (y olvida la ventana elegida): quita su indicador de la barra de menús.
+    func deactivatePicker() {
+        guard observingPicker || pickedFilter != nil else { return }
+        stop()
+        pickedFilter = nil
+        let picker = SCContentSharingPicker.shared
+        picker.isActive = false
+        if observingPicker {
+            picker.remove(self)
+            observingPicker = false
+        }
+    }
+
     nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {}
     nonisolated func contentSharingPickerStartDidFailWithError(_ error: Error) {}
 
@@ -312,6 +325,10 @@ final class MirrorController {
     private var panels: [UUID: MirrorPanel] = [:]
     private var bag = Set<AnyCancellable>()
     private var tibiaFrame: CGRect?
+    /// Última vez que algún espejo estaba a la vista (para no parar la captura en cambios rápidos de ventana).
+    private var lastShown = Date.distantPast
+    /// Segundos que sigue la captura después de que ningún espejo esté a la vista.
+    private static let idleStop: TimeInterval = 5
 
     init(model: HubModel) {
         self.model = model
@@ -341,6 +358,9 @@ final class MirrorController {
             panels[id]?.orderOut(nil)
             panels[id] = nil
         }
+        // Sin espejos (o con la captura automática) el selector del sistema no hace falta.
+        if model.mirrors.isEmpty || !model.mirrorPickerMode { capture.deactivatePicker() }
+        var anyShown = false
         for config in model.mirrors {
             let panel = panels[config.id] ?? makePanel(config.id)
             let show = model.mirrorsVisible && config.visible && (model.mirrorsUnlocked || (tibiaActive && tibiaFrame != nil))
@@ -349,15 +369,18 @@ final class MirrorController {
                 : model.mirrorPickerMode ? "Elige la ventana de Tibia" : "Falta el permiso de Grabación de pantalla"
             panel.apply(config, unlocked: model.mirrorsUnlocked, message: message)
             if show {
+                anyShown = true
                 if !panel.isVisible { panel.orderFrontRegardless() }
             } else if panel.isVisible {
                 panel.orderOut(nil)
             }
         }
-        // La captura sigue en marcha mientras haya espejos activos, aunque Tibia no esté al frente:
-        // pararla y arrancarla en cada cambio de ventana hacía parpadear el indicador de "compartiendo".
-        let wanted = model.mirrorsVisible && model.mirrors.contains(where: \.visible)
-        if wanted && tibiaFrame != nil && ready { capture.start() } else { capture.stop() }
+        // La captura solo funciona mientras algún espejo está a la vista. Al dejar de estarlo sigue unos
+        // segundos más: así los cambios rápidos de ventana no la paran y arrancan (el indicador de
+        // "compartiendo" parpadeaba), pero no se queda grabando sin nada que mostrar.
+        if anyShown { lastShown = Date() }
+        let recentlyShown = Date().timeIntervalSince(lastShown) < Self.idleStop
+        if recentlyShown && tibiaFrame != nil && ready { capture.start() } else { capture.stop() }
     }
 
     private func makePanel(_ id: UUID) -> MirrorPanel {
@@ -584,13 +607,12 @@ struct MirrorRow: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
-            Menu {
-                Button("Volver a elegir la región", action: reselect)
-                Button("Eliminar", role: .destructive) { model.mirrors.removeAll { $0.id == mirror.id } }
-            } label: {
-                Image(systemName: "ellipsis").rotationEffect(.degrees(90)).frame(width: 18, height: 26)
+            MoreButton {
+                [
+                    .init(title: "Volver a elegir la región", action: reselect),
+                    .init(title: "Eliminar", destructive: true) { model.mirrors.removeAll { $0.id == mirror.id } },
+                ]
             }
-            .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain).fixedSize()
         }
         .padding(.vertical, 12).padding(.leading, 10).padding(.trailing, 12)
         .background(

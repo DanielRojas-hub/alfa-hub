@@ -1110,18 +1110,11 @@ struct TimerRow: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
-            Menu {
-                Button("Duplicar") { model.duplicate(run) }
-                if model.runs.count > 1 {
-                    Button("Eliminar", role: .destructive) { model.remove(run) }
-                }
-            } label: {
-                Image(systemName: "ellipsis").rotationEffect(.degrees(90)).frame(width: 18, height: 26)
+            MoreButton {
+                var items = [MoreButton.Item(title: "Duplicar") { model.duplicate(run) }]
+                if model.runs.count > 1 { items.append(.init(title: "Eliminar", destructive: true) { model.remove(run) }) }
+                return items
             }
-            .menuStyle(.button)
-            .menuIndicator(.hidden)
-            .buttonStyle(.plain)
-            .fixedSize()
         }
         .padding(.vertical, 12)
         .padding(.leading, 10)
@@ -1150,6 +1143,58 @@ struct TimerRow: View {
         parts.append(c.shortcut?.display ?? "Sin atajo")
         parts.append(c.soundPath.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent } ?? "Beep")
         return parts.joined(separator: " · ")
+    }
+}
+
+/// Botón ⋮: responde en toda su superficie (30 × 30) y abre un menú nativo donde se hace clic.
+/// (Un Menu de SwiftUI con estilo plano solo respondía sobre el dibujo de los puntos.)
+struct MoreButton: View {
+    struct Item {
+        let title: String
+        var destructive = false
+        let action: () -> Void
+    }
+
+    let items: () -> [Item]
+    @State private var hover = false
+
+    var body: some View {
+        Button { MenuPresenter.show(items()) } label: {
+            Image(systemName: "ellipsis")
+                .rotationEffect(.degrees(90))
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(Color.white.opacity(hover ? 0.12 : 0)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help("Más opciones")
+    }
+}
+
+@MainActor
+enum MenuPresenter {
+    private final class Target: NSObject {
+        let action: () -> Void
+        init(_ action: @escaping () -> Void) { self.action = action }
+        @objc func run() { DispatchQueue.main.async(execute: action) }
+    }
+
+    static func show(_ items: [MoreButton.Item]) {
+        let menu = NSMenu()
+        let targets = items.map { Target($0.action) }
+        for (item, target) in zip(items, targets) {
+            let menuItem = NSMenuItem(title: item.title, action: #selector(Target.run), keyEquivalent: "")
+            menuItem.target = target
+            if item.destructive {
+                menuItem.attributedTitle = NSAttributedString(string: item.title, attributes: [.foregroundColor: NSColor.systemRed])
+            }
+            menu.addItem(menuItem)
+        }
+        // popUp espera a que se cierre el menú, así que los destinos siguen vivos mientras tanto.
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        withExtendedLifetime(targets) {}
     }
 }
 
