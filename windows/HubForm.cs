@@ -256,9 +256,11 @@ namespace AlfaHub
             presetButton.Click += (s, e) => PresetMenu(p => { Model.ApplyPreset(run, p); Changed?.Invoke(); Rebuild(); })
                 .Show(presetButton, new Point(0, presetButton.Height + 4));
 
+            var backRow = new FormRow(null, back, RowLayout.Leading, 28) { BackColor = Theme.Back, Margin = new Padding(-12, 0, 0, 0) };
+            back.BackColor = Theme.Back;
             var items = new List<Control>
             {
-                back, hero,
+                backRow, hero,
                 new SectionHeader("Timer"),
                 new SectionCard(Row("Nombre", name), Row("Tipo", kind), new FormRow(null, presetButton, RowLayout.Leading)),
             };
