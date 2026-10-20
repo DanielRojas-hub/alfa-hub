@@ -248,11 +248,15 @@ $ed = (Find-ByName $script:hub 'Editor de outfit').Current.BoundingRectangle
 Start-Sleep -Milliseconds 500
 [System.Windows.Forms.SendKeys]::SendWait('knight{ENTER}')
 Start-Sleep -Seconds 6
+Toggle 'Montura'
+Toggle 'Animar caminata'
+Start-Sleep -Seconds 6
 Capture-Hub '08g-outfit-knight.png'
+Write-Host 'captura: 08g (Knight montado y caminando; ícono aún sin cambiar)'
+Click '✓  Guardar cambios'
+Start-Sleep -Seconds 3
 [Shot]::Screen((Join-Path $Out '08h-pantalla-outfit-iconos.png'))
-Write-Host 'captura: 08h (ícono de la barra de tareas y bandeja con el Knight)'
-Click '↺  Personaje original'
-Start-Sleep -Seconds 1
+Write-Host 'captura: 08h (ícono de la barra de tareas y bandeja con el Knight tras Guardar cambios)'
 Assert-Running
 
 Click 'Atajos'

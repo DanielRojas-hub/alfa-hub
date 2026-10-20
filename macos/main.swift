@@ -893,67 +893,14 @@ extension Color {
     static let rowBackground = Color.white.opacity(0.05)
 }
 
-/// Nube de diálogo con la punta hacia el personaje (abajo o a la derecha).
-struct BubbleShape: Shape {
-    var tailAtBottom = false
-    var tail: CGFloat = 9
-
-    func path(in rect: CGRect) -> Path {
-        if tailAtBottom {
-            let body = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height - tail)
-            var path = Path(roundedRect: body, cornerRadius: min(12, body.height / 2))
-            path.move(to: CGPoint(x: body.midX - 7, y: body.maxY - 1))
-            path.addLine(to: CGPoint(x: body.midX + 2, y: rect.maxY))
-            path.addLine(to: CGPoint(x: body.midX + 6, y: body.maxY - 1))
-            path.closeSubpath()
-            return path
-        }
-        let body = CGRect(x: rect.minX, y: rect.minY, width: rect.width - tail, height: rect.height)
-        var path = Path(roundedRect: body, cornerRadius: min(12, body.height / 2))
-        path.move(to: CGPoint(x: body.maxX - 1, y: body.midY - 6))
-        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: body.midY + 4), control: CGPoint(x: body.maxX + 3, y: body.midY))
-        path.addQuadCurve(to: CGPoint(x: body.maxX - 1, y: body.midY + 6), control: CGPoint(x: body.maxX + 2, y: body.midY + 6))
-        path.closeSubpath()
-        return path
-    }
-}
-
-struct SpeechBubble: View {
-    let text: String
-    var tailAtBottom = false
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .foregroundStyle(Color(white: 0.1))
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 12)
-            .padding(.top, 7)
-            .padding(.bottom, tailAtBottom ? 16 : 7)  // 7 + punta
-            .padding(.trailing, tailAtBottom ? 0 : 9)
-            .background(BubbleShape(tailAtBottom: tailAtBottom).fill(Color(white: 0.96)).shadow(color: .black.opacity(0.35), radius: 3, y: 1))
-            .fixedSize()
-    }
-}
-
-/// El personaje con su frase, al pie de la barra lateral.
+/// El personaje guardado (caminando si se eligió), al pie de la barra lateral.
 struct Mascot: View {
     @ObservedObject var outfit: OutfitManager
 
     var body: some View {
-        VStack(spacing: 2) {
-            SpeechBubble(text: "Slayer macaco e mielda", tailAtBottom: true)
-            if let sprite = outfit.sprite, !outfit.isOriginal {
-                // Grande como el original; los sprites con montura se reducen para caber.
-                PixelSprite(image: sprite, scale: min(2, 170 / CGFloat(max(sprite.width, sprite.height))))
-            } else if let characterImage {
-                Image(nsImage: characterImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .frame(width: characterImage.size.width * 2, height: characterImage.size.height * 2)
-            }
-        }
-        .frame(maxWidth: .infinity)
+        // Grande como el original (×2); los sprites con montura se reducen para caber.
+        CharacterView(sprite: outfit.isOriginal ? nil : outfit.current, maxScale: 2, maxSide: 170)
+            .frame(maxWidth: .infinity)
     }
 }
 
@@ -2046,7 +1993,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // El personaje elegido (al cambiarlo en la página Outfit también cambia el ícono de la app).
         OutfitIcons.apply(nil, statusItem: statusItem)
         outfit.onChange = { [weak self] sprite in OutfitIcons.apply(sprite, statusItem: self?.statusItem) }
-        if !outfit.isOriginal { outfit.render() }  // por si terminó de dibujarse antes de conectar onChange
+        if !outfit.isOriginal { outfit.renderSaved() }  // por si terminó de dibujarse antes de conectar onChange
         let menu = NSMenu()
         menu.addItem(withTitle: "Abrir Alfa Hub", action: #selector(showHub), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Iniciar / pausar el timer elegido", action: #selector(toggleTimer), keyEquivalent: "").target = self

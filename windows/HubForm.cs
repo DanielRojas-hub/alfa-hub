@@ -114,7 +114,11 @@ namespace AlfaHub
             topBar.OverlayToggled += () => { model.OverlayVisible = !model.OverlayVisible; Changed?.Invoke(); RefreshTimer(); };
             Outfit = new OutfitState(this);
             sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200, Character = () => Outfit.Display };
-            Outfit.Changed += () => sidebar.Invalidate();
+            Outfit.SavedChanged += () => sidebar.Invalidate();
+            // La caminata del personaje guardado, al pie de la barra lateral.
+            var walk = new System.Windows.Forms.Timer { Interval = 100 };
+            walk.Tick += (s, e) => { if (Outfit.Current?.Frames.Count > 0) sidebar.Invalidate(); };
+            walk.Start();
             sidebar.Navigate += p => { editingId = null; editingMirrorId = null; editingAudioId = null; ShowPage(p); };
 
             Controls.Add(content);
@@ -930,41 +934,13 @@ namespace AlfaHub
         {
             var g = Begin(e);
             float k = K;
-            // Personaje con su frase al pie de la barra.
+            // Personaje al pie de la barra.
             Image sprite = Character();
             // Como el original (×2); los sprites grandes (con montura) se reducen para caber.
             float scale = Math.Min(2f, 170f / Math.Max(sprite?.Width ?? 37, sprite?.Height ?? 35));
             float w = (sprite?.Width ?? 37) * scale * k, h = (sprite?.Height ?? 35) * scale * k;
             var spriteRect = new RectangleF((Width - w) / 2, Height - 14 * k - h, w, h);
             Resources.DrawPixelArt(g, sprite, spriteRect);
-
-            const string phrase = "Slayer macaco e mielda";
-            using (var font = new Font("Segoe UI", 12f * k, FontStyle.Bold, GraphicsUnit.Pixel))
-            {
-                SizeF text = g.MeasureString(phrase, font);
-                float padX = 11 * k, padY = 6 * k, tail = 8 * k;
-                float bw = text.Width + padX * 2, bh = text.Height + padY * 2;
-                var body = new RectangleF((Width - bw) / 2, spriteRect.Y - 4 * k - tail - bh, bw, bh);
-                using (var bubble = CounterRenderer.RoundedRect(body, Math.Min(12 * k, bh / 2)))
-                {
-                    float mid = body.X + body.Width / 2;
-                    bubble.AddPolygon(new[]
-                    {
-                        new PointF(mid - 7 * k, body.Bottom - 1),
-                        new PointF(mid + 2 * k, body.Bottom + tail),
-                        new PointF(mid + 6 * k, body.Bottom - 1),
-                    });
-                    using (var shadowPath = (GraphicsPath)bubble.Clone())
-                    using (var shadowBrush = new SolidBrush(Color.FromArgb(70, 0, 0, 0)))
-                    {
-                        shadowPath.Transform(new Matrix(1, 0, 0, 1, 0, 1.5f * k));
-                        g.FillPath(shadowBrush, shadowPath);
-                    }
-                    using (var fill = new SolidBrush(Color.FromArgb(245, 245, 247))) g.FillPath(fill, bubble);
-                }
-                using (var ink = new SolidBrush(Color.FromArgb(26, 26, 26)))
-                    g.DrawString(phrase, font, ink, body.X + padX, body.Y + padY);
-            }
         }
     }
 

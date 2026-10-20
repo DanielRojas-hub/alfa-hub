@@ -1,26 +1,33 @@
 // Outfiter: el personaje de Alfa Hub (ícono de la app, barra lateral y barra de menús) se elige como
 // en el Outfiter de TibiaWiki (https://tibia.fandom.com/wiki/Outfiter): outfit, sexo, addons, los
-// cuatro colores, orientación y montura.
+// cuatro colores, orientación, montura y la animación de caminata.
 //
 // Las hojas de sprites son las del wiki (páginas Outfiter:Male/…, Female/…, Other/… y Mount/…): se
 // descargan de su API la primera vez que se eligen y se guardan en caché. El dibujo sigue la misma
 // receta que MediaWiki:Outfiter.js: cuadrícula de 64 × 64; por orientación, una columna con el sprite y
 // otra con la máscara de colores (amarillo cabeza, rojo primario, verde secundario, azul detalle) que
 // se multiplica; filas 0–2 sprite, addon 1 y addon 2 (montado: las siguientes); rosa = transparente.
+// Cada fotograma repite ese bloque de filas: el 0 es el personaje quieto y los 8 siguientes la caminata
+// (algunos outfits y monturas tienen antes unos fotogramas de "quieto animado").
 
 import AppKit
 
-struct OutfitConfig: Codable, Equatable {
+struct OutfitConfig: Codable, Hashable {
     var outfit = 235          // Captains: el personaje original de Alfa Hub
     var female = false
     var addon1 = true
     var addon2 = false
     var c1 = 95, c2 = 95, c3 = 95, c4 = 114
     var facing = 2            // 0 norte, 1 este, 2 sur, 3 oeste
-    var mount = 0
+    var mount = 0             // montura elegida en la lista
+    var mounted = false       // montado encima (casilla Montura)
     var mc1 = 0, mc2 = 0, mc3 = 0, mc4 = 0
+    var animate = false       // caminar en la vista previa y en la barra lateral
 
     static let original = OutfitConfig()
+
+    /// La montura sobre la que va (0 = a pie).
+    var ridden: Int { mounted && OutfitCatalog.shared.canMount(outfit) ? mount : 0 }
 }
 
 extension OutfitConfig {
@@ -33,6 +40,8 @@ extension OutfitConfig {
         c1 = get(.c1, c1); c2 = get(.c2, c2); c3 = get(.c3, c3); c4 = get(.c4, c4)
         facing = get(.facing, facing); mount = get(.mount, mount)
         mc1 = get(.mc1, mc1); mc2 = get(.mc2, mc2); mc3 = get(.mc3, mc3); mc4 = get(.mc4, mc4)
+        animate = get(.animate, animate)
+        mounted = get(.mounted, mount > 0)  // antes, elegir montura era ir montado
     }
 }
 
@@ -48,6 +57,11 @@ struct OutfitCatalog: Decodable {
     let femaleSuffix: [String]
     let femaleNames: [String: String]
     let mountColor: [String]
+    let noRide: [String]                  // sin filas de montado
+    let standing: [String: Int]           // fotogramas de "quieto animado" antes de la caminata
+    let walking: [String: Int]            // fotogramas de caminata (si no son 8)
+    let mountStanding: [String: Int]
+    let mountWalking: [String: Int]
 
     static let shared: OutfitCatalog = {
         let url = Bundle.main.url(forResource: "outfits", withExtension: "json")
@@ -61,6 +75,8 @@ struct OutfitCatalog: Decodable {
     func canMount(_ id: Int) -> Bool { name(id).map { !noMount.contains($0) && $0 != "None" } ?? false }
     func canBeFemale(_ id: Int) -> Bool { name(id).map { !noFemale.contains($0) && !(100..<200).contains(id) } ?? false }
     func mountColorable(_ id: Int) -> Bool { id > 0 && id < mounts.count && mountColor.contains(mounts[id]) }
+    func canRide(_ id: Int) -> Bool { name(id).map { !noRide.contains($0) } ?? false }
+    func mountName(_ id: Int) -> String? { id > 0 && id < mounts.count ? mounts[id] : nil }
 
     /// Nombre para mostrar ("Captains", "Noblewoman"…).
     func title(_ id: Int, female: Bool = false) -> String {
@@ -88,6 +104,16 @@ struct OutfitCatalog: Decodable {
     }
 
     var sortedMounts: [Int] { [0] + mounts.indices.dropFirst().sorted { mountTitle($0) < mountTitle($1) } }
+
+    /// Descripción corta ("Captains · addon 1 · sobre Widow Queen") para la lista de presets.
+    func summary(_ c: OutfitConfig) -> String {
+        var parts = [title(c.outfit, female: c.female)]
+        if hasAddons(c.outfit) && (c.addon1 || c.addon2) {
+            parts.append(c.addon1 && c.addon2 ? "addons 1 y 2" : c.addon1 ? "addon 1" : "addon 2")
+        }
+        if c.ridden > 0 { parts.append("sobre \(mountTitle(c.ridden))") }
+        return parts.joined(separator: " · ")
+    }
 }
 
 // MARK: - Hojas de sprites
@@ -134,28 +160,121 @@ enum OutfitSheets {
         try? png.write(to: file)
         return png
     }
+
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var decoded: [String: OutfitSheet] = [:]
+    nonisolated(unsafe) private static var order: [String] = []
+
+    /// La hoja ya decodificada (se guardan las últimas en memoria: cambiar un color no vuelve a leer el PNG).
+    static func sheet(_ page: String) async throws -> OutfitSheet {
+        if let sheet = lock.withLock({ decoded[page] }) { return sheet }
+        let png = try await load(page)
+        guard let sheet = await Task.detached(operation: { OutfitSheet(png) }).value else { throw Failure.notFound }
+        lock.withLock {
+            decoded[page] = sheet
+            order.removeAll { $0 == page }
+            order.append(page)
+            if order.count > 12 { decoded[order.removeFirst()] = nil }
+        }
+        return sheet
+    }
 }
 
 // MARK: - Dibujo
+
+/// Una hoja de sprites como RGBA tal cual viene en el PNG. Sin gestión de color: las hojas con paleta
+/// (PNG indexado) se convertían al leerlas y el rosa (255, 0, 255) llegaba como (251, 0, 255), así que
+/// no pasaba a transparente (fondo rosado y personaje mal centrado) ni se aplicaban los colores.
+struct OutfitSheet: @unchecked Sendable {
+    let width: Int, height: Int
+    let rgba: [UInt8]
+
+    var rows: Int { height / OutfitRenderer.tile }
+
+    init?(_ png: Data) {
+        guard let source = CGImageSourceCreateWithData(png as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        width = image.width; height = image.height
+        if let raw = OutfitSheet.raw(image) { rgba = raw; return }
+        // Formato poco común: se dibuja en RGBA (con conversión de color).
+        var out = [UInt8](repeating: 0, count: width * height * 4)
+        guard let ctx = CGContext(data: &out, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        rgba = out
+    }
+
+    /// Los bytes sin convertir de los PNG del wiki: con paleta, RGB y RGBA de 8 bits.
+    private static func raw(_ image: CGImage) -> [UInt8]? {
+        guard image.bitsPerComponent == 8, let space = image.colorSpace,
+              let data = image.dataProvider?.data as Data? else { return nil }
+        let w = image.width, h = image.height, bpr = image.bytesPerRow
+        let order = image.bitmapInfo.intersection(.byteOrderMask)
+        guard order == [] || order == .byteOrderDefault || order == .byteOrder32Big else { return nil }
+        var out = [UInt8](repeating: 255, count: w * h * 4)
+        return data.withUnsafeBytes { (src: UnsafeRawBufferPointer) -> [UInt8]? in
+            switch (space.model, image.bitsPerPixel) {
+            case (.indexed, 8):
+                guard space.baseColorSpace?.model == .rgb, let table = space.colorTable else { return nil }
+                for y in 0..<h {
+                    for x in 0..<w {
+                        let index = Int(src[y * bpr + x]) * 3, o = (y * w + x) * 4
+                        guard index + 2 < table.count else { continue }
+                        out[o] = table[index]; out[o + 1] = table[index + 1]; out[o + 2] = table[index + 2]
+                    }
+                }
+            case (.rgb, 24), (.rgb, 32):
+                let step = image.bitsPerPixel / 8
+                let alpha = image.alphaInfo
+                guard [.none, .last, .noneSkipLast].contains(alpha) else { return nil }
+                for y in 0..<h {
+                    for x in 0..<w {
+                        let i = y * bpr + x * step, o = (y * w + x) * 4
+                        out[o] = src[i]; out[o + 1] = src[i + 1]; out[o + 2] = src[i + 2]
+                        if alpha == .last { out[o + 3] = src[i + 3] }
+                    }
+                }
+            default:
+                return nil
+            }
+            return out
+        }
+    }
+}
+
+/// Un personaje dibujado: quieto (para íconos) y los fotogramas de la caminata, recortados al contorno.
+struct OutfitSprite: @unchecked Sendable {
+    let still: CGImage
+    /// Fotogramas de la caminata, todos del mismo tamaño (vacío si no se pidió animar).
+    let frames: [CGImage]
+    let frameDuration: Double
+
+    /// El fotograma que toca en este momento.
+    func frame(at date: Date) -> CGImage {
+        guard !frames.isEmpty else { return still }
+        return frames[Int(date.timeIntervalSinceReferenceDate / frameDuration) % frames.count]
+    }
+}
 
 enum OutfitRenderer {
     typealias Pixels = [UInt8]  // RGBA 64 × 64, sin premultiplicar
     static let tile = 64
 
     /// Una celda de la hoja; el rosa (255, 0, 255) pasa a transparente.
-    static func cell(_ rep: NSBitmapImageRep, col: Int, row: Int) -> Pixels {
+    static func cell(_ sheet: OutfitSheet, col: Int, row: Int) -> Pixels {
         var out = Pixels(repeating: 0, count: tile * tile * 4)
-        let spp = rep.samplesPerPixel
-        var p = [Int](repeating: 0, count: max(4, spp))
-        for y in 0..<tile {
-            for x in 0..<tile {
-                let sx = col * tile + x, sy = row * tile + y
-                guard sx < rep.pixelsWide, sy < rep.pixelsHigh else { continue }
-                rep.getPixel(&p, atX: sx, y: sy)
-                let i = (y * tile + x) * 4
-                out[i] = UInt8(p[0]); out[i + 1] = UInt8(p[1]); out[i + 2] = UInt8(p[2])
-                out[i + 3] = spp >= 4 ? UInt8(p[3]) : 255
-                if p[0] == 255 && p[1] == 0 && p[2] == 255 { out[i + 3] = 0 }
+        sheet.rgba.withUnsafeBufferPointer { src in
+            for y in 0..<tile {
+                let sy = row * tile + y
+                guard sy < sheet.height else { break }
+                for x in 0..<tile {
+                    let sx = col * tile + x
+                    guard sx < sheet.width else { break }
+                    let s = (sy * sheet.width + sx) * 4, i = (y * tile + x) * 4
+                    out[i] = src[s]; out[i + 1] = src[s + 1]; out[i + 2] = src[s + 2]; out[i + 3] = src[s + 3]
+                    if src[s] == 255 && src[s + 1] == 0 && src[s + 2] == 255 { out[i + 3] = 0 }
+                }
             }
         }
         return out
@@ -194,30 +313,87 @@ enum OutfitRenderer {
         return out
     }
 
-    /// El personaje quieto (64 × 64), con la montura debajo si la hay.
-    static func render(_ config: OutfitConfig, outfit: Data, mount: Data?) -> CGImage? {
+    /// Un fotograma (64 × 64) del personaje, con la montura debajo si la hay. Fotograma 0: quieto.
+    static func pixels(_ config: OutfitConfig, outfit sheet: OutfitSheet, mount mountSheet: OutfitSheet?,
+                       frame: Int, mountFrame: Int) -> Pixels? {
         let catalog = OutfitCatalog.shared
-        guard let sheet = NSBitmapImageRep(data: outfit) else { return nil }
         let facing = max(0, min(3, config.facing))
         let addons = catalog.hasAddons(config.outfit)
-        let mounted = config.mount > 0 && mount != nil && catalog.canMount(config.outfit)
-        let baseRow = mounted ? (addons ? 3 : 1) : 0
+        let mounted = config.ridden > 0 && mountSheet != nil
+        // Filas por fotograma: capas (sprite + addons) × (a pie + montado).
+        let perFrame = (addons ? 3 : 1) * (catalog.canRide(config.outfit) ? 2 : 1)
+        var first = (mounted ? (addons ? 3 : 1) : 0) + frame * perFrame
+        if first + (addons ? 3 : 1) > sheet.rows { first -= frame * perFrame }  // hoja sin ese fotograma: quieto
         var pixels: Pixels?
         for (i, on) in [true, addons && config.addon1, addons && config.addon2].enumerated() where on {
-            let layer = blend(cell(sheet, col: facing * 2, row: baseRow + i),
-                              mask: cell(sheet, col: facing * 2 + 1, row: baseRow + i),
+            let layer = blend(cell(sheet, col: facing * 2, row: first + i),
+                              mask: cell(sheet, col: facing * 2 + 1, row: first + i),
                               colors: [config.c1, config.c2, config.c3, config.c4])
             pixels = merge(pixels, layer)
         }
-        if mounted, let mount, let mountSheet = NSBitmapImageRep(data: mount) {
-            let colorable = catalog.mountColorable(config.mount)
-            var m = cell(mountSheet, col: colorable ? facing * 2 : facing, row: 0)
+        if mounted, let mountSheet {
+            let colorable = catalog.mountColorable(config.ridden)
+            let row = mountFrame < mountSheet.rows ? mountFrame : 0
+            var m = cell(mountSheet, col: colorable ? facing * 2 : facing, row: row)
             if colorable {
-                m = blend(m, mask: cell(mountSheet, col: facing * 2 + 1, row: 0), colors: [config.mc1, config.mc2, config.mc3, config.mc4])
+                m = blend(m, mask: cell(mountSheet, col: facing * 2 + 1, row: row), colors: [config.mc1, config.mc2, config.mc3, config.mc4])
             }
             pixels = merge(m, pixels)
         }
-        return pixels.flatMap(image)
+        return pixels
+    }
+
+    /// El personaje quieto y, si config.animate, su caminata (como "Animate" en el Outfiter).
+    static func render(_ config: OutfitConfig, outfit sheet: OutfitSheet, mount mountSheet: OutfitSheet?) -> OutfitSprite? {
+        let catalog = OutfitCatalog.shared
+        guard let still = pixels(config, outfit: sheet, mount: mountSheet, frame: 0, mountFrame: 0) else { return nil }
+        guard let stillImage = cropped(still) else { return nil }
+        guard config.animate else { return OutfitSprite(still: stillImage, frames: [], frameDuration: 0.1) }
+        // Fotogramas de la caminata: después del quieto (o de los de "quieto animado").
+        let name = catalog.name(config.outfit) ?? ""
+        let walkO = catalog.walking[name] ?? 8, firstO = catalog.standing[name] ?? 1
+        let mountName = catalog.mountName(config.ridden) ?? ""
+        let mounted = config.ridden > 0 && mountSheet != nil
+        let walkM = mounted ? catalog.mountWalking[mountName] ?? 8 : walkO
+        let firstM = catalog.mountStanding[mountName] ?? 1
+        let count = walkO * walkM / gcd(walkO, walkM)
+        var frames: [Pixels] = []
+        for i in 0..<count {
+            guard let p = pixels(config, outfit: sheet, mount: mountSheet, frame: firstO + i % walkO, mountFrame: firstM + i % walkM)
+            else { continue }
+            frames.append(p)
+        }
+        // Todos los fotogramas con el mismo recorte, para que no "salte" al caminar.
+        var box = bounds(still)
+        for f in frames { box = box.union(bounds(f)) }
+        let images = frames.compactMap { image($0)?.cropping(to: box) }
+        return OutfitSprite(still: stillImage, frames: images,
+                            frameDuration: max(0.1, 0.8 / Double(walkO)))
+    }
+
+    /// Descarga (si hace falta) las hojas de config y lo dibuja fuera del hilo principal.
+    static func render(_ config: OutfitConfig) async throws -> OutfitSprite? {
+        let catalog = OutfitCatalog.shared
+        guard let page = catalog.page(outfit: config.outfit, female: config.female) else { return nil }
+        let outfit = try await OutfitSheets.sheet(page)
+        var mount: OutfitSheet?
+        if config.ridden > 0, let mountPage = catalog.page(mount: config.ridden) {
+            mount = try await OutfitSheets.sheet(mountPage)
+        }
+        return await Task.detached { render(config, outfit: outfit, mount: mount) }.value
+    }
+
+    private static func gcd(_ a: Int, _ b: Int) -> Int { b == 0 ? a : gcd(b, a % b) }
+
+    /// Contorno de los píxeles visibles (vacío si no hay ninguno).
+    static func bounds(_ pixels: Pixels) -> CGRect {
+        var minX = tile, minY = tile, maxX = -1, maxY = -1
+        for y in 0..<tile {
+            for x in 0..<tile where pixels[(y * tile + x) * 4 + 3] > 5 {
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        return maxX >= minX ? CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1) : .null
     }
 
     static func image(_ pixels: Pixels) -> CGImage? {
@@ -230,18 +406,10 @@ enum OutfitRenderer {
     }
 
     /// Recorta los bordes transparentes (como character.png).
-    static func cropped(_ image: CGImage) -> CGImage {
-        let rep = NSBitmapImageRep(cgImage: image)
-        var minX = rep.pixelsWide, minY = rep.pixelsHigh, maxX = -1, maxY = -1
-        var p = [Int](repeating: 0, count: 4)
-        for y in 0..<rep.pixelsHigh {
-            for x in 0..<rep.pixelsWide {
-                rep.getPixel(&p, atX: x, y: y)
-                if p[3] > 5 { minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y) }
-            }
-        }
-        guard maxX >= minX else { return image }
-        return image.cropping(to: CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1)) ?? image
+    static func cropped(_ pixels: Pixels) -> CGImage? {
+        let box = bounds(pixels)
+        guard let full = image(pixels) else { return nil }
+        return box.isNull ? full : full.cropping(to: box) ?? full
     }
 
     /// Ícono cuadrado: el personaje centrado sin fondo, lo más grande posible y con escala entera

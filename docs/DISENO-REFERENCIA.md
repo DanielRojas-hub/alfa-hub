@@ -33,7 +33,7 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
    - Sección **PRINCIPAL**: *Timers* (con un contador verde de timers en marcha), *Tibia Audio* y *Espejos*.
    - Sección **AJUSTES**: *Outfit*, *Atajos* y *Sonido*.
    - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
-   - Al pie: la **nube de diálogo** "Slayer macaco e mielda" (punta hacia abajo) y el personaje a 2×.
+   - Al pie: el personaje guardado a 2× (caminando si se eligió **Animar caminata**).
 3. **Página** (márgenes de 28 pt): título grande + subtítulo gris, y el contenido.
 
 ### Página Timers
@@ -72,12 +72,17 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
 
 ### Página Outfit
 
-- Cabecera con **Personaje original**.
-- A la izquierda, lista de outfits por orden alfabético con buscador (Enter elige el que coincide).
-- A la derecha: vista previa sobre fondo de hierba, nombre, girar ↺ ↻ y orientación, **Mujer**,
-  **Addon 1**, **Addon 2**; **Colores** (Cabeza, Primario, Secundario, Detalle; Outfit/Montura si la
-  montura se puede colorear) con la paleta de 133 colores de Tibia (7 × 19); **Montura**.
-- El personaje se usa en el ícono de la app, la barra lateral y la barra de menús / bandeja.
+- Cabecera con **Guardar cambios** (azul, solo con cambios) y **Descartar**.
+- A la izquierda, siempre desplegadas, la lista de outfits y debajo la de monturas, cada una con
+  buscador (Enter elige el que coincide). Elegir una montura la monta.
+- A la derecha: vista previa sobre fondo de hierba (camina si se pide), nombre, girar ↺ ↻ y
+  orientación, **Hombre / Mujer**, **Addon 1**, **Addon 2**, **Montura** (ir montado en la elegida) y
+  **Animar caminata**; **Colores** (Outfit/Montura, la segunda solo montado en una montura que se puede
+  colorear; Cabeza, Primario, Secundario, Detalle) con la paleta de 133 colores de Tibia (7 × 19).
+- **Mis outfits**: nombre + **Guardar aquí**; casillas con miniatura (la primera, el personaje
+  original). Clic carga el outfit en la vista previa; × o clic derecho lo quita.
+- Lo editado es un borrador: solo pasa al ícono de la app, la barra lateral y la barra de menús /
+  bandeja al pulsar **Guardar cambios**.
 
 ### Página Espejos
 
@@ -103,7 +108,6 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
 | Verde (en marcha, Tibia abierto) | `#30D158` |
 | Alerta | color de alerta del usuario (por defecto `#F54D4D`) |
 | Texto secundario | blanco al 55 % |
-| Nube de diálogo | `#F5F5F5`, texto `#1A1A1A` |
 
 El **contador del overlay** usa el color que elige el usuario (por defecto morado `#A873FA`).
 

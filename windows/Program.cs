@@ -69,8 +69,8 @@ namespace AlfaHub
 
             tray = new NotifyIcon { Icon = Resources.AppIcon(SystemInformation.SmallIconSize), Text = "Alfa Hub", Visible = true, ContextMenuStrip = TrayMenu() };
             tray.DoubleClick += (s, e) => ShowHub();
-            hub.Outfit.Changed += ApplyOutfitIcons;
-            hub.Outfit.Render();
+            hub.Outfit.SavedChanged += ApplyOutfitIcons;
+            hub.Outfit.RenderSaved();
 
             RegisterHotKeys();
             ticker.Tick += (s, e) => Tick();
@@ -172,8 +172,7 @@ namespace AlfaHub
         /// Ícono de la ventana (barra de tareas) y de la bandeja con el personaje elegido.
         void ApplyOutfitIcons()
         {
-            if (hub.Outfit.Loading) return;
-            var sprite = hub.Outfit.Sprite;
+            var sprite = hub.Outfit.Current?.Still;
             Icon old = hub.Icon, oldTray = tray.Icon;
             hub.Icon = sprite == null ? Resources.AppIcon(new Size(32, 32)) : OutfitRenderer.Icon(sprite, 32);
             tray.Icon = sprite == null ? Resources.AppIcon(SystemInformation.SmallIconSize) : OutfitRenderer.Icon(sprite, SystemInformation.SmallIconSize.Width);
