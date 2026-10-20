@@ -1672,6 +1672,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.model.tick()
                 self?.refreshTibiaActive()
                 if let self, self.tickCount % 2 == 0 { self.mirrorController.sync(tibiaActive: self.tibiaActive.value) }
+                if let self, !MirrorCapture.allowed, self.tickCount % 50 == 0 { MirrorCapture.refreshPermission() }
             }
         }
         RunLoop.main.add(ticker, forMode: .common)

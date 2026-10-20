@@ -26,5 +26,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
-codesign --force --sign - "$APP" >/dev/null
+# Firma local con un requisito fijo (el identificador): así macOS conserva el permiso de
+# Grabación de pantalla entre compilaciones (con la firma local por defecto se pierde en cada una).
+codesign --force --sign - -r='designated => identifier "local.alfahub"' "$APP" >/dev/null
 echo "Listo: $(pwd)/$APP"

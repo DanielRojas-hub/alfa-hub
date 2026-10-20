@@ -64,7 +64,22 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     var onFrame: (IOSurface, CGSize) -> Void = { _, _ in }
     private(set) var running = false
 
-    static var allowed: Bool { CGPreflightScreenCaptureAccess() }
+    /// Si hay permiso de grabación. CGPreflightScreenCaptureAccess no siempre lo refleja en macOS
+    /// reciente, así que también vale si ScreenCaptureKit responde (ver refreshPermission).
+    static private(set) var allowed = CGPreflightScreenCaptureAccess()
+    private static var probing = false
+
+    /// Comprueba el permiso pidiendo la lista de ventanas a ScreenCaptureKit (sin mostrar nada).
+    static func refreshPermission() {
+        guard !probing else { return }
+        if CGPreflightScreenCaptureAccess() { allowed = true; return }
+        probing = true
+        Task { @MainActor in
+            let ok = (try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)) != nil
+            allowed = ok
+            probing = false
+        }
+    }
     /// Pide el permiso. macOS solo muestra su aviso la primera vez; en macOS 15+ también lo muestra al
     /// pedir la lista de ventanas a ScreenCaptureKit.
     static func requestAccess() {
