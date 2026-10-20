@@ -4,8 +4,9 @@ Lista de funcionalidades para probar `AlfaHub.exe` (última
 [Release](https://github.com/DanielRojas-hub/alfa-hub/releases/latest)) en un PC con Windows 10/11.
 
 Lo que ya está verificado sin Tibia, en un Windows real (workflow *Capturas Windows* de GitHub Actions):
-el hub y sus páginas, iniciar/pausar timers, el editor, dos timers a la vez, la alerta y el overlay
-desbloqueado con varios timers. **Falta todo lo que necesita Tibia** (secciones 5, 6 y 9) y el escalado
+el hub y sus páginas, iniciar/pausar timers, el editor, dos timers a la vez, la alerta, el overlay
+desbloqueado con varios timers, y los espejos (con el Bloc de notas en lugar de Tibia): elegir la región,
+copia en vivo, arrastrar, bloquear y ocultarse cuando la ventana de origen no está al frente. **Falta todo lo que necesita Tibia** (secciones 5, 6, 7 y 9) y el escalado
 de pantalla distinto de 100 %.
 
 > **Para la sesión de Claude en Windows:** guía al usuario punto por punto, pídele capturas cuando algo
@@ -75,7 +76,19 @@ Probar con Tibia abierto, primero en **modo ventana** y luego en **pantalla comp
 - [ ] Botón "Overlay visible / oculto" de la barra superior y atajo Ctrl+Alt+O.
 - [ ] Colores: contador, alerta, fondo y opacidad del fondo (a 0 deja solo el número con contorno); "Restaurar colores".
 
-## 6. Atajos
+## 6. Espejos
+
+- [ ] **Espejos → ＋ Añadir espejo** con Tibia abierto: el hub se oculta, Tibia se oscurece y se puede arrastrar la región (Esc cancela).
+- [ ] Sin Tibia abierto avisa "Abre Tibia…".
+- [ ] El espejo muestra **en vivo** la región elegida (cooldowns, hechizos, barra de vida…), nítido al ampliarlo.
+- [ ] El espejo nuevo aparece desbloqueado (borde ámbar) y se arrastra a su sitio; "Bloquear" lo fija y deja pasar los clics a Tibia.
+- [ ] Bloqueado, solo se ve con **Tibia al frente**; al cambiar de ventana desaparece.
+- [ ] Funciona con Tibia en **modo ventana** y en **pantalla completa sin bordes** (en pantalla completa exclusiva Windows no puede componer la miniatura).
+- [ ] Visible, opacidad, tamaño, borde, volver a elegir la región, eliminar, mostrar/ocultar todos.
+- [ ] Si Tibia cambia de tamaño o se reinicia, los espejos siguen funcionando (vuelven a engancharse solos).
+- [ ] Con varios espejos y timers a la vez el juego no pierde FPS de forma notable.
+
+## 7. Atajos
 
 - [ ] Página Atajos: un atajo por timer y los globales (Ctrl+Alt+R reinicia el último timer usado, Ctrl+Alt+O el overlay).
 - [ ] Con **Tibia al frente**, cada atajo funciona y no escribe nada en el chat de Tibia.
@@ -83,17 +96,17 @@ Probar con Tibia abierto, primero en **modo ventana** y luego en **pantalla comp
 - [ ] Una combinación solo puede estar en un sitio: asignarla a otro timer la quita del anterior.
 - [ ] Si otro programa ya usa la combinación, aparece un aviso en la bandeja.
 
-## 7. Sonido, bandeja y ajustes guardados
+## 8. Sonido, bandeja y ajustes guardados
 
 - [ ] Página Sonido: Silenciar, Volumen (con %) y Probar beep.
 - [ ] Cerrar el hub con la X lo oculta; los timers y el overlay siguen. Doble clic en la bandeja lo abre.
 - [ ] Menú de la bandeja: Abrir, Iniciar/pausar y Reiniciar el timer elegido, Salir.
 - [ ] Tras "Salir" y volver a abrir se conservan timers, sonidos, atajos, colores y posición del overlay
-      (`%APPDATA%\AlfaHub\timers.json` y `ajustes.ini`).
+      (`%APPDATA%\AlfaHub\timers.json`, `espejos.json` y `ajustes.ini`).
 
-## 8. BattlEye
+## 9. BattlEye
 
-- [ ] Jugar una sesión normal (30+ min) con Alfa Hub abierto, varios timers y el overlay visible: sin avisos, expulsiones ni errores de BattlEye.
+- [ ] Jugar una sesión normal (30+ min) con Alfa Hub abierto, varios timers, espejos y el overlay visible: sin avisos, expulsiones ni errores de BattlEye.
 
 ## Qué devolver
 

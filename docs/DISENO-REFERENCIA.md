@@ -17,6 +17,8 @@ verifica con el workflow *Capturas Windows* (GitHub Actions), que sube sus captu
 | [06-sonido.png](capturas/06-sonido.png) | Página **Sonido** |
 | [07-timers-en-marcha.png](capturas/07-timers-en-marcha.png) | Lista con dos timers en marcha |
 | [08-overlay-sobre-tibia.png](capturas/08-overlay-sobre-tibia.png) | El **overlay** con dos timers apilados, encima de Tibia |
+| [09-espejos.png](capturas/09-espejos.png) | Página **Espejos** (macOS, sin el permiso de grabación todavía) |
+| [10-espejo-windows.png](capturas/10-espejo-windows.png) | Un **espejo** en Windows (abajo a la derecha) copiando parte de otra ventana, con el overlay de timers |
 
 ## Estructura
 
@@ -25,7 +27,7 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
 1. **Barra superior** (52 pt): personaje pequeño + "**Alfa**Hub" ("Alfa" en azul); a la derecha,
    el estado "● Tibia abierto / cerrado" y un botón cápsula "Overlay visible / oculto".
 2. **Barra lateral** (200 pt, fondo más oscuro):
-   - Sección **PRINCIPAL**: *Timers* (con un contador verde de timers en marcha) y *Overlay*.
+   - Sección **PRINCIPAL**: *Timers* (con un contador verde de timers en marcha), *Espejos* y *Overlay*.
    - Sección **AJUSTES**: *Atajos* y *Sonido*.
    - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
    - Al pie: la **nube de diálogo** "Slayer macaco e mielda" (punta hacia abajo) y el personaje a 2×.
@@ -48,6 +50,16 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
   (botones 01:00…03:00, personalizado, repetir, duración total) o **Rotación** (segundos por
   dirección, dirección inicial, beeps), **Avisos**, **Sonido y atajo** (sonido propio o beep,
   probar, atajo iniciar/pausar) y **Eliminar este timer**.
+
+### Página Espejos
+
+- Cabecera con **＋ Añadir espejo**: oculta el hub y oscurece la ventana de Tibia para arrastrar la región.
+- Línea "1 de 10 · 1 visibles" con **Ocultar/Mostrar todos** y **Desbloquear para moverlos / Bloquear**.
+- Una fila por espejo: barra verde si está visible, nombre, "410 × 130 px · 100 % · Visible",
+  interruptor de visible, opacidad, **Editar** y ⋮ (volver a elegir la región, eliminar).
+- Editor: nombre, visible, tamaño (25–400 %), opacidad, borde, volver a elegir la región, eliminar.
+- Ventana del espejo: sin marco, siempre encima; borde fino gris (opcional) o ámbar discontinuo
+  si está desbloqueada; solo se ve con Tibia al frente (o desbloqueada) y deja pasar los clics.
 
 ## Colores
 

@@ -5,6 +5,8 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
 - **Timers**: varios a la vez, con presets **Pez** (cada 2:00), **Bakragore** (mecánica cada 1:30
   durante 25 min), **Pilar** (rotación de los Totens cada 6 s) o personalizados. Cada uno tiene su
   duración, avisos, sonido propio (.wav/.mp3 o beep) y atajo de iniciar/pausar.
+- **Espejos**: copia partes de la ventana de Tibia (cooldowns, hechizos, barra de vida…) en ventanitas
+  flotantes que pones donde quieras; solo se ven con Tibia al frente y dejan pasar los clics.
 - **Overlay**: los contadores de los timers en marcha, encima de Tibia y únicamente mientras Tibia
   está al frente. Los clics lo atraviesan y llegan al juego.
 - **Hub**: barra lateral con Timers, Overlay, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
@@ -35,15 +37,20 @@ Alfa Hub es un programa aparte que **no toca el cliente de Tibia**:
 - no envía teclas ni clics al juego (no es un macro ni un bot);
 - para saber si Tibia está al frente solo mira el nombre del proceso y el título de la ventana
   activa, igual que el Administrador de tareas;
-- los atajos son atajos globales normales de Windows (`RegisterHotKey`).
+- los atajos son atajos globales normales de Windows (`RegisterHotKey`);
+- los **espejos** usan las miniaturas de ventana de Windows (DWM, las mismas de la vista previa de
+  la barra de tareas): las dibuja el sistema dentro de la ventana del espejo; Alfa Hub no captura la
+  pantalla ni lee píxeles del cliente.
 
 Aun así, ni CipSoft ni BattlEye publican una lista de programas permitidos, así que nadie puede
 garantizarlo al 100 %. La única confirmación definitiva es preguntar al soporte de CipSoft.
 
 ## macOS
 
-`macos/Alfa Hub.app` (se genera con `macos/build.sh`). Igual que en Windows, no toca el cliente:
-solo consulta qué app está al frente y si tiene una ventana visible.
+`macos/Alfa Hub.app` (se genera con `macos/build.sh`). Igual que en Windows, no toca el proceso del
+cliente: consulta qué app está al frente y si tiene una ventana visible. Los **espejos** capturan la
+ventana de Tibia con ScreenCaptureKit, así que macOS pide el permiso de **Grabación de pantalla**
+(Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla → Alfa Hub).
 
 Atajos por defecto: **⌃⌥P** (timer Pez), **⌃⌥R** (reiniciar el último timer usado), **⌃⌥O** (overlay).
 
