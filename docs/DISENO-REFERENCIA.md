@@ -21,6 +21,7 @@ verifica con el workflow *Capturas Windows* (GitHub Actions), que sube sus captu
 | [10-espejo-windows.png](capturas/10-espejo-windows.png) | Un **espejo** en Windows (abajo a la derecha) copiando parte de otra ventana, con el overlay de timers |
 | [11-tibia-audio.png](capturas/11-tibia-audio.png) | Página **Tibia Audio** con una habilidad en cooldown |
 | [12-editor-tibia-audio.png](capturas/12-editor-tibia-audio.png) | Editor de una habilidad de Tibia Audio |
+| [13-outfit.png](capturas/13-outfit.png) | Página **Outfit** (Outfiter) |
 
 ## Estructura
 
@@ -30,7 +31,7 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
    y un botón cápsula "Overlay visible / oculto".
 2. **Barra lateral** (200 pt, fondo más oscuro):
    - Sección **PRINCIPAL**: *Timers* (con un contador verde de timers en marcha), *Tibia Audio* y *Espejos*.
-   - Sección **AJUSTES**: *Atajos* y *Sonido*.
+   - Sección **AJUSTES**: *Outfit*, *Atajos* y *Sonido*.
    - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
    - Al pie: la **nube de diálogo** "Slayer macaco e mielda" (punta hacia abajo) y el personaje a 2×.
 3. **Página** (márgenes de 28 pt): título grande + subtítulo gris, y el contenido.
@@ -68,6 +69,15 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
 - Editor: nombre, activada, **tecla en Tibia** (cualquier tecla, también sin modificador), cooldown
   (segundos, pasos de 0,5), qué pasa si se pulsa durante el cooldown (vuelve a empezar / se ignora),
   sonido, volumen, simular pulsación y eliminar.
+
+### Página Outfit
+
+- Cabecera con **Personaje original**.
+- A la izquierda, lista de outfits por orden alfabético con buscador (Enter elige el que coincide).
+- A la derecha: vista previa sobre fondo de hierba, nombre, girar ↺ ↻ y orientación, **Mujer**,
+  **Addon 1**, **Addon 2**; **Colores** (Cabeza, Primario, Secundario, Detalle; Outfit/Montura si la
+  montura se puede colorear) con la paleta de 133 colores de Tibia (7 × 19); **Montura**.
+- El personaje se usa en el ícono de la app, la barra lateral y la barra de menús / bandeja.
 
 ### Página Espejos
 

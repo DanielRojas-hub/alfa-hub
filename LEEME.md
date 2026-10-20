@@ -14,8 +14,13 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
 - **Overlay**: el contador de cada timer en marcha, encima de Tibia y únicamente mientras Tibia
   está al frente. Los clics lo atraviesan y llegan al juego. "Desbloquear para moverlos" (página
   Timers) los muestra todos para arrastrar cada uno a su sitio.
+- **Outfit**: eliges tu personaje como en el [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter)
+  (outfit, mujer, addons, los cuatro colores, orientación y montura) y pasa al ícono de la app (Dock o
+  barra de tareas), a la barra lateral y a la barra de menús o bandeja. Los sprites se descargan de la
+  API de TibiaWiki la primera vez que eliges cada outfit o montura y quedan en caché. El ícono del
+  archivo (.app / .exe) sigue siendo el original.
 - Sin límite de timers, habilidades ni espejos.
-- **Hub**: barra lateral con Timers, Tibia Audio, Espejos, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
+- **Hub**: barra lateral con Timers, Tibia Audio, Espejos, Outfit, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
 
 ## Windows
 
