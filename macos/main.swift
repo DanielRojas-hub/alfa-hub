@@ -393,6 +393,10 @@ final class HubModel: ObservableObject {
     /// Espejos desbloqueados: se ven siempre y se pueden arrastrar. No se guarda.
     @Published var mirrorsUnlocked = false
     @Published var screenCaptureAllowed = false
+    /// Espejos con el selector de ventanas del sistema (true) o captura automática con permiso (false).
+    @Published var mirrorPickerMode: Bool { didSet { save(mirrorPickerMode, "mirrorPickerMode") } }
+    /// Si ya se eligió la ventana de Tibia en el selector (vale mientras la ventana siga abierta).
+    @Published var mirrorWindowPicked = false
     /// Si el cliente de Tibia está abierto (se muestra en la barra superior).
     @Published var tibiaRunning = false
     /// Solo mientras está activo el overlay recibe clics (para arrastrarlo). No se guarda.
@@ -414,6 +418,7 @@ final class HubModel: ObservableObject {
         backgroundColor = Color(hex: defaults.string(forKey: "backgroundColor") ?? Self.defaultBackgroundColor)
         mirrors = defaults.data(forKey: "mirrors").flatMap { try? JSONDecoder().decode([MirrorConfig].self, from: $0) } ?? []
         mirrorsVisible = defaults.object(forKey: "mirrorsVisible") as? Bool ?? true
+        mirrorPickerMode = defaults.object(forKey: "mirrorPickerMode") as? Bool ?? true
 
         // Atajos de la versión anterior (un solo timer): "toggle" pasa al timer Pez.
         var legacy: [String: Shortcut] = [:]
@@ -924,6 +929,7 @@ extension PageHeader where Actions == EmptyView {
 /// Acciones que necesitan ventanas fuera del hub (elegir la región de un espejo sobre Tibia).
 struct MirrorActions {
     var add: () -> Void = {}
+    var pickWindow: () -> Void = {}
     var reselect: (UUID) -> Void = { _ in }
 }
 
@@ -966,7 +972,8 @@ struct HubView: View {
                 MirrorEditor(model: model, mirror: $model.mirrors[index], back: { editingMirror = nil },
                              reselect: { mirrorActions.reselect(id) })
             } else {
-                MirrorsPage(model: model, add: mirrorActions.add, reselect: mirrorActions.reselect) { editingMirror = $0 }
+                MirrorsPage(model: model, pickWindow: mirrorActions.pickWindow, add: mirrorActions.add,
+                            reselect: mirrorActions.reselect) { editingMirror = $0 }
             }
         case .overlay:
             PageContainer(page: .overlay) {
@@ -1761,6 +1768,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hub.isRestorable = false
         hub.appearance = NSAppearance(named: .darkAqua)
         let actions = MirrorActions(add: { [weak self] in self?.addMirror() },
+                                    pickWindow: { [weak self] in self?.mirrorController.presentPicker() },
                                     reselect: { [weak self] id in self?.reselectMirror(id) })
         hub.contentViewController = NSHostingController(
             rootView: HubView(model: model, resetOverlayPosition: { [weak self] in self?.placeOverlayTopRight() },
@@ -1824,7 +1832,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             alert.runModal()
             return
         }
-        if !MirrorCapture.allowed { MirrorCapture.requestAccess() }
+        if !model.mirrorPickerMode && !MirrorCapture.allowed { MirrorCapture.requestAccess() }
         hub.orderOut(nil)
         tibia.activate()
         // Esperar a que termine el cambio de escritorio (Tibia en pantalla completa) y medir su ventana visible.
@@ -1857,6 +1865,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             mirror.top = origin.y + mirror.displaySize.height
             self.model.mirrors.append(mirror)
             self.model.mirrorsUnlocked = true
+            // Con el selector del sistema, si aún no se eligió la ventana de Tibia, se pide ahora.
+            if self.model.mirrorPickerMode && !self.model.mirrorWindowPicked { self.mirrorController.presentPicker() }
         }
     }
 

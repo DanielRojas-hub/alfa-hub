@@ -55,9 +55,19 @@ enum TibiaWindowInfo {
 // MARK: - Captura
 
 /// Una captura de la ventana de Tibia; reparte cada fotograma a los espejos.
+///
+/// Dos modos:
+///  • Selector del sistema (por defecto): el usuario elige la ventana de Tibia en el selector de macOS
+///    (SCContentSharingPicker). No hace falta el permiso de Grabación de pantalla ni sale el aviso de
+///    "evitar el selector", pero hay que elegirla cada vez que se abre la app o se reinicia Tibia.
+///  • Automático: la app busca la ventana de Tibia; necesita el permiso y macOS lo reconfirma de vez en cuando.
 @MainActor
-final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
+final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate, SCContentSharingPickerObserver {
     private var stream: SCStream?
+    var usePicker = true
+    /// Ventana elegida en el selector del sistema (mientras siga abierta).
+    private(set) var pickedFilter: SCContentFilter?
+    private var observingPicker = false
     private var windowID: CGWindowID?
     private var windowSize: CGSize = .zero
     private let queue = DispatchQueue(label: "alfahub.espejos")
@@ -96,7 +106,41 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         }
     }
 
+    /// Muestra el selector de ventanas de macOS (solo ventanas sueltas, sin Alfa Hub).
+    func presentPicker() {
+        let picker = SCContentSharingPicker.shared
+        if !observingPicker {
+            picker.add(self)
+            observingPicker = true
+        }
+        var config = SCContentSharingPickerConfiguration()
+        config.allowedPickerModes = .singleWindow
+        if let ownID = Bundle.main.bundleIdentifier { config.excludedBundleIDs = [ownID] }
+        picker.defaultConfiguration = config
+        picker.isActive = true
+        picker.present(using: .window)
+    }
+
+    nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                self.stop()
+                self.pickedFilter = filter
+                self.onPicked()
+            }
+        }
+    }
+
+    nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {}
+    nonisolated func contentSharingPickerStartDidFailWithError(_ error: Error) {}
+
+    var onPicked: () -> Void = {}
+
     func start() {
+        if usePicker {
+            startPicked()
+            return
+        }
         guard !running, Self.allowed else { return }
         running = true
         Task { @MainActor in
@@ -123,6 +167,31 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
                 windowSize = window.frame.size
             } catch {
                 running = false
+            }
+        }
+    }
+
+    /// Captura de la ventana elegida en el selector del sistema.
+    private func startPicked() {
+        guard !running, let filter = pickedFilter else { return }
+        running = true
+        Task { @MainActor in
+            do {
+                let config = SCStreamConfiguration()
+                config.width = Int(filter.contentRect.width * CGFloat(filter.pointPixelScale))
+                config.height = Int(filter.contentRect.height * CGFloat(filter.pointPixelScale))
+                config.minimumFrameInterval = CMTime(value: 1, timescale: 30)
+                config.pixelFormat = kCVPixelFormatType_32BGRA
+                config.showsCursor = false
+                config.queueDepth = 3
+                let stream = SCStream(filter: filter, configuration: config, delegate: self)
+                try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: queue)
+                try await stream.startCapture()
+                self.stream = stream
+                windowSize = filter.contentRect.size
+            } catch {
+                running = false
+                pickedFilter = nil  // la ventana ya no está (p. ej. se cerró Tibia): hay que volver a elegirla
             }
         }
     }
@@ -156,7 +225,13 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     }
 
     nonisolated func stream(_ stream: SCStream, didStopWithError error: Error) {
-        DispatchQueue.main.async { MainActor.assumeIsolated { self.running = false; self.stream = nil } }
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                self.running = false
+                self.stream = nil
+                if self.usePicker { self.pickedFilter = nil }  // se cerró la ventana elegida
+            }
+        }
     }
 }
 
@@ -246,6 +321,7 @@ final class MirrorController {
 
     init(model: HubModel) {
         self.model = model
+        capture.onPicked = { [weak self] in self?.model.mirrorWindowPicked = true }
         capture.onFrame = { [weak self] surface, size in
             guard let self, let frame = self.tibiaFrame else { return }
             for config in self.model.mirrors {
@@ -255,9 +331,18 @@ final class MirrorController {
     }
 
     /// Se llama en cada tick (10 veces por segundo).
+    func presentPicker() { capture.presentPicker() }
+
     func sync(tibiaActive: Bool) {
         tibiaFrame = TibiaWindowInfo.frame()
         model.screenCaptureAllowed = MirrorCapture.allowed
+        if capture.usePicker != model.mirrorPickerMode {
+            capture.stop()
+            capture.usePicker = model.mirrorPickerMode
+        }
+        let picked = capture.pickedFilter != nil
+        if model.mirrorWindowPicked != picked { model.mirrorWindowPicked = picked }
+        let ready = model.mirrorPickerMode ? picked : model.screenCaptureAllowed
         for id in panels.keys where !model.mirrors.contains(where: { $0.id == id }) {
             panels[id]?.orderOut(nil)
             panels[id] = nil
@@ -266,8 +351,9 @@ final class MirrorController {
         for config in model.mirrors {
             let panel = panels[config.id] ?? makePanel(config.id)
             let show = model.mirrorsVisible && config.visible && (model.mirrorsUnlocked || (tibiaActive && tibiaFrame != nil))
-            let message: String? = !model.screenCaptureAllowed ? "Falta el permiso de Grabación de pantalla"
-                : tibiaFrame == nil ? "Tibia cerrado" : nil
+            let message: String? = tibiaFrame == nil ? "Tibia cerrado"
+                : ready ? nil
+                : model.mirrorPickerMode ? "Elige la ventana de Tibia" : "Falta el permiso de Grabación de pantalla"
             panel.apply(config, unlocked: model.mirrorsUnlocked, message: message)
             if show {
                 anyVisible = true
@@ -276,7 +362,7 @@ final class MirrorController {
                 panel.orderOut(nil)
             }
         }
-        if anyVisible && tibiaFrame != nil && model.screenCaptureAllowed {
+        if anyVisible && tibiaFrame != nil && ready {
             capture.start()
             if let size = tibiaFrame?.size { capture.restartIfNeeded(windowSize: size) }
         } else {
@@ -388,6 +474,7 @@ private final class SelectionView: NSView {
 
 struct MirrorsPage: View {
     @ObservedObject var model: HubModel
+    var pickWindow: () -> Void = {}
     let add: () -> Void
     let reselect: (UUID) -> Void
     let edit: (UUID) -> Void
@@ -405,7 +492,21 @@ struct MirrorsPage: View {
                 .buttonStyle(.plain)
                 .disabled(model.mirrors.count >= HubModel.maxMirrors)
             }
-            if !model.screenCaptureAllowed {
+            if model.mirrorPickerMode && !model.mirrorWindowPicked {
+                HStack(spacing: 12) {
+                    Image(systemName: "macwindow").foregroundStyle(Color.accentBlue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Elige la ventana de Tibia").font(.system(size: 13, weight: .semibold))
+                        Text("Se abre el selector de macOS: elige la ventana de Tibia. Hay que hacerlo cada vez que abras Alfa Hub o reinicies Tibia.")
+                            .font(.system(size: 11)).foregroundStyle(Color.muted)
+                    }
+                    Spacer()
+                    SmallButton(title: "Elegir ventana", icon: "macwindow", action: pickWindow)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.accentBlue.opacity(0.12)))
+            }
+            if !model.mirrorPickerMode && !model.screenCaptureAllowed {
                 HStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.amber)
                     VStack(alignment: .leading, spacing: 2) {
@@ -421,6 +522,17 @@ struct MirrorsPage: View {
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.amber.opacity(0.12)))
+            }
+            HStack(spacing: 10) {
+                Text("Captura").font(.system(size: 12)).foregroundStyle(Color.muted)
+                Picker("", selection: $model.mirrorPickerMode) {
+                    Text("Selector del sistema").tag(true)
+                    Text("Automática (con permiso)").tag(false)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                Spacer()
             }
             HStack(spacing: 10) {
                 Text("\(model.mirrors.count) de \(HubModel.maxMirrors) · \(model.mirrors.filter(\.visible).count) visibles")
