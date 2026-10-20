@@ -219,6 +219,13 @@ Assert-Running
 Capture-Hub '13-espejos-uno.png'
 [Shot]::Screen((Join-Path $Out '14-pantalla-espejo-desbloqueado.png'))
 Write-Host 'captura: 14-pantalla-espejo-desbloqueado.png'
+# Mover el espejo (desbloqueado) fuera del hub arrastrándolo, y bloquearlo.
+$mirror = Find-ByName $UIA::RootElement 'Alfa Hub – espejo' 10
+$m = $mirror.Current.BoundingRectangle
+Write-Host "Espejo antes de moverlo: $m"
+[Shot]::Drag([int]($m.X + $m.Width / 2), [int]($m.Y + $m.Height / 2), [int]($m.X + $m.Width / 2), 560)
+Start-Sleep -Seconds 1
+Write-Host "Espejo después de moverlo: $($mirror.Current.BoundingRectangle)"
 Click '🔒  Bloquear'
 Start-Sleep -Seconds 1
 [Shot]::Screen((Join-Path $Out '15-pantalla-espejo-hub-al-frente.png'))
