@@ -69,7 +69,8 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate, SCContent
     private(set) var pickedFilter: SCContentFilter?
     private var observingPicker = false
     private var windowID: CGWindowID?
-    private var windowSize: CGSize = .zero
+    /// Tamaño (en puntos) de la ventana capturada: la región de cada espejo se recorta respecto a él.
+    private(set) var windowSize: CGSize = .zero
     private let queue = DispatchQueue(label: "alfahub.espejos")
     var onFrame: (IOSurface, CGSize) -> Void = { _, _ in }
     private(set) var running = false
@@ -204,13 +205,6 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate, SCContent
         Task { try? await stream?.stopCapture() }
     }
 
-    /// Si cambia el tamaño de la ventana de Tibia, la captura se rehace.
-    func restartIfNeeded(windowSize size: CGSize) {
-        guard running, stream != nil, abs(size.width - windowSize.width) > 1 || abs(size.height - windowSize.height) > 1 else { return }
-        stop()
-        start()
-    }
-
     nonisolated func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         guard type == .screen,
               let attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]],
@@ -323,9 +317,9 @@ final class MirrorController {
         self.model = model
         capture.onPicked = { [weak self] in self?.model.mirrorWindowPicked = true }
         capture.onFrame = { [weak self] surface, size in
-            guard let self, let frame = self.tibiaFrame else { return }
+            guard let self else { return }
             for config in self.model.mirrors {
-                self.panels[config.id]?.show(surface: surface, frameSize: size, windowSize: frame.size, config: config)
+                self.panels[config.id]?.show(surface: surface, frameSize: size, windowSize: self.capture.windowSize, config: config)
             }
         }
     }
@@ -347,7 +341,6 @@ final class MirrorController {
             panels[id]?.orderOut(nil)
             panels[id] = nil
         }
-        var anyVisible = false
         for config in model.mirrors {
             let panel = panels[config.id] ?? makePanel(config.id)
             let show = model.mirrorsVisible && config.visible && (model.mirrorsUnlocked || (tibiaActive && tibiaFrame != nil))
@@ -356,18 +349,15 @@ final class MirrorController {
                 : model.mirrorPickerMode ? "Elige la ventana de Tibia" : "Falta el permiso de Grabación de pantalla"
             panel.apply(config, unlocked: model.mirrorsUnlocked, message: message)
             if show {
-                anyVisible = true
                 if !panel.isVisible { panel.orderFrontRegardless() }
             } else if panel.isVisible {
                 panel.orderOut(nil)
             }
         }
-        if anyVisible && tibiaFrame != nil && ready {
-            capture.start()
-            if let size = tibiaFrame?.size { capture.restartIfNeeded(windowSize: size) }
-        } else {
-            capture.stop()
-        }
+        // La captura sigue en marcha mientras haya espejos activos, aunque Tibia no esté al frente:
+        // pararla y arrancarla en cada cambio de ventana hacía parpadear el indicador de "compartiendo".
+        let wanted = model.mirrorsVisible && model.mirrors.contains(where: \.visible)
+        if wanted && tibiaFrame != nil && ready { capture.start() } else { capture.stop() }
     }
 
     private func makePanel(_ id: UUID) -> MirrorPanel {
