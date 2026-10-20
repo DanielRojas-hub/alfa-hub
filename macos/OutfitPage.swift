@@ -129,6 +129,11 @@ struct OutfitPage: View {
     private var outfitList: some View {
         VStack(spacing: 6) {
             TextField("Buscar outfit", text: $search)
+                .onSubmit {
+                    // Enter elige el que se llama exactamente así (o el primero de la lista).
+                    let found = catalog.sortedOutfits.filter { catalog.title($0).localizedCaseInsensitiveContains(search) }
+                    if let id = found.first(where: { catalog.title($0).caseInsensitiveCompare(search) == .orderedSame }) ?? found.first { select(id) }
+                }
             ScrollViewReader { proxy in
                 List(catalog.sortedOutfits.filter { search.isEmpty || catalog.title($0).localizedCaseInsensitiveContains(search) }, id: \.self) { id in
                     Button { select(id) } label: {

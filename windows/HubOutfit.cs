@@ -61,7 +61,16 @@ namespace AlfaHub
                 if (updating || list.SelectedIndex < 0) return;
                 SelectOutfit(shown[list.SelectedIndex]);
             };
+            search.AccessibleName = "Buscar outfit";
             search.TextChanged += (s, e) => FillList();
+            // Enter elige el que se llama exactamente así (o el primero de la lista).
+            search.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode != Keys.Enter || shown.Count == 0) return;
+                e.SuppressKeyPress = true;
+                int exact = shown.FindIndex(i => string.Equals(catalog.Title(i), search.Text.Trim(), StringComparison.OrdinalIgnoreCase));
+                SelectOutfit(shown[exact >= 0 ? exact : 0]);
+            };
             left.Click += (s, e) => Change(c => c.Facing = (c.Facing + 3) % 4);
             right.Click += (s, e) => Change(c => c.Facing = (c.Facing + 1) % 4);
             female.CheckedChanged += (s, e) => { if (!updating) Change(c => c.Female = female.Checked); };

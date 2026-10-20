@@ -242,7 +242,8 @@ Assert-Running
 # ---- Outfit: elegir Knight (se descarga de TibiaWiki) y ver el ícono nuevo ----
 Click 'Outfit'
 Capture-Hub '08f-outfit-original.png'
-Click 'Knight'
+Click 'Buscar outfit'
+[System.Windows.Forms.SendKeys]::SendWait('knight{ENTER}')
 Start-Sleep -Seconds 6
 Capture-Hub '08g-outfit-knight.png'
 [Shot]::Screen((Join-Path $Out '08h-pantalla-outfit-iconos.png'))
