@@ -91,10 +91,16 @@ namespace AlfaHub
             });
             mount.SelectedIndexChanged += (s, e) => { if (!updating && mount.SelectedIndex >= 0) Change(c => c.Mount = mounts[mount.SelectedIndex]); };
             Controls.AddRange(new Control[] { search, list, preview, left, right, female, addon1, addon2, part, target, palette, mount });
+            AccessibleName = "Editor de outfit";
+            list.HandleCreated += (s, e) => Native.UseDarkScrollbars(list.Handle);
+            search.HandleCreated += (s, e) => SendMessage(search.Handle, 0x1501, (IntPtr)1, "Buscar outfit");  // EM_SETCUEBANNER
             state.Changed += OnStateChanged;
             FillList();
             Sync();
         }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
 
         protected override void Dispose(bool disposing)
         {

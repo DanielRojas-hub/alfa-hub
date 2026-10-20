@@ -242,7 +242,10 @@ Assert-Running
 # ---- Outfit: elegir Knight (se descarga de TibiaWiki) y ver el ícono nuevo ----
 Click 'Outfit'
 Capture-Hub '08f-outfit-original.png'
-Click 'Buscar outfit'
+# El buscador está arriba a la izquierda del editor (UI Automation no ve el cuadro de texto).
+$ed = (Find-ByName $script:hub 'Editor de outfit').Current.BoundingRectangle
+[Shot]::Click([int]($ed.X + 100), [int]($ed.Y + 20))
+Start-Sleep -Milliseconds 500
 [System.Windows.Forms.SendKeys]::SendWait('knight{ENTER}')
 Start-Sleep -Seconds 6
 Capture-Hub '08g-outfit-knight.png'
