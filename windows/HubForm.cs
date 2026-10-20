@@ -551,14 +551,38 @@ namespace AlfaHub
             {
                 Name = $"Espejo {model.Mirrors.Count + 1}",
                 X = region.X, Y = region.Y, Width = region.Width, Height = region.Height,
-                // Aparece junto a la región elegida; queda desbloqueado para moverlo a su sitio.
-                Left = client.X + region.Right + 16, Top = client.Y + region.Y,
             };
+            // Aparece junto a la región elegida (sin tapar el hub); queda desbloqueado para moverlo a su sitio.
+            Point place = PlaceNear(new Rectangle(client.X + region.X, client.Y + region.Y, region.Width, region.Height), mirror.DisplaySize);
+            mirror.Left = place.X;
+            mirror.Top = place.Y;
             model.Mirrors.Add(mirror);
             model.MirrorsUnlocked = true;
             MirrorsChanged?.Invoke();
             editingMirrorId = null;
             ShowPage(HubPage.Mirrors);
+        }
+
+        /// Primer sitio libre junto a la región (derecha, izquierda, debajo, encima) que no tape el hub.
+        Point PlaceNear(Rectangle region, Size size)
+        {
+            const int gap = 16;
+            Rectangle screen = Screen.FromRectangle(region).WorkingArea;
+            var candidates = new[]
+            {
+                new Point(region.Right + gap, region.Top),
+                new Point(region.Left - gap - size.Width, region.Top),
+                new Point(region.Left, region.Bottom + gap),
+                new Point(region.Left, region.Top - gap - size.Height),
+            };
+            foreach (var p in candidates)
+            {
+                var rect = new Rectangle(p, size);
+                if (screen.Contains(rect) && !rect.IntersectsWith(Bounds)) return p;
+            }
+            // Si no cabe en ningún lado, en la esquina contraria al hub.
+            int x = Bounds.Left - screen.Left > screen.Right - Bounds.Right ? screen.Left + 20 : screen.Right - size.Width - 20;
+            return new Point(x, screen.Top + 80);
         }
 
         void Reselect(MirrorConfig m)
