@@ -48,9 +48,14 @@ garantizarlo al 100 %. La única confirmación definitiva es preguntar al soport
 ## macOS
 
 `macos/Alfa Hub.app` (se genera con `macos/build.sh`). Igual que en Windows, no toca el proceso del
-cliente: consulta qué app está al frente y si tiene una ventana visible. Los **espejos** capturan la
-ventana de Tibia con ScreenCaptureKit, así que macOS pide el permiso de **Grabación de pantalla**
-(Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla → Alfa Hub).
+cliente: consulta qué app está al frente y si tiene una ventana visible. Los **espejos** copian la
+ventana de Tibia con ScreenCaptureKit, de una de estas dos formas (se elige en la página Espejos):
+
+- **Selector del sistema** (por defecto): eliges la ventana de Tibia en el selector de macOS. No pide
+  el permiso de Grabación de pantalla ni muestra el aviso periódico de macOS, pero hay que elegirla
+  cada vez que abres Alfa Hub o reinicias Tibia.
+- **Automática**: Alfa Hub encuentra la ventana solo; necesita el permiso de **Grabación de pantalla**
+  ("Abrir Ajustes" añade la app a la lista: solo hay que activarla) y macOS lo reconfirma de vez en cuando.
 
 Atajos por defecto: **⌃⌥P** (timer Pez), **⌃⌥R** (reiniciar el último timer usado), **⌃⌥O** (overlay).
 
