@@ -84,11 +84,16 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     /// Pide el permiso (macOS muestra su aviso como mucho una vez).
     static func requestAccess() { _ = CGRequestScreenCaptureAccess() }
 
-    /// Abre Ajustes del Sistema en Grabación de pantalla y muestra la app en Finder, para poder
-    /// arrastrarla a la lista si no aparece.
+    /// Abre Ajustes del Sistema en Grabación de pantalla. Antes pide acceso una sola vez: así macOS
+    /// añade Alfa Hub a la lista (desactivada) y basta con activar el interruptor. Solo se llama al
+    /// pulsar "Abrir Ajustes", nunca sola (sin permiso, cada petición vuelve a mostrar el aviso).
     static func openSettings() {
-        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
-        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+        _ = CGRequestScreenCaptureAccess()
+        Task { @MainActor in
+            _ = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        }
     }
 
     func start() {
@@ -405,7 +410,7 @@ struct MirrorsPage: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.amber)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Falta el permiso de Grabación de pantalla").font(.system(size: 13, weight: .semibold))
-                        Text("macOS lo pide para que los espejos puedan copiar la ventana de Tibia. En Ajustes, activa Alfa Hub (si no aparece, pulsa + o arrastra la app desde Finder) y luego pulsa “Ya lo activé — comprobar”.")
+                        Text("macOS lo pide para que los espejos puedan copiar la ventana de Tibia. Pulsa “Abrir Ajustes”, activa el interruptor de Alfa Hub y luego “Ya lo activé — comprobar”.")
                             .font(.system(size: 11)).foregroundStyle(Color.muted)
                     }
                     Spacer()
