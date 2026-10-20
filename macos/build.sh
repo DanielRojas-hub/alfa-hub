@@ -8,7 +8,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp ../assets/character.png "$APP/Contents/Resources/character.png"
 cp ../assets/outfits.json "$APP/Contents/Resources/outfits.json"
-swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/AlfaHub" main.swift Mirrors.swift Sounds.swift Audio.swift Outfit.swift OutfitPage.swift
+cp ../assets/hoy/*.gif "$APP/Contents/Resources/"
+swiftc -O -swift-version 5 -o "$APP/Contents/MacOS/AlfaHub" main.swift Mirrors.swift Sounds.swift Audio.swift Outfit.swift OutfitPage.swift Today.swift
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

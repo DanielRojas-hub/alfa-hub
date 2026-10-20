@@ -935,10 +935,11 @@ struct TopBar: View {
 }
 
 enum HubPage: String, CaseIterable, Identifiable {
-    case timers, audio, mirrors, outfit, shortcuts, sound
+    case today, timers, audio, mirrors, outfit, shortcuts, sound
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .today: "Hoy"
         case .timers: "Timers"
         case .audio: "Tibia Audio"
         case .mirrors: "Espejos"
@@ -949,6 +950,7 @@ enum HubPage: String, CaseIterable, Identifiable {
     }
     var subtitle: String {
         switch self {
+        case .today: "Rashid, server save, Tibiadrome y criaturas boosteadas"
         case .timers: "Cuentas atrás y rotaciones con aviso; cada uno con su contador sobre Tibia"
         case .audio: "Un aviso sonoro cuando una habilidad vuelve a estar lista"
         case .mirrors: "Copia las partes de Tibia que necesitas donde quieras"
@@ -959,6 +961,7 @@ enum HubPage: String, CaseIterable, Identifiable {
     }
     var icon: String {
         switch self {
+        case .today: "sun.max"
         case .timers: "timer"
         case .audio: "waveform"
         case .mirrors: "square.on.square.dashed"
@@ -978,6 +981,7 @@ struct Sidebar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Principal")
+            item(.today)
             item(.timers, badge: model.runningCount)
             item(.audio)
             item(.mirrors)
@@ -1074,6 +1078,7 @@ struct MirrorActions {
 struct HubView: View {
     @ObservedObject var model: HubModel
     let outfit: OutfitManager
+    var today = TodayModel()
     var mirrorActions = MirrorActions()
     @AppStorage("hubPage") private var page: HubPage = .timers
     @State private var editing: UUID?
@@ -1100,6 +1105,8 @@ struct HubView: View {
 
     @ViewBuilder private var content: some View {
         switch page {
+        case .today:
+            TodayPage(today: today)
         case .timers:
             if let id = editing, let run = model.runs.first(where: { $0.id == id }) {
                 TimerEditor(model: model, run: run) { editing = nil }

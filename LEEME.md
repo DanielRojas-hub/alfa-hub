@@ -2,6 +2,10 @@
 
 Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/timer), para macOS y Windows.
 
+- **Hoy**: en qué ciudad está **Rashid** (y dónde encontrarlo), cuánto falta para el **server save**
+  (con la hora local), cuándo termina la rotación del **Tibiadrome** y la **criatura y el boss
+  boosteados** del día. Rashid, el server save y el Tibiadrome se calculan sin conexión; los
+  boosteados vienen de la [API de TibiaData](https://tibiadata.com) y se guardan para verlos sin conexión.
 - **Timers**: varios a la vez, con presets **Pez** (cada 2:00), **Bakragore** (mecánica cada 1:30
   durante 25 min), **Pilar** (rotación de los Totens cada 6 s) o personalizados. Cada uno tiene su
   duración, avisos, sonido (14 incluidos o un .wav/.mp3 propio), atajo de iniciar/pausar y su propio
@@ -22,7 +26,7 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
   API de TibiaWiki la primera vez que eliges cada outfit o montura y quedan en caché. El ícono del
   archivo (.app / .exe) sigue siendo el original.
 - Sin límite de timers, habilidades ni espejos.
-- **Hub**: barra lateral con Timers, Tibia Audio, Espejos, Outfit, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
+- **Hub**: barra lateral con Hoy, Timers, Tibia Audio, Espejos, Outfit, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
 
 ## Windows
 

@@ -264,6 +264,9 @@ Click 'Atajos'
 Capture-Hub '09-atajos.png'
 Click 'Sonido'
 Capture-Hub '10-sonido.png'
+Click 'Hoy'
+Start-Sleep -Seconds 4   # boosteados de TibiaData
+Capture-Hub '10b-hoy.png'
 
 # ---- Espejos ----
 Click 'Espejos'

@@ -22,6 +22,7 @@ verifica con el workflow *Capturas Windows* (GitHub Actions), que sube sus captu
 | [11-tibia-audio.png](capturas/11-tibia-audio.png) | Página **Tibia Audio** con una habilidad en cooldown |
 | [12-editor-tibia-audio.png](capturas/12-editor-tibia-audio.png) | Editor de una habilidad de Tibia Audio |
 | [13-outfit.png](capturas/13-outfit.png) | Página **Outfit** (Outfiter) |
+| [14-hoy.png](capturas/14-hoy.png) | Página **Hoy**: Rashid, Tibiadrome, server save y boosteados |
 
 ## Estructura
 
@@ -30,11 +31,23 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
 1. **Barra superior** (52 pt), sin logo ni nombre: a la derecha, el estado "● Tibia abierto / cerrado"
    y un botón cápsula "Overlay visible / oculto".
 2. **Barra lateral** (200 pt, fondo más oscuro):
-   - Sección **PRINCIPAL**: *Timers* (con un contador verde de timers en marcha), *Tibia Audio* y *Espejos*.
+   - Sección **PRINCIPAL**: *Hoy*, *Timers* (con un contador verde de timers en marcha), *Tibia Audio* y *Espejos*.
    - Sección **AJUSTES**: *Outfit*, *Atajos* y *Sonido*.
    - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
    - Al pie: el personaje guardado a 2× (caminando si se eligió **Animar caminata**).
 3. **Página** (márgenes de 28 pt): título grande + subtítulo gris, y el contenido.
+
+### Página Hoy
+
+- Cuatro tarjetas (2 × 2) con una franja de color arriba, ícono, título y el sprite de Tibia a la derecha
+  (`assets/hoy/`, de TibiaWiki):
+  - **Rashid** (dorado): ciudad en grande, dónde está y "Mañana: …". Cambia en el server save según
+    el día (lunes Svargrond, martes Liberty Bay, miércoles Port Hope, jueves Ankrahmun, viernes
+    Darashia, sábado Edron, domingo Carlin).
+  - **Tibiadrome** (morado): lo que falta ("7 d 12 h"), barra de la rotación de 2 semanas y fecha de fin en hora local.
+  - **Server save** (azul; rojo en los últimos 15 min): cuenta atrás `hh:mm:ss`, barra del día y la hora local.
+  - **Boosteados** (naranja): GIF, nombre y "CRIATURA" / "BOSS" (TibiaData, `/v4/creatures` y
+    `/v4/boostablebosses`). Se vuelven a pedir tras el server save.
 
 ### Página Timers
 

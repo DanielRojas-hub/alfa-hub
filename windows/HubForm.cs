@@ -67,7 +67,7 @@ namespace AlfaHub
         }
     }
 
-    enum HubPage { Timers, Audio, Mirrors, Outfit, Shortcuts, Sound }
+    enum HubPage { Today, Timers, Audio, Mirrors, Outfit, Shortcuts, Sound }
 
     /// Ventana principal: barra superior, barra lateral y una página a la derecha.
     sealed partial class HubForm : Form
@@ -149,9 +149,11 @@ namespace AlfaHub
             hero = null;
             preview = null;
             countLabel = null;
+            todayGrid = null;
 
             Control view;
-            if (target == HubPage.Timers)
+            if (target == HubPage.Today) view = BuildTodayPage();
+            else if (target == HubPage.Timers)
                 view = editingId != null && model.Find(editingId) != null ? BuildEditor(model.Find(editingId)) : BuildTimersPage();
             else if (target == HubPage.Mirrors)
             {
@@ -777,6 +779,7 @@ namespace AlfaHub
                 if (countLabel.Text != text) countLabel.Text = text;
             }
             foreach (var row in audioRows) row.UpdateState();
+            todayGrid?.Tick();
             if (audioStatus != null && audioStatus.Text != AudioStatusText) audioStatus.Text = AudioStatusText;
         }
 
@@ -884,6 +887,7 @@ namespace AlfaHub
             BackColor = Theme.Sidebar;
             int y = 12;
             y = AddLabel("PRINCIPAL", y);
+            y = AddItem(HubPage.Today, "Hoy", "\uE706", y);
             y = AddItem(HubPage.Timers, "Timers", "", y);
             y = AddItem(HubPage.Audio, "Tibia Audio", "\uE8D6", y);
             y = AddItem(HubPage.Mirrors, "Espejos", "\uE7C4", y);
