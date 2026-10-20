@@ -362,6 +362,7 @@ final class TimerRun: ObservableObject, Identifiable {
 final class HubModel: ObservableObject {
     static let defaultCounterColor = "A873FA", defaultAlertColor = "F54D4D", defaultBackgroundColor = "111827D9"
     static let maxTimers = 8
+    static let maxMirrors = 10
 
     @Published private(set) var runs: [TimerRun] = []
     @Published var selectedID: UUID? { didSet { defaults.set(selectedID?.uuidString, forKey: "selectedTimer") } }
@@ -386,6 +387,12 @@ final class HubModel: ObservableObject {
     @Published private(set) var shortcutsVersion = 0
     /// Cuántos timers están en marcha (para la barra lateral y la lista).
     @Published private(set) var runningCount = 0
+    // Espejos
+    @Published var mirrors: [MirrorConfig] { didSet { save((try? JSONEncoder().encode(mirrors)) ?? Data(), "mirrors") } }
+    @Published var mirrorsVisible: Bool { didSet { save(mirrorsVisible, "mirrorsVisible") } }
+    /// Espejos desbloqueados: se ven siempre y se pueden arrastrar. No se guarda.
+    @Published var mirrorsUnlocked = false
+    @Published var screenCaptureAllowed = false
     /// Si el cliente de Tibia está abierto (se muestra en la barra superior).
     @Published var tibiaRunning = false
     /// Solo mientras está activo el overlay recibe clics (para arrastrarlo). No se guarda.
@@ -405,6 +412,8 @@ final class HubModel: ObservableObject {
         counterColor = Color(hex: defaults.string(forKey: "counterColor") ?? Self.defaultCounterColor)
         alertColor = Color(hex: defaults.string(forKey: "alertColor") ?? Self.defaultAlertColor)
         backgroundColor = Color(hex: defaults.string(forKey: "backgroundColor") ?? Self.defaultBackgroundColor)
+        mirrors = defaults.data(forKey: "mirrors").flatMap { try? JSONDecoder().decode([MirrorConfig].self, from: $0) } ?? []
+        mirrorsVisible = defaults.object(forKey: "mirrorsVisible") as? Bool ?? true
 
         // Atajos de la versión anterior (un solo timer): "toggle" pasa al timer Pez.
         var legacy: [String: Shortcut] = [:]
@@ -788,11 +797,12 @@ struct TopBar: View {
 }
 
 enum HubPage: String, CaseIterable, Identifiable {
-    case timers, overlay, shortcuts, sound
+    case timers, mirrors, overlay, shortcuts, sound
     var id: String { rawValue }
     var title: String {
         switch self {
         case .timers: "Timers"
+        case .mirrors: "Espejos"
         case .overlay: "Overlay"
         case .shortcuts: "Atajos"
         case .sound: "Sonido"
@@ -801,6 +811,7 @@ enum HubPage: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .timers: "Cuentas atrás y rotaciones con aviso"
+        case .mirrors: "Copia las partes de Tibia que necesitas donde quieras"
         case .overlay: "El contador que ves encima de Tibia"
         case .shortcuts: "Controla los timers sin salir del juego"
         case .sound: "Volumen de los beeps y sonidos de aviso"
@@ -809,6 +820,7 @@ enum HubPage: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .timers: "timer"
+        case .mirrors: "square.on.square.dashed"
         case .overlay: "rectangle.on.rectangle"
         case .shortcuts: "keyboard"
         case .sound: "speaker.wave.2"
@@ -825,6 +837,7 @@ struct Sidebar: View {
         VStack(alignment: .leading, spacing: 4) {
             SectionLabel("Principal")
             item(.timers, badge: model.runningCount)
+            item(.mirrors)
             item(.overlay)
             SectionLabel("Ajustes").padding(.top, 14)
             item(.shortcuts)
@@ -908,11 +921,19 @@ extension PageHeader where Actions == EmptyView {
     }
 }
 
+/// Acciones que necesitan ventanas fuera del hub (elegir la región de un espejo sobre Tibia).
+struct MirrorActions {
+    var add: () -> Void = {}
+    var reselect: (UUID) -> Void = { _ in }
+}
+
 struct HubView: View {
     @ObservedObject var model: HubModel
     let resetOverlayPosition: () -> Void
+    var mirrorActions = MirrorActions()
     @AppStorage("hubPage") private var page: HubPage = .timers
     @State private var editing: UUID?
+    @State private var editingMirror: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -920,6 +941,7 @@ struct HubView: View {
             Divider().overlay(Color.white.opacity(0.06))
             HStack(spacing: 0) {
                 Sidebar(model: model, page: $page, editing: $editing)
+                    .onChange(of: page) { editingMirror = nil }
                 Divider().overlay(Color.white.opacity(0.06))
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -938,6 +960,13 @@ struct HubView: View {
                 TimerEditor(model: model, run: run) { editing = nil }
             } else {
                 TimersPage(model: model) { editing = $0 }
+            }
+        case .mirrors:
+            if let id = editingMirror, let index = model.mirrors.firstIndex(where: { $0.id == id }) {
+                MirrorEditor(model: model, mirror: $model.mirrors[index], back: { editingMirror = nil },
+                             reselect: { mirrorActions.reselect(id) })
+            } else {
+                MirrorsPage(model: model, add: mirrorActions.add, reselect: mirrorActions.reselect) { editingMirror = $0 }
             }
         case .overlay:
             PageContainer(page: .overlay) {
@@ -1619,6 +1648,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let tibiaClientID = "com.tibia.client"
     private let tibiaActive = CurrentValueSubject<Bool, Never>(false)
     private var tickCount = -1
+    private lazy var mirrorController = MirrorController(model: model)
+    private var selectionPanel: SelectionPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Evita que App Nap ralentice el timer mientras Tibia está en primer plano.
@@ -1640,6 +1671,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 self?.model.tick()
                 self?.refreshTibiaActive()
+                if let self, self.tickCount % 2 == 0 { self.mirrorController.sync(tibiaActive: self.tibiaActive.value) }
             }
         }
         RunLoop.main.add(ticker, forMode: .common)
@@ -1728,8 +1760,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hub.isReleasedWhenClosed = false
         hub.isRestorable = false
         hub.appearance = NSAppearance(named: .darkAqua)
+        let actions = MirrorActions(add: { [weak self] in self?.addMirror() },
+                                    reselect: { [weak self] id in self?.reselectMirror(id) })
         hub.contentViewController = NSHostingController(
-            rootView: HubView(model: model) { [weak self] in self?.placeOverlayTopRight() })
+            rootView: HubView(model: model, resetOverlayPosition: { [weak self] in self?.placeOverlayTopRight() },
+                              mirrorActions: actions))
         hub.setContentSize(NSSize(width: 900, height: min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 60)))
         hub.contentMinSize = NSSize(width: 820, height: 600)
         if !hub.setFrameUsingName("AlfaHubWindow2") { hub.center() }
@@ -1775,6 +1810,81 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windowItem.submenu = windowMenu
         main.addItem(windowItem)
         NSApp.mainMenu = main
+    }
+
+    // MARK: Espejos
+
+    /// Oculta el hub y deja elegir una región arrastrando sobre la ventana de Tibia.
+    private func selectRegion(_ completion: @escaping (CGRect, CGRect) -> Void) {
+        guard let tibia = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == TibiaWindowInfo.clientID }),
+              TibiaWindowInfo.frame() != nil else {
+            let alert = NSAlert()
+            alert.messageText = "Abre Tibia para elegir la región"
+            alert.informativeText = "La región se elige arrastrando sobre la ventana de Tibia."
+            alert.runModal()
+            return
+        }
+        if !MirrorCapture.allowed { MirrorCapture.requestAccess() }
+        hub.orderOut(nil)
+        tibia.activate()
+        // Esperar a que termine el cambio de escritorio (Tibia en pantalla completa) y medir su ventana visible.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self, let frame = TibiaWindowInfo.frame() else { self?.showHub(); return }
+            let panel = SelectionPanel(over: frame) { [weak self] region in
+                guard let self else { return }
+                self.selectionPanel = nil
+                self.showHub()
+                if let region { completion(region, frame) }
+            }
+            self.selectionPanel = panel
+            panel.makeKeyAndOrderFront(nil)
+            panel.orderFrontRegardless()
+        }
+    }
+
+    private func addMirror() {
+        guard model.mirrors.count < HubModel.maxMirrors else { return }
+        selectRegion { [weak self] region, frame in
+            guard let self else { return }
+            var mirror = MirrorConfig()
+            mirror.name = "Espejo \(self.model.mirrors.count + 1)"
+            mirror.x = region.minX; mirror.y = region.minY
+            mirror.width = region.width; mirror.height = region.height
+            // Aparece junto a la región elegida (sin tapar el hub); queda desbloqueado para moverlo a su sitio.
+            let regionOnScreen = CGRect(x: frame.minX + region.minX, y: frame.maxY - region.maxY, width: region.width, height: region.height)
+            let origin = self.placeNear(regionOnScreen, size: mirror.displaySize)
+            mirror.left = origin.x
+            mirror.top = origin.y + mirror.displaySize.height
+            self.model.mirrors.append(mirror)
+            self.model.mirrorsUnlocked = true
+        }
+    }
+
+    /// Primer sitio libre junto a la región (derecha, izquierda, debajo, encima) que no tape el hub.
+    private func placeNear(_ region: CGRect, size: CGSize) -> CGPoint {
+        let gap = 16.0
+        let screen = NSScreen.screens.first { $0.frame.intersects(region) }?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        let candidates = [
+            CGPoint(x: region.maxX + gap, y: region.maxY - size.height),
+            CGPoint(x: region.minX - gap - size.width, y: region.maxY - size.height),
+            CGPoint(x: region.minX, y: region.minY - gap - size.height),
+            CGPoint(x: region.minX, y: region.maxY + gap),
+        ]
+        for origin in candidates {
+            let rect = CGRect(origin: origin, size: size)
+            if screen.contains(rect) && !rect.intersects(hub.frame) { return origin }
+        }
+        return CGPoint(x: screen.maxX - size.width - 20, y: screen.maxY - size.height - 80)
+    }
+
+    private func reselectMirror(_ id: UUID) {
+        selectRegion { [weak self] region, _ in
+            guard let self, let index = self.model.mirrors.firstIndex(where: { $0.id == id }) else { return }
+            self.model.mirrors[index].x = region.minX
+            self.model.mirrors[index].y = region.minY
+            self.model.mirrors[index].width = region.width
+            self.model.mirrors[index].height = region.height
+        }
     }
 
     @objc private func showHub() {
