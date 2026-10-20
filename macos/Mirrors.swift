@@ -65,7 +65,20 @@ final class MirrorCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private(set) var running = false
 
     static var allowed: Bool { CGPreflightScreenCaptureAccess() }
-    static func requestAccess() { _ = CGRequestScreenCaptureAccess() }
+    /// Pide el permiso. macOS solo muestra su aviso la primera vez; en macOS 15+ también lo muestra al
+    /// pedir la lista de ventanas a ScreenCaptureKit.
+    static func requestAccess() {
+        _ = CGRequestScreenCaptureAccess()
+        Task { _ = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true) }
+    }
+
+    /// Abre Ajustes del Sistema en Grabación de pantalla y muestra la app en Finder, para poder
+    /// arrastrarla a la lista si no aparece.
+    static func openSettings() {
+        requestAccess()
+        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
+        NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+    }
 
     func start() {
         guard !running, Self.allowed else { return }
@@ -381,14 +394,11 @@ struct MirrorsPage: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.amber)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Falta el permiso de Grabación de pantalla").font(.system(size: 13, weight: .semibold))
-                        Text("macOS lo pide para que los espejos puedan copiar la ventana de Tibia. Actívalo para Alfa Hub y vuelve a abrir la app.")
+                        Text("macOS lo pide para que los espejos puedan copiar la ventana de Tibia. En Ajustes, activa Alfa Hub (si no aparece, pulsa + o arrastra la app desde Finder) y vuelve a abrir la app.")
                             .font(.system(size: 11)).foregroundStyle(Color.muted)
                     }
                     Spacer()
-                    SmallButton(title: "Abrir Ajustes", icon: "gear") {
-                        MirrorCapture.requestAccess()
-                        NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!)
-                    }
+                    SmallButton(title: "Abrir Ajustes", icon: "gear") { MirrorCapture.openSettings() }
                 }
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.amber.opacity(0.12)))
