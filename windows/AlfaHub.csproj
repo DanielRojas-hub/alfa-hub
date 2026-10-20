@@ -25,6 +25,7 @@
     <Reference Include="System.Runtime.Serialization" />
     <EmbeddedResource Include="AlfaHub.ico" LogicalName="AlfaHub.AlfaHub.ico" />
     <EmbeddedResource Include="character.png" LogicalName="AlfaHub.character.png" />
+    <EmbeddedResource Include="../assets/outfits.json" LogicalName="AlfaHub.outfits.json" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 </Project>

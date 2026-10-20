@@ -67,7 +67,7 @@ namespace AlfaHub
         }
     }
 
-    enum HubPage { Timers, Audio, Mirrors, Shortcuts, Sound }
+    enum HubPage { Timers, Audio, Mirrors, Outfit, Shortcuts, Sound }
 
     /// Ventana principal: barra superior, barra lateral y una página a la derecha.
     sealed partial class HubForm : Form
@@ -92,6 +92,8 @@ namespace AlfaHub
         public event Action<bool> RecordingShortcut;
         public event Action<int> HotKeyPressed;
         public event Action MirrorsChanged;        // espejos añadidos, quitados o cambiados
+        /// El personaje elegido en la página Outfit.
+        public readonly OutfitState Outfit;
 
         public HubForm(Model model)
         {
@@ -110,7 +112,9 @@ namespace AlfaHub
 
             topBar = new TopBar(model) { Dock = DockStyle.Top, Height = 52 };
             topBar.OverlayToggled += () => { model.OverlayVisible = !model.OverlayVisible; Changed?.Invoke(); RefreshTimer(); };
-            sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200 };
+            Outfit = new OutfitState(this);
+            sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200, Character = () => Outfit.Display };
+            Outfit.Changed += () => sidebar.Invalidate();
             sidebar.Navigate += p => { editingId = null; editingMirrorId = null; editingAudioId = null; ShowPage(p); };
 
             Controls.Add(content);
@@ -155,6 +159,7 @@ namespace AlfaHub
                 var audio = model.Audios.FirstOrDefault(a => a.Id == editingAudioId);
                 view = audio != null ? BuildAudioEditor(audio) : BuildAudioPage();
             }
+            else if (target == HubPage.Outfit) view = BuildOutfitPage();
             else if (target == HubPage.Shortcuts) view = BuildShortcutsPage();
             else view = BuildSoundPage();
 
@@ -867,6 +872,8 @@ namespace AlfaHub
         readonly List<(Control control, int top)> layout = new List<(Control, int)>();
 
         public event Action<HubPage> Navigate;
+        /// Personaje que se dibuja al pie (el elegido en la página Outfit).
+        public Func<Image> Character = () => Resources.Character;
 
         public Sidebar()
         {
@@ -877,6 +884,7 @@ namespace AlfaHub
             y = AddItem(HubPage.Audio, "Tibia Audio", "\uE8D6", y);
             y = AddItem(HubPage.Mirrors, "Espejos", "\uE7C4", y);
             y = AddLabel("AJUSTES", y + 14);
+            y = AddItem(HubPage.Outfit, "Outfit", "\uE77B", y);
             y = AddItem(HubPage.Shortcuts, "Atajos", "", y);
             AddItem(HubPage.Sound, "Sonido", "", y);
         }
@@ -923,8 +931,10 @@ namespace AlfaHub
             var g = Begin(e);
             float k = K;
             // Personaje con su frase al pie de la barra.
-            Image sprite = Resources.Character;
-            float w = (sprite?.Width ?? 37) * 2 * k, h = (sprite?.Height ?? 35) * 2 * k;
+            Image sprite = Character();
+            // Como el original (×2); los sprites grandes (con montura) se reducen para caber.
+            float scale = Math.Min(2f, 170f / Math.Max(sprite?.Width ?? 37, sprite?.Height ?? 35));
+            float w = (sprite?.Width ?? 37) * scale * k, h = (sprite?.Height ?? 35) * scale * k;
             var spriteRect = new RectangleF((Width - w) / 2, Height - 14 * k - h, w, h);
             Resources.DrawPixelArt(g, sprite, spriteRect);
 

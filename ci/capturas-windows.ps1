@@ -239,7 +239,20 @@ Write-Host 'captura: 08e (la habilidad debe estar en cooldown, ~1,5 s)'
 Start-Sleep -Seconds 2
 Assert-Running
 
+# ---- Outfit: elegir Knight (se descarga de TibiaWiki) y ver el ícono nuevo ----
+Click 'Outfit'
+Capture-Hub '08f-outfit-original.png'
+Click 'Knight'
+Start-Sleep -Seconds 6
+Capture-Hub '08g-outfit-knight.png'
+[Shot]::Screen((Join-Path $Out '08h-pantalla-outfit-iconos.png'))
+Write-Host 'captura: 08h (ícono de la barra de tareas y bandeja con el Knight)'
+Click '↺  Personaje original'
+Start-Sleep -Seconds 1
+Assert-Running
+
 Click 'Atajos'
+
 Capture-Hub '09-atajos.png'
 Click 'Sonido'
 Capture-Hub '10-sonido.png'
