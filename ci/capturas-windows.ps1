@@ -192,6 +192,8 @@ $r = $script:hub.Current.BoundingRectangle
 [Shot]::Wheel([int]($r.X + $r.Width * 0.6), [int]($r.Y + $r.Height * 0.6), -25)
 Start-Sleep -Seconds 1
 Capture-Hub '06-editor-pez-overlay.png'
+[Shot]::Wheel([int]($r.X + $r.Width * 0.6), [int]($r.Y + $r.Height * 0.6), 25)
+Start-Sleep -Seconds 1
 Click '‹  Volver a Timers'
 
 # Overlay: sin Tibia solo se ve desbloqueado (borde ámbar): un contador por timer, apilados.
