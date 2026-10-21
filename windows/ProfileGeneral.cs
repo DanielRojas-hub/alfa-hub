@@ -326,7 +326,7 @@ namespace AlfaHub
             var days = Days();
             if (days.Count == 0) return (int)(S(Tiles) + S(12) + FirstDayHeight(width) + S(28));
             float h = S(Tiles) + S(12) + S(ChartH) + S(12);
-            if (days.Any(d => d.Gained.HasValue)) h += S(BarsH) + S(12);
+            if (days.Any(d => d.Gained > 0)) h += S(BarsH) + S(12);
             h += S(Prediction) + S(12) + S(34) + days.Count * S(RowH) + S(8) + S(24);
             return (int)h;
         }
@@ -360,7 +360,8 @@ namespace AlfaHub
             }
             DrawEvolution(g, new RectangleF(0.5f, y, Width - 1, S(ChartH)));
             y += S(ChartH) + S(12);
-            if (gains.Count > 0)
+            // Sin ningún día con experiencia ganada las barras salen vacías.
+            if (gains.Any(v => v > 0))
             {
                 DrawBars(g, new RectangleF(0.5f, y, Width - 1, S(BarsH)), days);
                 y += S(BarsH) + S(12);
@@ -396,7 +397,7 @@ namespace AlfaHub
 
         void DrawTiles(Graphics g, float y, List<Day> days, List<long> gains)
         {
-            var best = days.Where(d => d.Gained.HasValue).OrderByDescending(d => d.Gained).FirstOrDefault();
+            var best = days.Where(d => d.Gained > 0).OrderByDescending(d => d.Gained).FirstOrDefault();
             var recent = gains.Skip(Math.Max(0, gains.Count - 7)).ToList();
             long? average = recent.Count == 0 ? (long?)null : recent.Sum() / recent.Count;
             int level = c.Level;
@@ -409,7 +410,7 @@ namespace AlfaHub
             var tiles = new[]
             {
                 ("♛  Mejor día", Theme.Amber, best?.Gained is long b ? "+" + Format.Compact(b) : "—", best == null ? "" : $"{Format.Short(best.Date)} · nivel {N(best.Level)}"),
-                ("▦  Media diaria", Theme.Green, average is long a ? "+" + Format.Compact(a) : "—", recent.Count == 0 ? "" : $"últimos {recent.Count} {(recent.Count == 1 ? "día" : "días")}"),
+                ("▦  Media diaria", Theme.Green, average is long a ? "+" + Format.Compact(a) : "—", recent.Count == 0 ? "" : recent.Count == 1 ? "último día" : $"últimos {recent.Count} días"),
                 ("🏆  Puesto en " + c.World, Palette.Purple, c.Tibia?.WorldRank is int rank ? "#" + rank : "—", rankDetail),
                 ("↗  Al nivel " + N(level + 1), Theme.Blue, exp is long e ? $"{(int)((double)(e - start) / (next - start) * 100)} %" : "—", exp is long e2 ? $"faltan {Format.Compact(next - e2)} exp" : ""),
             };

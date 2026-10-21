@@ -49,7 +49,8 @@ struct ExperienceView: View {
                 } else {
                     summary(days, gains: gains)
                     evolution
-                    if !gains.isEmpty { dailyChart(days) }
+                    // Sin ningún día con experiencia ganada las barras salen vacías.
+                    if gains.contains(where: { $0 > 0 }) { dailyChart(days) }
                     prediction(gains: gains)
                     table(days)
                 }
@@ -90,7 +91,7 @@ struct ExperienceView: View {
     // MARK: Resumen
 
     private func summary(_ days: [Day], gains: [Int64]) -> some View {
-        let best = days.filter { $0.gained != nil }.max { ($0.gained ?? 0) < ($1.gained ?? 0) }
+        let best = days.filter { ($0.gained ?? 0) > 0 }.max { ($0.gained ?? 0) < ($1.gained ?? 0) }
         let recent = Array(gains.suffix(7))
         let average = recent.isEmpty ? nil : recent.reduce(0, +) / Int64(recent.count)
         let level = char.level
@@ -102,7 +103,7 @@ struct ExperienceView: View {
                      detail: best.map { "\($0.date.formatted(.dateTime.day().month(.abbreviated))) · nivel \($0.level.formatted())" } ?? "")
             StatTile(icon: "calendar", tint: .green, title: "Media diaria",
                      value: average.map { "+\(compactNumber($0))" } ?? "—",
-                     detail: recent.isEmpty ? "" : "últimos \(recent.count) \(recent.count == 1 ? "día" : "días")")
+                     detail: recent.isEmpty ? "" : recent.count == 1 ? "último día" : "últimos \(recent.count) días")
             StatTile(icon: "trophy.fill", tint: Color(red: 0.69, green: 0.45, blue: 0.98), title: "Puesto en \(char.world)",
                      value: char.tibia?.worldRank.map { "#\($0)" } ?? "—",
                      detail: rankChange(days))
