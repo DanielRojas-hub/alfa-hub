@@ -29,6 +29,9 @@
     <EmbeddedResource Include="../assets/hoy/rashid.gif" LogicalName="AlfaHub.rashid.gif" />
     <EmbeddedResource Include="../assets/hoy/server-save.gif" LogicalName="AlfaHub.server-save.gif" />
     <EmbeddedResource Include="../assets/hoy/tibiadrome.gif" LogicalName="AlfaHub.tibiadrome.gif" />
+    <EmbeddedResource Include="../assets/bestiary.json" LogicalName="AlfaHub.bestiary.json" />
+    <EmbeddedResource Include="../assets/items.json" LogicalName="AlfaHub.items.json" />
+    <EmbeddedResource Include="../assets/charms.json" LogicalName="AlfaHub.charms.json" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 </Project>

@@ -18,20 +18,14 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
 - **Overlay**: el contador de cada timer en marcha, encima de Tibia y únicamente mientras Tibia
   está al frente. Los clics lo atraviesan y llegan al juego. "Desbloquear para moverlos" (página
   Timers) los muestra todos para arrastrar cada uno a su sitio.
-- **Outfit** (en Windows; en macOS se edita en cada char de **Perfiles**): eliges tu personaje como en el [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter)
-  (outfit, hombre o mujer, addons, los cuatro colores del outfit y de la montura, orientación, montura
-  y caminata animada). Con **Guardar cambios** pasa al ícono de la app (Dock o barra de tareas), a la
-  barra lateral y a la barra de menús o bandeja; en **Mis outfits** guardas tus combinaciones para
-  volver a ellas con un clic. Los sprites se descargan de la
-  API de TibiaWiki la primera vez que eliges cada outfit o montura y quedan en caché. El ícono del
-  archivo (.app / .exe) sigue siendo el original.
-- **Perfiles** (por ahora solo en macOS): cada perfil junta varios chars. Al escribir el nombre de un
+- **Perfiles**: cada perfil junta varios chars. Al escribir el nombre de un
   char se **sincroniza con tibia.com** (TibiaData) y se vuelve a sincronizar al abrirlo si pasó una hora.
   Cada char tiene:
   - su **outfit**, que se edita como en el [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter)
-    (outfit, hombre o mujer, addons, colores, montura, caminata y *Mis outfits*). Con **Mostrar en el
-    ícono de Alfa Hub** ese char pasa al ícono de la app (Dock o barra de tareas), a la barra lateral y a
-    la barra de menús o bandeja;
+    (outfit, hombre o mujer, addons, colores, montura, caminata y *Mis outfits*); los sprites se descargan
+    de la API de TibiaWiki la primera vez y quedan en caché. Con **Mostrar en el ícono de Alfa Hub** ese
+    char pasa al ícono de la app (Dock o barra de tareas), a la barra lateral y a la barra de menús o
+    bandeja (el ícono del archivo .app / .exe sigue siendo el original);
   - **General**, al estilo de [guildstats.eu](https://guildstats.eu): nivel con el progreso al siguiente y
     el puesto en su mundo (highscores), HP, maná, capacidad y rango de party (calculados), cuenta, gremio,
     casas, muertes recientes y los otros chars de la cuenta (se añaden al perfil con un clic);
@@ -55,7 +49,7 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
     TibiaWiki de cada item, cantidad y un buscador para saber en qué char y dónde está un item.
   Un perfil se **comparte** con un código de texto (Copiar código → pegarlo en un chat) o un archivo
   `.alfahub`; quien lo recibe lo abre en Perfiles → Importar, y si importa una versión nueva del mismo
-  perfil se actualiza su copia. Las listas de criaturas e items salen de TibiaWiki con
+  perfil se actualiza su copia (macOS y Windows usan el mismo formato). Las listas de criaturas e items salen de TibiaWiki con
   `assets/make_profiles_data.py` (`bestiary.json`, `items.json`, `charms.json`); vienen dentro de la app y
   no se actualizan solas: hay que volver a ejecutar el script cuando TibiaWiki añade criaturas.
 - Sin límite de timers, habilidades ni espejos.

@@ -239,24 +239,49 @@ Write-Host 'captura: 08e (la habilidad debe estar en cooldown, ~1,5 s)'
 Start-Sleep -Seconds 2
 Assert-Running
 
-# ---- Outfit: elegir Knight (se descarga de TibiaWiki) y ver el ícono nuevo ----
-Click 'Outfit'
-Capture-Hub '08f-outfit-original.png'
+# ---- Perfiles: un char sincronizado con tibia.com, sus pestañas y su outfit en el ícono ----
+Click 'Perfiles'
+Capture-Hub '08f-perfiles-vacio.png'
+Click '＋  Nuevo perfil'
+Capture-Hub '08g-perfil-nuevo.png'
+# Abrir el char (la primera tarjeta) y escribir su nombre: se busca en tibia.com al dejar de escribir.
+$grid = (Find-ByName $script:hub 'Chars del perfil').Current.BoundingRectangle
+[Shot]::Click([int]($grid.X + 60), [int]($grid.Y + 40))
+Start-Sleep -Seconds 1
+$header = (Find-ByName $script:hub 'Cabecera del char').Current.BoundingRectangle
+[Shot]::Click([int]($header.X + 200), [int]($header.Y + 24))
+Start-Sleep -Milliseconds 500
+[System.Windows.Forms.SendKeys]::SendWait('Alfa Sios')
+Start-Sleep -Seconds 15   # TibiaData: el char y unas páginas de highscores
+Capture-Hub '08h-char-general.png'
+Write-Host 'captura: 08h (Alfa Sios sincronizado: Elder Druid, Xymera, puesto en el mundo)'
+Assert-Running
+Click 'Experiencia'
+Capture-Hub '08i-char-experiencia.png'
+Click 'Bestiary'
+Start-Sleep -Seconds 8   # GIFs de TibiaWiki
+Capture-Hub '08j-char-bestiary.png'
+Click 'Charms'
+Start-Sleep -Seconds 4
+Capture-Hub '08k-char-charms.png'
+Click 'Inventario'
+Capture-Hub '08l-char-inventario.png'
+Assert-Running
+# Outfit del char: clic en el avatar, elegir Knight y mostrarlo en el ícono de Alfa Hub.
+$header = (Find-ByName $script:hub 'Cabecera del char').Current.BoundingRectangle
+[Shot]::Click([int]($header.X + 36), [int]($header.Y + 40))
+Start-Sleep -Seconds 1
 # El buscador está arriba a la izquierda del editor (UI Automation no ve el cuadro de texto).
 $ed = (Find-ByName $script:hub 'Editor de outfit').Current.BoundingRectangle
 [Shot]::Click([int]($ed.X + 100), [int]($ed.Y + 20))
 Start-Sleep -Milliseconds 500
 [System.Windows.Forms.SendKeys]::SendWait('knight{ENTER}')
 Start-Sleep -Seconds 6
-Toggle 'Montura'
-Toggle 'Animar caminata'
-Start-Sleep -Seconds 6
-Capture-Hub '08g-outfit-knight.png'
-Write-Host 'captura: 08g (Knight montado y caminando; ícono aún sin cambiar)'
-Click '✓  Guardar cambios'
-Start-Sleep -Seconds 3
-[Shot]::Screen((Join-Path $Out '08h-pantalla-outfit-iconos.png'))
-Write-Host 'captura: 08h (ícono de la barra de tareas y bandeja con el Knight tras Guardar cambios)'
+Toggle 'Mostrar en el ícono de Alfa Hub'
+Start-Sleep -Seconds 4
+Capture-Hub '08m-char-outfit.png'
+[Shot]::Screen((Join-Path $Out '08n-pantalla-outfit-iconos.png'))
+Write-Host 'captura: 08n (ícono de la barra de tareas, bandeja y barra lateral con el Knight del char)'
 Assert-Running
 
 Click 'Atajos'

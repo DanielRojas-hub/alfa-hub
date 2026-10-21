@@ -71,6 +71,12 @@ namespace AlfaHub
             tray.DoubleClick += (s, e) => ShowHub();
             hub.Outfit.SavedChanged += ApplyOutfitIcons;
             hub.Outfit.RenderSaved();
+            // El ícono lleva el outfit del char elegido en Perfiles ("Mostrar en el ícono de Alfa Hub").
+            hub.Profiles.IconOutfitChanged += outfit => hub.Outfit.Use(OutfitConvert.ToConfig(outfit));
+            hub.Profiles.Start();
+            // Solo para pruebas: recorre Perfiles, guarda capturas y se cierra (ver TestShots.cs).
+            string shots = Environment.GetEnvironmentVariable("ALFAHUB_TEST_SHOTS");
+            if (!string.IsNullOrEmpty(shots)) hub.RunTestShots(shots, Quit);
 
             RegisterHotKeys();
             ticker.Tick += (s, e) => Tick();
@@ -193,6 +199,7 @@ namespace AlfaHub
             keys.Stop();
             UnregisterAll();
             model.Save();
+            hub.Profiles.Save();
             tray.Visible = false;
             tray.Dispose();
             overlays.CloseAll();

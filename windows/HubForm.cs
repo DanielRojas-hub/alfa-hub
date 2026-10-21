@@ -67,7 +67,7 @@ namespace AlfaHub
         }
     }
 
-    enum HubPage { Today, Timers, Audio, Mirrors, Outfit, Shortcuts, Sound }
+    enum HubPage { Today, Timers, Audio, Mirrors, Profiles, Shortcuts, Sound }
 
     /// Ventana principal: barra superior, barra lateral y una página a la derecha.
     sealed partial class HubForm : Form
@@ -92,7 +92,7 @@ namespace AlfaHub
         public event Action<bool> RecordingShortcut;
         public event Action<int> HotKeyPressed;
         public event Action MirrorsChanged;        // espejos añadidos, quitados o cambiados
-        /// El personaje elegido en la página Outfit.
+        /// El personaje de Alfa Hub (ícono y barra lateral): el outfit del char que lo tiene en Perfiles.
         public readonly OutfitState Outfit;
 
         public HubForm(Model model)
@@ -119,7 +119,8 @@ namespace AlfaHub
             var walk = new System.Windows.Forms.Timer { Interval = 100 };
             walk.Tick += (s, e) => { if (Outfit.Current?.Frames.Count > 0) sidebar.Invalidate(); };
             walk.Start();
-            sidebar.Navigate += p => { editingId = null; editingMirrorId = null; editingAudioId = null; ShowPage(p); };
+            sidebar.Navigate += p => { editingId = null; editingMirrorId = null; editingAudioId = null; editingOutfit = false; ShowPage(p); };
+            Profiles.Changed += () => { if (page == HubPage.Profiles && !editingOutfit) Rebuild(); };
 
             Controls.Add(content);
             Controls.Add(new Panel { Dock = DockStyle.Left, Width = 1, BackColor = Theme.Line });
@@ -165,7 +166,7 @@ namespace AlfaHub
                 var audio = model.Audios.FirstOrDefault(a => a.Id == editingAudioId);
                 view = audio != null ? BuildAudioEditor(audio) : BuildAudioPage();
             }
-            else if (target == HubPage.Outfit) view = BuildOutfitPage();
+            else if (target == HubPage.Profiles) view = BuildProfilesPage();
             else if (target == HubPage.Shortcuts) view = BuildShortcutsPage();
             else view = BuildSoundPage();
 
@@ -879,7 +880,7 @@ namespace AlfaHub
         readonly List<(Control control, int top)> layout = new List<(Control, int)>();
 
         public event Action<HubPage> Navigate;
-        /// Personaje que se dibuja al pie (el elegido en la página Outfit).
+        /// Personaje que se dibuja al pie (el del char que va en el ícono de Alfa Hub).
         public Func<Image> Character = () => Resources.Character;
 
         public Sidebar()
@@ -891,8 +892,8 @@ namespace AlfaHub
             y = AddItem(HubPage.Timers, "Timers", "", y);
             y = AddItem(HubPage.Audio, "Tibia Audio", "\uE8D6", y);
             y = AddItem(HubPage.Mirrors, "Espejos", "\uE7C4", y);
+            y = AddItem(HubPage.Profiles, "Perfiles", "\uE716", y);
             y = AddLabel("AJUSTES", y + 14);
-            y = AddItem(HubPage.Outfit, "Outfit", "\uE77B", y);
             y = AddItem(HubPage.Shortcuts, "Atajos", "", y);
             AddItem(HubPage.Sound, "Sonido", "", y);
         }

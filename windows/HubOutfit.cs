@@ -7,33 +7,6 @@ using System.Windows.Forms;
 
 namespace AlfaHub
 {
-    /// Página Outfit: el personaje de Alfa Hub, como en el Outfiter de TibiaWiki.
-    sealed partial class HubForm
-    {
-        Control BuildOutfitPage()
-        {
-            var discard = SmallButton("✕  Descartar", () => Outfit.Discard());
-            var save = new RoundButton { Text = "✓  Guardar cambios", FillColor = Theme.Blue, Pill = true, Height = 34, BackColor = Theme.Back };
-            save.Font = new Font("Segoe UI Semibold", 10f);
-            save.FitText(16);
-            save.Click += (s, e) => Outfit.Save();
-            var actions = new InlineGroup(discard, save) { BackColor = Theme.Back, Height = 34 };
-            Action fit = () => { actions.Width = actions.PreferredWidth; actions.Parent?.PerformLayout(); };
-            discard.SizeChanged += (s, e) => fit();
-            save.SizeChanged += (s, e) => fit();
-            fit();
-            Action onChange = () => discard.Enabled = save.Enabled = Outfit.HasChanges;
-            onChange();
-            Outfit.Changed += onChange;
-            var editor = new OutfitEditor(Outfit) { Margin = new Padding(0, 4, 0, 8) };
-            editor.Disposed += (s, e) => Outfit.Changed -= onChange;
-            return Page(
-                new PageHeader("Outfit", "Tu personaje: ícono, bandeja y barra lateral", actions),
-                editor,
-                new NoteLabel("Pulsa Guardar cambios para que tu personaje pase al ícono de la ventana, a la bandeja y a la barra lateral. Los sprites vienen del Outfiter de TibiaWiki: se descargan la primera vez que eliges cada outfit o montura y luego funcionan sin conexión. El ícono del archivo AlfaHub.exe sigue siendo el original."));
-        }
-    }
-
     /// Listas de outfits y monturas a la izquierda; vista previa, opciones, colores y "Mis outfits" a la derecha.
     sealed class OutfitEditor : PaintedControl, IStackItem
     {

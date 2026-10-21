@@ -96,6 +96,29 @@ Probar con Tibia abierto, primero en **modo ventana** y luego en **pantalla comp
 - [ ] Si Tibia cambia de tamaño o se reinicia, los espejos siguen funcionando (vuelven a engancharse solos).
 - [ ] Con varios espejos y timers a la vez el juego no pierde FPS de forma notable.
 
+## 6b. Perfiles
+
+Ya verificado sin pantalla (con `ALFAHUB_TEST_SHOTS`, ver más abajo): sincronizar Alfa Sios con tibia.com,
+las cinco pestañas, la ficha de una criatura, el editor de un item, el outfit del char en el ícono y
+compartir/importar un código (también un código hecho en macOS, y al revés).
+
+- [ ] **Perfiles → ＋ Nuevo perfil**, abrir el char y escribir el nombre de un char real: a los ~2 s se
+      rellena (vocación, mundo, gremio) con "✓ tibia.com ahora mismo"; un nombre que no existe muestra el
+      aviso ámbar y **Reintentar**.
+- [ ] Pestañas **General**, **Experiencia** (el primer día, "Primer registro"), **Bestiary** (Todas,
+      Single, Group, filtros y orden; clic en una criatura abre su ficha y cambiar las kills se guarda),
+      **Charms** (clic cambia el nivel; optimizador con **Toda una zona**) e **Inventario** (añadir con
+      **＋**, mover a otro sitio, equipar, quitar, buscar en todos los chars).
+- [ ] Clic en el outfit del char → editor; **Mostrar en el ícono de Alfa Hub** cambia el ícono de la
+      ventana, la bandeja y el personaje de la barra lateral.
+- [ ] **Compartir → Copiar código** y **Importar → Pegar código** crean una copia "COMPARTIDO"; importar
+      otra vez el mismo perfil la actualiza. **Guardar archivo .alfahub** y **Abrir archivo** también.
+- [ ] Un código copiado en la versión de macOS se importa aquí con sus chars, items, kills y charms.
+- [ ] Tras "Salir" y volver a abrir se conservan los perfiles (`%APPDATA%\AlfaHub\perfiles.json`).
+
+Prueba automática sin pantalla: `ALFAHUB_TEST_SHOTS=C:\capturas AlfaHub.exe` recorre Perfiles solo,
+guarda una captura de cada pantalla en esa carpeta, anota los errores en `errores.txt` y se cierra.
+
 ## 7. Atajos
 
 - [ ] Página Atajos: un atajo por timer y los globales (Ctrl+Alt+R reinicia el último timer usado, Ctrl+Alt+O el overlay).

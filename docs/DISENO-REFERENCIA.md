@@ -21,7 +21,7 @@ verifica con el workflow *Capturas Windows* (GitHub Actions), que sube sus captu
 | [10-espejo-windows.png](capturas/10-espejo-windows.png) | Un **espejo** en Windows (abajo a la derecha) copiando parte de otra ventana, con el overlay de timers |
 | [11-tibia-audio.png](capturas/11-tibia-audio.png) | Página **Tibia Audio** con una habilidad en cooldown |
 | [12-editor-tibia-audio.png](capturas/12-editor-tibia-audio.png) | Editor de una habilidad de Tibia Audio |
-| [13-outfit.png](capturas/13-outfit.png) | Página **Outfit** (Outfiter) |
+| [13-outfit.png](capturas/13-outfit.png) | El Outfiter (antes página **Outfit**; ahora es el editor de outfit de cada char de Perfiles) |
 | [14-hoy.png](capturas/14-hoy.png) | Página **Hoy**: Rashid, Tibiadrome, server save y boosteados |
 | [15-perfiles-inventario.png](capturas/15-perfiles-inventario.png) | **Perfiles**: inventario de un char (equipo y un contenedor por sitio) |
 | [16-perfiles-bestiary.png](capturas/16-perfiles-bestiary.png) | **Perfiles**: Bestiary de un char (kills, etapas y completas) |
@@ -38,10 +38,10 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
    y un botón cápsula "Overlay visible / oculto".
 2. **Barra lateral** (200 pt, fondo más oscuro):
    - Sección **PRINCIPAL**: *Hoy*, *Timers* (con un contador verde de timers en marcha), *Tibia Audio*, *Espejos* y *Perfiles*.
-   - Sección **AJUSTES**: *Outfit* (solo Windows; en macOS el outfit es de cada char de Perfiles), *Atajos* y *Sonido*.
+   - Sección **AJUSTES**: *Atajos* y *Sonido* (el outfit es de cada char de Perfiles).
    - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
-   - Al pie: el personaje guardado a 2× (caminando si se eligió **Animar caminata**); en macOS, el del char
-     que tiene **Mostrar en el ícono de Alfa Hub**.
+   - Al pie: el personaje a 2× (caminando si se eligió **Animar caminata**): el del char que tiene
+     **Mostrar en el ícono de Alfa Hub**.
 3. **Página** (márgenes de 28 pt): título grande + subtítulo gris, y el contenido.
 
 ### Página Hoy
@@ -56,7 +56,12 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
   - **Boosteados** (naranja): GIF, nombre y "CRIATURA" / "BOSS" (TibiaData, `/v4/creatures` y
     `/v4/boostablebosses`). Se vuelven a pedir tras el server save.
 
-### Página Perfiles (solo macOS por ahora)
+### Página Perfiles
+
+En Windows es igual, con controles dibujados a mano; las opciones en cápsula y los menús de filtros
+abren menús oscuros, y las fichas (criatura, item) y "Pegar código" son ventanas emergentes que se
+cierran al hacer clic fuera. En los charms, clic cambia el nivel y clic derecho lo elige con su coste.
+
 
 - Lista de perfiles (filas con los outfits de sus primeros chars, "2 chars · 10 items · …", chip
   COMPARTIDO si se importó), **Importar** (pegar código o abrir archivo `.alfahub`) y **＋ Nuevo perfil**.
@@ -155,9 +160,9 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
   (segundos, pasos de 0,5), qué pasa si se pulsa durante el cooldown (vuelve a empezar / se ignora),
   sonido, volumen, simular pulsación y eliminar.
 
-### Página Outfit (solo Windows; en macOS es el editor de outfit de cada char)
+### Editor de outfit de un char
 
-- Cabecera con **Guardar cambios** (azul, solo con cambios) y **Descartar**.
+- "‹ Volver a <char>", título "Outfit de <char>" e interruptor **Mostrar en el ícono de Alfa Hub**.
 - A la izquierda, siempre desplegadas, la lista de outfits y debajo la de monturas, cada una con
   buscador (Enter elige el que coincide). Elegir una montura la monta.
 - A la derecha: vista previa sobre fondo de hierba (camina si se pide), nombre, girar ↺ ↻ y
@@ -166,8 +171,8 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
   colorear; Cabeza, Primario, Secundario, Detalle) con la paleta de 133 colores de Tibia (7 × 19).
 - **Mis outfits**: nombre + **Guardar aquí**; casillas con miniatura (la primera, el personaje
   original). Clic carga el outfit en la vista previa; × o clic derecho lo quita.
-- Lo editado es un borrador: solo pasa al ícono de la app, la barra lateral y la barra de menús /
-  bandeja al pulsar **Guardar cambios**.
+- Los cambios se guardan solos en el char; si es el del ícono, pasan también al ícono de la app, la
+  barra lateral y la barra de menús / bandeja.
 
 ### Página Espejos
 

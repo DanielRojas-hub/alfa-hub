@@ -432,8 +432,9 @@ namespace AlfaHub
         [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr handle);
     }
 
-    /// El personaje: lo que se edita en la página Outfit (borrador) y el que está en uso (guardado). El
-    /// borrador solo pasa al ícono de la ventana, la bandeja y la barra lateral con "Guardar cambios".
+    /// El personaje: lo que se edita en el editor de outfit de un char de Perfiles (borrador) y el que está
+    /// en uso en el ícono de la ventana, la bandeja y la barra lateral (guardado): el del char que tiene
+    /// "Mostrar en el ícono de Alfa Hub".
     sealed class OutfitState
     {
         static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "AlfaHub");
@@ -512,6 +513,15 @@ namespace AlfaHub
         }
 
         public void Discard() => SetDraft(Saved.Clone());
+
+        /// Pone un outfit en el ícono de la ventana, la bandeja y la barra lateral.
+        public void Use(OutfitConfig config)
+        {
+            if (config.SameAs(Saved)) return;
+            Saved = config.Clone();
+            Write(FilePath, Saved);
+            RenderSaved();
+        }
 
         public void AddPreset(string name)
         {
