@@ -166,8 +166,8 @@ Start-Sleep -Seconds 1
 
 Capture-Hub '01-timers.png'
 
-# Pez a 01:00 (la alerta empieza a los 35 s) y en marcha desde su editor.
-Click 'Editar Pez'
+# Pescaditos a 01:00 (la alerta empieza a los 35 s) y en marcha desde su editor.
+Click 'Editar Pescaditos'
 Click '01:00'
 Capture-Hub '02-editor-pez.png'
 Click '▶  Iniciar'
@@ -186,8 +186,8 @@ Capture-Hub '05-editor-bakragore.png'
 Click '‹  Volver a Timers'
 Assert-Running
 
-# Overlay del editor de Pez (cada timer tiene el suyo): bajar hasta la sección.
-Click 'Editar Pez'
+# Overlay del editor de Pescaditos (cada timer tiene el suyo): bajar hasta la sección.
+Click 'Editar Pescaditos'
 $r = $script:hub.Current.BoundingRectangle
 [Shot]::Wheel([int]($r.X + $r.Width * 0.6), [int]($r.Y + $r.Height * 0.6), -25)
 Start-Sleep -Seconds 1
