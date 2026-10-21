@@ -627,6 +627,15 @@ namespace AlfaHub
 
         public override int HeightFor(int width) => (int)S(86);
 
+        (string Label, string Value, Color Tint)[] StatBoxes() => new[]
+        {
+            ("CHARM POINTS", N(c.CharmPoints), Palette.Purple),
+            ("BESTIARY", $"{c.CompletedCount}/{BestiaryCatalog.Creatures.Count}", Theme.Amber),
+            ("NIVEL", N(c.Level), Theme.Green),
+        };
+
+        float StatWidth(string label, string value) => Math.Max(Measure(label, Fonts.Semi(7f)).Width, Measure(value, Fonts.Bold(12f)).Width) + S(24);
+
         protected override void OnLayout(LayoutEventArgs e)
         {
             base.OnLayout(e);
@@ -670,16 +679,20 @@ namespace AlfaHub
                        : "Mostrar este char en el ícono de Alfa Hub (ventana, bandeja y barra lateral)");
 
             float x = S(86);
+            // Dónde empiezan los recuadros de la derecha (el texto no debe pasar de ahí).
+            float statsLeft = Width - StatBoxes().Sum(b => StatWidth(b.Label, b.Value) + S(8));
             if (isIcon) Chip(g, "ÍCONO", Theme.Blue, x + Math.Min(Measure(c.Name, Fonts.Bold(16f)).Width + S(14), Width - x - S(380)), S(16));
             if (c.IsSynced)
             {
                 var info = c.Tibia;
                 string line = string.Join(" · ", new[] { info.Vocation, info.World, info.Guild }.Where(t => !string.IsNullOrEmpty(t)));
                 var font = Fonts.Semi(9.75f);
-                Write(g, line, font, Color.FromArgb(220, 220, 225), new RectangleF(x, S(46), Width - x - S(330), S(20)));
-                float sx = x + Math.Min(Measure(line, font).Width + S(12), Width - x - S(330));
+                Write(g, line, font, Color.FromArgb(220, 220, 225), new RectangleF(x, S(46), statsLeft - x - S(8), S(20)));
                 string status = (looking ? "⟳ " : "✓ ") + "tibia.com " + Format.Relative(info.Synced);
-                var statusRect = new RectangleF(sx, S(47), Measure(status, Fonts.Get(8.25f)).Width + 4, S(18));
+                float statusW = Measure(status, Fonts.Get(8.25f)).Width + 4;
+                float sx = x + Measure(line, font).Width + S(12), sy = S(47);
+                if (sx + statusW > statsLeft - S(8)) { sx = x; sy = S(67); }   // no cabe al lado: debajo
+                var statusRect = new RectangleF(sx, sy, statusW, S(18));
                 Write(g, status, Fonts.Get(8.25f), looking ? Theme.Muted : Theme.Green, statusRect);
                 Hot(statusRect, Lookup, "Sincronizado con tibia.com; clic para volver a sincronizar");
             }
@@ -698,14 +711,9 @@ namespace AlfaHub
             }
             // Recuadros
             float right = Width;
-            foreach (var (label, value, tint) in new[]
+            foreach (var (label, value, tint) in StatBoxes())
             {
-                ("CHARM POINTS", N(c.CharmPoints), Palette.Purple),
-                ("BESTIARY", $"{c.CompletedCount}/{BestiaryCatalog.Creatures.Count}", Theme.Amber),
-                ("NIVEL", N(c.Level), Theme.Green),
-            })
-            {
-                float w = Math.Max(Measure(label, Fonts.Semi(7f)).Width, Measure(value, Fonts.Bold(12f)).Width) + S(24);
+                float w = StatWidth(label, value);
                 var r = new RectangleF(right - w, S(18), w, S(48));
                 Card(g, r, radius: 9);
                 TextAt(g, label, Fonts.Semi(7f), Theme.Muted, r.X + S(12), r.Y + S(7));
