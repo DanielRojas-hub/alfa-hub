@@ -461,7 +461,7 @@ namespace AlfaHub
             var values = points.Select(p => byExp ? (double)(p.Experience ?? 0) : p.Level).ToList();
             var valid = values.Where(v => v > 0).ToList();
             if (valid.Count == 0) return;
-            double low = valid.Min(), high = valid.Max(), margin = Math.Max((high - low) * 0.15, 1);
+            double low = valid.Min(), high = valid.Max(), margin = Math.Max((high - low) * 0.15, byExp ? high * 0.005 : 1);
             low -= margin; high += margin;
             var plot = new RectangleF(r.X + S(70), r.Y + S(44), r.Width - S(90), r.Height - S(74));
             DrawAxes(g, plot, low, high, byExp, points.Select(p => p.When).ToList());

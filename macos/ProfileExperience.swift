@@ -122,12 +122,14 @@ struct ExperienceView: View {
     // MARK: Gráficos
 
     private var evolution: some View {
-        let points = char.history
-        let byExperience = chartMode == 0 && points.contains { $0.experience != nil }
-        let values = points.map { byExperience ? Double($0.experience ?? 0) : Double($0.level) }.filter { $0 > 0 }
-        // Escala de los datos (con un margen), no desde 0: si no, la línea sale plana.
+        let byExperience = chartMode == 0 && char.history.contains { $0.experience != nil }
+        // Solo los días con dato: sin experiencia (fuera de los highscores) el punto caería en 0, fuera de la escala.
+        let points = char.history.filter { byExperience ? ($0.experience ?? 0) > 0 : $0.level > 0 }
+        let values = points.map { byExperience ? Double($0.experience ?? 0) : Double($0.level) }
+        // Escala de los datos (con un margen), no desde 0: si no, la línea sale plana. Con experiencia, un
+        // margen mínimo del 0,5 % para que las etiquetas del eje no salgan todas iguales.
         let low = values.min() ?? 0, high = values.max() ?? 1
-        let margin = max((high - low) * 0.15, byExperience ? 1 : 1)
+        let margin = max((high - low) * 0.15, byExperience ? high * 0.005 : 1)
         let domain = (low - margin)...(high + margin)
         return ChartCard(title: "Evolución", icon: "chart.xyaxis.line") {
             PillPicker(options: ["Experiencia", "Nivel"], selection: $chartMode)
@@ -143,6 +145,7 @@ struct ExperienceView: View {
                     .foregroundStyle(Color.green).symbolSize(18)
             }
             .chartYScale(domain: domain)
+            .chartPlotStyle { $0.clipped() }
             .chartYAxis {
                 AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
                     AxisGridLine().foregroundStyle(Color.white.opacity(0.08))
@@ -150,7 +153,8 @@ struct ExperienceView: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 6)) { _ in
+                // Una marca por día como mucho: con registros del mismo día salía "21 Oct" repetido.
+                AxisMarks(values: .stride(by: .day, count: max(1, (points.count + 5) / 6))) { _ in
                     AxisGridLine().foregroundStyle(Color.white.opacity(0.05))
                     AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                 }
