@@ -288,7 +288,8 @@ namespace AlfaHub
             var icon = new ToggleSwitch { Checked = Profiles.IconChar == c.Id, Text = "Mostrar en el ícono de Alfa Hub" };
             icon.CheckedChanged += (s, e) => Profiles.IconChar = icon.Checked ? c.Id : null;
             var caption = new Caption("Mostrar en el ícono de Alfa Hub") { BackColor = Theme.Back, ForeColor = Color.White };
-            caption.AccessibleName = "Texto del interruptor del ícono";  // el nombre es del interruptor (script de capturas)
+            caption.Cursor = Cursors.Hand;
+            caption.Click += (s, e) => icon.Checked = !icon.Checked;  // como en las filas de ajustes: el texto también cambia el interruptor
             var editor = new OutfitEditor(Outfit) { Margin = new Padding(0, 4, 0, 8) };
             // Los cambios se guardan solos en el char.
             Action save = () =>
@@ -417,7 +418,7 @@ namespace AlfaHub
             this.profile = profile;
             this.outfit = outfit;
             outfit.Changed += Invalidate;
-            AccessibleName = "Abrir " + profile.Name;
+            Text = "Abrir " + profile.Name;
         }
 
         protected override void Dispose(bool disposing)
@@ -488,7 +489,7 @@ namespace AlfaHub
 
         public CharGrid(Profile profile, OutfitState outfit)
         {
-            AccessibleName = "Chars del perfil";
+            Text = "Chars del perfil";  // nombre para UI Automation (lo usa el script de capturas)
             this.profile = profile;
             this.outfit = outfit;
             outfit.Changed += Invalidate;
@@ -556,7 +557,7 @@ namespace AlfaHub
 
         public CharHeader(GameChar c, ProfileStore store, OutfitState outfit)
         {
-            AccessibleName = "Cabecera del char";
+            Text = "Cabecera del char";  // nombre para UI Automation (lo usa el script de capturas)
             this.c = c;
             this.store = store;
             this.outfit = outfit;
