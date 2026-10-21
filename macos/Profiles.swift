@@ -560,8 +560,13 @@ struct TibiaInfo: Codable, Hashable {
 
 enum CharLookup {
     enum Failure: LocalizedError {
-        case notFound
-        var errorDescription: String? { "No existe en tibia.com (o TibiaData no responde)" }
+        case notFound, highscores
+        var errorDescription: String? {
+            switch self {
+            case .notFound: return "No existe en tibia.com (o TibiaData no responde)"
+            case .highscores: return "TibiaData no responde con los highscores"
+            }
+        }
     }
 
     static func fetch(_ name: String) async throws -> TibiaInfo {
@@ -635,7 +640,7 @@ enum CharLookup {
         info.deaths = (body.deaths ?? []).map { .init(time: $0.time, level: $0.level ?? 0, reason: $0.reason ?? "") }
         info.otherChars = (body.other_characters ?? []).filter { $0.deleted != true && $0.name != c.name }
             .map { .init(name: $0.name, world: $0.world ?? "", online: $0.status == "online", main: $0.main ?? false) }
-        if let entry = await highscore(info.name, world: info.world, level: info.level) {
+        if let entry = try await highscore(info.name, world: info.world, level: info.level) {
             info.experience = entry.value
             info.worldRank = entry.rank
         }
@@ -644,8 +649,9 @@ enum CharLookup {
 
     /// Busca el char en los highscores de experiencia de su mundo (20 páginas de 50, ordenadas por
     /// experiencia): una búsqueda binaria por nivel, unas 5 peticiones. TibiaData no deja filtrar por
-    /// vocación más allá de la primera página, así que se usa la de todas.
-    static func highscore(_ name: String, world: String, level: Int) async -> (rank: Int, value: Int64)? {
+    /// vocación más allá de la primera página, así que se usa la de todas. Si TibiaData no responde (tras
+    /// reintentar), lanza un error: guardar el día sin experiencia lo dejaría como "fuera de los highscores".
+    static func highscore(_ name: String, world: String, level: Int) async throws -> (rank: Int, value: Int64)? {
         struct Response: Decodable {
             struct Body: Decodable { let highscore_list: [Entry] }
             struct Entry: Decodable { let rank: Int; let name: String; let level: Int; let value: Int64 }
@@ -653,20 +659,27 @@ enum CharLookup {
         }
         guard !world.isEmpty else { return nil }
         var cache: [Int: [Response.Entry]] = [:]
-        func page(_ number: Int) async -> [Response.Entry]? {
+        func page(_ number: Int) async throws -> [Response.Entry] {
             if let list = cache[number] { return list }
             let escaped = world.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? world
             var request = URLRequest(url: URL(string: "https://api.tibiadata.com/v4/highscores/\(escaped)/experience/all/\(number)")!)
             request.setValue("AlfaHub", forHTTPHeaderField: "User-Agent")
-            guard let (data, _) = try? await URLSession.shared.data(for: request),
-                  let list = try? JSONDecoder().decode(Response.self, from: data).highscores.highscore_list, !list.isEmpty else { return nil }
-            cache[number] = list
-            return list
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            for attempt in 0..<3 {
+                if attempt > 0 { try? await Task.sleep(nanoseconds: UInt64(attempt) * 1_500_000_000) }
+                guard let (data, response) = try? await URLSession.shared.data(for: request),
+                      (response as? HTTPURLResponse)?.statusCode == 200,
+                      let list = try? JSONDecoder().decode(Response.self, from: data).highscores.highscore_list else { continue }
+                cache[number] = list
+                return list
+            }
+            throw Failure.highscores
         }
         var low = 1, high = 20
         while low <= high {
             let mid = (low + high) / 2
-            guard let list = await page(mid) else { return nil }
+            let list = try await page(mid)
+            guard !list.isEmpty else { return nil }
             if let hit = list.first(where: { $0.name == name }) { return (hit.rank, hit.value) }
             if level > list.first!.level {
                 high = mid - 1
@@ -675,7 +688,7 @@ enum CharLookup {
             } else {
                 // Mismo nivel que los de esta página: puede estar en la de al lado.
                 for other in [mid - 1, mid + 1] where (1...20).contains(other) {
-                    if let hit = await page(other)?.first(where: { $0.name == name }) { return (hit.rank, hit.value) }
+                    if let hit = try await page(other).first(where: { $0.name == name }) { return (hit.rank, hit.value) }
                 }
                 return nil
             }

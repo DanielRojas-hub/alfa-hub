@@ -122,7 +122,7 @@ struct ExperienceView: View {
     // MARK: Gráficos
 
     private var evolution: some View {
-        let byExperience = chartMode == 0 && char.history.contains { $0.experience != nil }
+        let byExperience = chartMode == 0
         // Solo los días con dato: sin experiencia (fuera de los highscores) el punto caería en 0, fuera de la escala.
         let points = char.history.filter { byExperience ? ($0.experience ?? 0) > 0 : $0.level > 0 }
         let values = points.map { byExperience ? Double($0.experience ?? 0) : Double($0.level) }
@@ -131,9 +131,19 @@ struct ExperienceView: View {
         let low = values.min() ?? 0, high = values.max() ?? 1
         let margin = max((high - low) * 0.15, byExperience ? high * 0.005 : 1)
         let domain = (low - margin)...(high + margin)
+        // Niveles: marcas en enteros (con decimales salían "1486" dos veces).
+        let yValues: AxisMarkValues = byExperience ? .automatic(desiredCount: 4) : .stride(by: max(1, ((domain.upperBound - domain.lowerBound) / 4).rounded(.up)))
         return ChartCard(title: "Evolución", icon: "chart.xyaxis.line") {
             PillPicker(options: ["Experiencia", "Nivel"], selection: $chartMode)
         } content: {
+            if byExperience && points.count < 2 {
+                // Fuera de los 1000 primeros de los highscores tibia.com no da la experiencia: un punto suelto no dice nada.
+                Label(points.isEmpty ? "tibia.com no da la experiencia de este char porque no sale entre los 1000 primeros de los highscores de \(char.world). Su evolución está en Nivel."
+                                     : "Solo hay un día con la experiencia de este char: ahora no sale entre los 1000 primeros de los highscores de \(char.world) y tibia.com no la da. Su evolución está en Nivel.",
+                      systemImage: "chart.line.downtrend.xyaxis")
+                    .font(.system(size: 12)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 80)
+            } else {
             Chart(Array(points.enumerated()), id: \.offset) { _, point in
                 let value = byExperience ? Double(point.experience ?? 0) : Double(point.level)
                 AreaMark(x: .value("Día", point.date), yStart: .value("Base", domain.lowerBound), yEnd: .value("Valor", value))
@@ -147,7 +157,7 @@ struct ExperienceView: View {
             .chartYScale(domain: domain)
             .chartPlotStyle { $0.clipped() }
             .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+                AxisMarks(position: .leading, values: yValues) { value in
                     AxisGridLine().foregroundStyle(Color.white.opacity(0.08))
                     AxisValueLabel { Text(byExperience ? compactNumber(Int64(value.as(Double.self) ?? 0)) : "\(Int(value.as(Double.self) ?? 0))") }
                 }
@@ -160,6 +170,7 @@ struct ExperienceView: View {
                 }
             }
             .frame(height: 170)
+            }
         }
     }
 

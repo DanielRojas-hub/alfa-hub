@@ -595,7 +595,10 @@ namespace AlfaHub
                     .Select(o => new TibiaInfo.OtherChar { Name = o.Name ?? "", World = o.World ?? "", Online = o.Status == "online", Main = o.Main }).ToList(),
                 SyncedAt = Ids.Date(DateTime.UtcNow),
             };
-            var hit = Highscore(info.Name, info.World, info.Level);
+            // Si TibiaData no responde con los highscores, error: guardar el día sin experiencia lo dejaría
+            // como "fuera de los highscores".
+            var hit = Highscore(info.Name, info.World, info.Level, out bool failed);
+            if (failed) return null;
             if (hit != null) { info.Experience = hit.Value; info.WorldRank = hit.Rank; }
             return info;
         }
@@ -603,27 +606,36 @@ namespace AlfaHub
         /// Busca el char en los highscores de experiencia de su mundo (20 páginas de 50, ordenadas por
         /// experiencia): una búsqueda binaria por nivel, unas 5 peticiones. TibiaData no deja filtrar por
         /// vocación más allá de la primera página, así que se usa la de todas.
-        static HighscoreEntry Highscore(string name, string world, int level)
+        static HighscoreEntry Highscore(string name, string world, int level, out bool failed)
         {
+            failed = false;
             if (string.IsNullOrEmpty(world)) return null;
+            bool error = false;
             var cache = new Dictionary<int, List<HighscoreEntry>>();
             List<HighscoreEntry> Page(int number)
             {
                 if (cache.TryGetValue(number, out var hit)) return hit;
-                try
+                for (int attempt = 0; attempt < 3; attempt++)
                 {
-                    var list = Get<Highscores>($"https://api.tibiadata.com/v4/highscores/{Uri.EscapeDataString(world)}/experience/all/{number}")?.Body?.List;
-                    if (list == null || list.Count == 0) return null;
-                    return cache[number] = list;
+                    if (attempt > 0) System.Threading.Thread.Sleep(attempt * 1500);
+                    try
+                    {
+                        var list = Get<Highscores>($"https://api.tibiadata.com/v4/highscores/{Uri.EscapeDataString(world)}/experience/all/{number}")?.Body?.List;
+                        if (list == null) continue;
+                        return cache[number] = list;
+                    }
+                    catch (Exception e) when (e is WebException || e is IOException || e is SerializationException) { }
                 }
-                catch (Exception e) when (e is WebException || e is IOException || e is SerializationException) { return null; }
+                error = true;
+                return null;
             }
             int low = 1, high = 20;
             while (low <= high)
             {
                 int mid = (low + high) / 2;
                 var list = Page(mid);
-                if (list == null) return null;
+                if (list == null) { failed = error; return null; }
+                if (list.Count == 0) return null;
                 var found = list.FirstOrDefault(e => e.Name == name);
                 if (found != null) return found;
                 if (level > list[0].Level) high = mid - 1;
@@ -637,6 +649,7 @@ namespace AlfaHub
                             found = Page(other)?.FirstOrDefault(e => e.Name == name);
                             if (found != null) return found;
                         }
+                    failed = error;
                     return null;
                 }
             }

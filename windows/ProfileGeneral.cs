@@ -463,6 +463,8 @@ namespace AlfaHub
             if (valid.Count == 0) return;
             double low = valid.Min(), high = valid.Max(), margin = Math.Max((high - low) * 0.15, byExp ? high * 0.005 : 1);
             low -= margin; high += margin;
+            // Niveles: el eje se parte en 3, así que el rango va de 3 en 3 para que las marcas sean enteras.
+            if (!byExp) { low = Math.Floor(low); high = low + 3 * Math.Ceiling((high - low) / 3); }
             var plot = new RectangleF(r.X + S(70), r.Y + S(44), r.Width - S(90), r.Height - S(74));
             DrawAxes(g, plot, low, high, byExp, points.Select(p => p.When).ToList());
             var pts = new List<PointF>();
