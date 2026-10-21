@@ -1,13 +1,14 @@
 // Pestaña Charms de un char, como el Charm Optimizer de hakaimarket.com: los charm points (los que da su
 // Bestiary y los gastados), qué charms tiene desbloqueados y a qué nivel, y el optimizador: con las
-// criaturas de su hunt, qué charm de daño poner en cada una. Fórmulas de TibiaWiki (CharmCatalog.damage).
+// criaturas de su hunt (a mano o de un preset de hunt), qué charm de daño poner en cada una y qué charm
+// menor. Fórmulas de TibiaWiki (CharmCatalog.damage).
 
 import SwiftUI
 
 struct CharmsView: View {
     @Binding var char: GameChar
     @AppStorage("charmsMode") private var mode = 0   // 0 optimizador, 1 mis charms
-    @State private var addingPlace = false
+    @State private var choosingPreset = false
     @State private var search = ""
     @State private var showTable = false
 
@@ -125,8 +126,61 @@ struct CharmsView: View {
         return zip(creatures, picks).compactMap { pair, j in j >= 0 ? (pair.1, charms[j].0, charms[j].1) : nil }
     }
 
+    /// Charms menores recomendados: cada criatura admite uno además del mayor. Los de leech dan más
+    /// cuantos más ataques van a la criatura, así que van en las más atacadas (kills por hora × vida):
+    /// para knights primero Vampiric Embrace (life leech); para el resto, Void's Call (mana leech).
+    private var minorPicks: [(creature: BestiaryCreature, charm: CharmInfo, tier: Int)] {
+        let order = char.vocation == .knight ? ["Vampiric Embrace", "Void's Call"] : ["Void's Call", "Vampiric Embrace"]
+        let charms = order.compactMap { name in CharmCatalog.minor.first { $0.name == name } }
+        let ranked = hunt.sorted { Double($0.0.perHour) * Double($0.1.hp) > Double($1.0.perHour) * Double($1.1.hp) }
+        return zip(ranked, charms).map { pair, charm in (pair.1, charm, char.charms[charm.name] ?? 0) }
+    }
+
+    /// El leech que añade cada charm menor de leech en cada nivel.
+    private static let leech: [String: [Double]] = ["Void's Call": [0.8, 1.2, 1.6], "Vampiric Embrace": [1.6, 2.4, 3.2]]
+
+    private var minorSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "circle.hexagongrid.fill").foregroundStyle(Self.purple)
+                Text("Charm menor recomendado").font(.system(size: 13, weight: .bold))
+                Text("uno por criatura, además del mayor").font(.system(size: 11)).foregroundStyle(Color.muted)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], alignment: .leading, spacing: 10) {
+                ForEach(minorPicks, id: \.creature.name) { pick in minorTile(pick.creature, pick.charm, tier: pick.tier) }
+            }
+            Text("Solo suman si llevas equipo con mana o life leech. Para las demás criaturas: Gut si vendes sus productos, Scavenge si se pueden despellejar o Bless donde más mueres.")
+                .font(.system(size: 11)).foregroundStyle(Color.muted).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func minorTile(_ creature: BestiaryCreature, _ charm: CharmInfo, tier: Int) -> some View {
+        let values = Self.leech[charm.name] ?? []
+        let kind = charm.name == "Void's Call" ? "mana leech" : "life leech"
+        let owned = tier > 0 && values.indices.contains(tier - 1)
+        let detail = owned
+            ? "+\(values[tier - 1].formatted()) % \(kind) · nivel \(["I", "II", "III"][tier - 1])"
+            : "+\(values.map { $0.formatted() }.joined(separator: " / ")) % \(kind) · sin desbloquear"
+        return HStack(spacing: 10) {
+            WikiSprite(name: charm.image, size: 34)
+            Image(systemName: "arrow.right").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.muted)
+            WikiSprite(name: creature.name, size: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(charm.name).font(.system(size: 12, weight: .bold))
+                Text(creature.name).font(.system(size: 11)).foregroundStyle(Color.muted).lineLimit(1)
+                Text(detail).font(.system(size: 10, weight: owned ? .semibold : .regular))
+                    .foregroundStyle(owned ? Color.green : Color.amber)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Self.purple.opacity(0.08)))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Self.purple.opacity(0.3)))
+        .help(charm.effect)
+    }
+
     private var optimizerHelp: String {
-        "Pon las criaturas de tu hunt y cuántas matas por hora: el optimizador reparte tus charms de daño (los elementales, Overpower y Overflux) para sacar el máximo daño extra. Los elementales hacen el 5 % de la vida de la criatura (como mucho el doble de tu nivel) por su debilidad a ese elemento; Overpower, el 5 % de tu vida, y Overflux, el 2,5 % de tu maná (los dos hasta el 8 % de la vida de la criatura). Se activan con un 5 / 10 / 11 % de probabilidad según el nivel del charm. Low Blow y Savage Blow dependen de los críticos de tu arma y no se calculan. En el juego solo se puede poner un charm en criaturas con el Bestiary completo."
+        "Pon las criaturas de tu hunt y cuántas matas por hora (o elige un preset de hunt, con las kills por hora del Charm Optimizer de hakaimarket.com): el optimizador reparte tus charms de daño (los elementales, Overpower y Overflux) para sacar el máximo daño extra. Los elementales hacen el 5 % de la vida de la criatura (como mucho el doble de tu nivel) por su debilidad a ese elemento; Overpower, el 5 % de tu vida, y Overflux, el 2,5 % de tu maná (los dos hasta el 8 % de la vida de la criatura). Se activan con un 5 / 10 / 11 % de probabilidad según el nivel del charm. Low Blow y Savage Blow dependen de los críticos de tu arma y no se calculan. Además, cada criatura admite un charm menor: se recomiendan Void's Call (mana leech) y Vampiric Embrace (life leech) en las criaturas a las que más atacas. En el juego solo se puede poner un charm en criaturas con el Bestiary completo."
     }
 
     // MARK: Configuración
@@ -163,11 +217,13 @@ struct CharmsView: View {
                 Text("Tu hunt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.muted).frame(width: 90, alignment: .leading)
                 TextField("Añadir criatura…", text: $search)
                     .onSubmit { if let first = matches.first { addCreature(first.name) } }
-                SmallButton(title: "Toda una zona", icon: "map") { addingPlace = true }
-                    .popover(isPresented: $addingPlace, arrowEdge: .bottom) {
-                        PlacePicker { place in
-                            for c in BestiaryCatalog.creatures where c.places.contains(place) && !c.rare { addCreature(c.name) }
-                            addingPlace = false
+                SmallButton(title: "Presets de hunt", icon: "scope") { choosingPreset = true }
+                    .help("Elige una hunt conocida y se ponen sus criaturas con las kills por hora (de hakaimarket.com)")
+                    .popover(isPresented: $choosingPreset, arrowEdge: .bottom) {
+                        HuntPresetPicker(level: char.level) { preset in
+                            char.hunt = preset.creatures
+                            search = ""
+                            choosingPreset = false
                         }
                     }
                 if !char.hunt.isEmpty {
@@ -197,7 +253,7 @@ struct CharmsView: View {
             if hunt.isEmpty {
                 HStack(spacing: 10) {
                     Image(systemName: "scope").font(.system(size: 20)).foregroundStyle(Color.muted)
-                    Text("Añade las criaturas que cazas (o toda una zona) y verás qué charm conviene en cada una.")
+                    Text("Añade las criaturas que cazas (o elige un preset de hunt) y verás qué charm conviene en cada una.")
                         .font(.system(size: 12)).foregroundStyle(Color.muted)
                 }
                 .padding(.leading, 98)
@@ -321,6 +377,7 @@ struct CharmsView: View {
                 Text("Hay más criaturas que charms de daño: las que quedan sin charm son en las que menos aporta.")
                     .font(.system(size: 11)).foregroundStyle(Color.muted)
             }
+            if !minorPicks.isEmpty { minorSection }
             Button { withAnimation(.snappy) { showTable.toggle() } } label: {
                 Label(showTable ? "Ocultar el daño de cada charm" : "Ver el daño de cada charm en cada criatura",
                       systemImage: showTable ? "chevron.up" : "tablecells")
@@ -463,41 +520,58 @@ struct CharmTile: View {
     }
 }
 
-/// Buscador de zonas (los sitios de las criaturas en TibiaWiki): añade todas las criaturas de una.
-struct PlacePicker: View {
-    let pick: (String) -> Void
+/// Buscador de presets de hunt (hakaimarket.com), por ciudad: al elegir uno se ponen sus criaturas.
+struct HuntPresetPicker: View {
+    let level: Int
+    let pick: (HuntPreset) -> Void
     @State private var search = ""
-
-    private static let places: [(String, Int)] = {
-        var counts: [String: Int] = [:]
-        for c in BestiaryCatalog.creatures { for p in c.places { counts[p, default: 0] += 1 } }
-        return counts.filter { $0.value >= 2 }.sorted { $0.key < $1.key }
-    }()
 
     var body: some View {
         let text = search.trimmingCharacters(in: .whitespaces)
-        let list = Self.places.filter { text.isEmpty || $0.0.localizedCaseInsensitiveContains(text) }
+        let list = HuntCatalog.presets.filter { p in
+            text.isEmpty || p.name.localizedCaseInsensitiveContains(text) || p.city.localizedCaseInsensitiveContains(text)
+                || p.creatures.contains { $0.name.localizedCaseInsensitiveContains(text) }
+        }
+        let cities = list.reduce(into: [String]()) { if $0.last != $1.city { $0.append($1.city) } }
         VStack(alignment: .leading, spacing: 8) {
-            TextField("Buscar zona (Roshamuul, Edron…)", text: $search)
+            TextField("Buscar hunt, ciudad o criatura…", text: $search)
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(list, id: \.0) { place, count in
-                        Button { pick(place) } label: {
-                            HStack {
-                                Text(place).font(.system(size: 12)).lineLimit(1)
-                                Spacer()
-                                Text("\(count) criaturas").font(.system(size: 10)).foregroundStyle(Color.muted)
-                            }
-                            .padding(.horizontal, 8).padding(.vertical, 4)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
+                    ForEach(cities, id: \.self) { city in
+                        Label(city, systemImage: "mappin.and.ellipse")
+                            .font(.system(size: 10, weight: .bold)).foregroundStyle(Color.accentBlue)
+                            .padding(.horizontal, 8).padding(.top, 8).padding(.bottom, 2)
+                        ForEach(list.filter { $0.city == city }) { preset in row(preset) }
+                    }
+                    if list.isEmpty {
+                        Text("Ninguna hunt coincide").font(.system(size: 11)).foregroundStyle(Color.muted).padding(8)
                     }
                 }
             }
-            .frame(height: 240)
+            .frame(height: 300)
+            Text("Hunts y kills por hora del Charm Optimizer de hakaimarket.com").font(.system(size: 9)).foregroundStyle(Color.muted)
         }
         .padding(12)
-        .frame(width: 300)
+        .frame(width: 340)
+    }
+
+    private func row(_ preset: HuntPreset) -> some View {
+        Button { pick(preset) } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(preset.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                    Spacer()
+                    Text("Nv \(preset.minLevel.formatted())\(preset.premium ? " · Premium" : " · Free")")
+                        .font(.system(size: 10)).monospacedDigit()
+                        .foregroundStyle(preset.minLevel > level ? Color.amber : Color.muted)
+                }
+                Text(preset.creatures.map(\.name).joined(separator: ", "))
+                    .font(.system(size: 10)).foregroundStyle(Color.muted).lineLimit(1)
+            }
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(preset.minLevel > level ? "Pide nivel \(preset.minLevel.formatted()): más que el de este char" : preset.name)
     }
 }

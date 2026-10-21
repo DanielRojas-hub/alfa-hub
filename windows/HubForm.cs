@@ -113,8 +113,9 @@ namespace AlfaHub
             topBar = new TopBar(model) { Dock = DockStyle.Top, Height = 52 };
             topBar.OverlayToggled += () => { model.OverlayVisible = !model.OverlayVisible; Changed?.Invoke(); RefreshTimer(); };
             Outfit = new OutfitState(this);
-            sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200, Character = () => Outfit.Display };
+            sidebar = new Sidebar { Dock = DockStyle.Left, Width = 200, Character = () => Outfit.Display, CharacterName = () => Profiles.IconCharName };
             Outfit.SavedChanged += () => sidebar.Invalidate();
+            Profiles.IconCharChanged += () => sidebar.Invalidate();
             // La caminata del personaje guardado, al pie de la barra lateral.
             var walk = new System.Windows.Forms.Timer { Interval = 100 };
             walk.Tick += (s, e) => { if (Outfit.Current?.Frames.Count > 0) sidebar.Invalidate(); };
@@ -203,13 +204,13 @@ namespace AlfaHub
             var add = new RoundButton { Text = "＋  Añadir timer", FillColor = Theme.Blue, Pill = true, Height = 34, BackColor = Theme.Back };
             add.Font = new Font("Segoe UI Semibold", 10f);
             add.FitText(16);
-            add.Click += (s, e) => PresetMenu(preset =>
+            add.Click += (s, e) =>
             {
-                var run = model.Add(preset);
+                var run = model.Add(TimerPreset.Custom);
                 Changed?.Invoke();
                 ShortcutsChanged?.Invoke();
                 if (run != null) Edit(run);
-            }).Show(add, new Point(0, add.Height + 4));
+            };
 
             countLabel = new Label { AutoSize = true, ForeColor = Theme.Muted, BackColor = Theme.Back };
             var pauseAll = SmallButton("❚❚  Pausar todos", () => { foreach (var r in model.Runs.Where(r => r.Running)) model.Toggle(r); RefreshTimer(); });
@@ -228,6 +229,7 @@ namespace AlfaHub
             {
                 var row = new TimerRow(model, run) { Margin = new Padding(0, 0, 0, 8) };
                 row.ToggleClicked += () => { model.Toggle(run); RefreshTimer(); };
+                row.EnabledChanged += on => { run.Config.Enabled = on; Apply(run); };
                 row.ResetClicked += () => { model.Reset(run); RefreshTimer(); };
                 row.EditClicked += () => Edit(run);
                 row.Selected += () => { model.SelectedId = run.Id; RefreshTimer(); };
@@ -280,9 +282,18 @@ namespace AlfaHub
                 Changed?.Invoke();
                 RefreshTimer();
             };
-            var kind = new SegmentedControl("Cuenta atrás", "Rotación") { Width = 210, Height = 30 };
-            kind.SetSelected(c.IsRotation ? 1 : 0);
-            kind.SelectedIndexChanged += i => { run.Config.Kind = i == 1 ? "rotation" : "cycle"; Apply(run); Rebuild(); };
+            var enabled = new ToggleSwitch { Checked = c.Enabled, Text = "Habilitado" };
+            enabled.CheckedChanged += (s, e) => { run.Config.Enabled = enabled.Checked; Apply(run); };
+            var kind = new SegmentedControl("Cuenta atrás", "Rotación", "Compuesto") { Width = 310, Height = 30 };
+            kind.SetSelected(c.IsRotation ? 1 : c.IsCompound ? 2 : 0);
+            kind.SelectedIndexChanged += i =>
+            {
+                run.Config.Kind = i == 1 ? "rotation" : i == 2 ? "compound" : "cycle";
+                // Al cambiar a compuesto sin fases, la primera es la cuenta atrás que tenía.
+                if (i == 2 && run.Config.Phases.Count == 0) run.Config.Phases.Add(new TimerPhase { Cycle = run.Config.Cycle });
+                Apply(run);
+                Rebuild();
+            };
             var presetButton = ActionButton("Cargar preset  ▾", null);
             presetButton.Click += (s, e) => PresetMenu(p => { Model.ApplyPreset(run, p); Changed?.Invoke(); Rebuild(); })
                 .Show(presetButton, new Point(0, presetButton.Height + 4));
@@ -293,8 +304,35 @@ namespace AlfaHub
             {
                 backRow, hero,
                 new SectionHeader("Timer"),
-                new SectionCard(Row("Nombre", name), Row("Tipo", kind), new FormRow(null, presetButton, RowLayout.Leading)),
+                new SectionCard(Row("Nombre", name), Row("Habilitado", enabled), Row("Tipo", kind), new FormRow(null, presetButton, RowLayout.Leading)),
+                new NoteLabel("Deshabilitado, su contador no aparece sobre Tibia y no suena."),
             };
+
+            if (c.IsCompound)
+            {
+                var phases = new List<FormRow>();
+                for (int i = 0; i < c.Phases.Count; i++)
+                {
+                    var phase = c.Phases[i];
+                    var remove = ActionButton("Quitar", () => { run.Config.Phases.Remove(phase); Apply(run); Rebuild(); });
+                    remove.Enabled = c.Phases.Count > 1;
+                    phases.Add(Row($"Fase {i + 1} · {phase.Describe()}", remove));
+                    phases.Add(Row("Cuenta atrás de", DurationInput(() => phase.Cycle, v => phase.Cycle = v, 1, 3600, 1, run)));
+                    phases.Add(Row("Repetirla durante", DurationInput(() => phase.Duration, v => phase.Duration = v, 0, 36000, 5, run)));
+                }
+                var addPhase = ActionButton("＋  Añadir fase", () =>
+                {
+                    run.Config.Phases.Add(new TimerPhase { Cycle = run.Config.Phases.Count > 0 ? run.Config.Phases[run.Config.Phases.Count - 1].Cycle : 5 });
+                    Apply(run);
+                    Rebuild();
+                });
+                phases.Add(new FormRow(null, addPhase, RowLayout.Leading));
+                items.Add(new SectionHeader("Fases"));
+                items.Add(new SectionCard(phases.ToArray()));
+                items.Add(new NoteLabel("Las fases van una detrás de otra. Con “Repetirla durante” en 0 la cuenta atrás de la fase va una sola vez; si no, se repite durante ese tiempo. Ejemplo: fase 1 de 25 s y fase 2 de 5 s repitiéndose durante 20 s."));
+                items.Add(new SectionHeader("Al terminar las fases"));
+                items.Add(new SectionCard(RepeatRows(run).ToArray()));
+            }
 
             if (!c.IsRotation)
             {
@@ -306,35 +344,16 @@ namespace AlfaHub
                     pill.Click += (s, e) => { run.Config.Cycle = value; Apply(run); Rebuild(); };
                     chips.Controls.Add(pill);
                 }
-                var minutes = new NumberField { Maximum = 60, Value = c.Cycle / 60 };
-                var seconds = new NumberField { Maximum = 59, Value = c.Cycle % 60 };
-                var stepper = new StepperArrows();
-                minutes.ValueCommitted += (s, e) => { run.Config.Cycle = Math.Max(5, minutes.Value * 60 + run.Config.Cycle % 60); Apply(run); Rebuild(); };
-                seconds.ValueCommitted += (s, e) => { run.Config.Cycle = Math.Max(5, run.Config.Cycle / 60 * 60 + seconds.Value); Apply(run); Rebuild(); };
-                stepper.Up += () => { run.Config.Cycle = Math.Min(3600, run.Config.Cycle + 5); Apply(run); Rebuild(); };
-                stepper.Down += () => { run.Config.Cycle = Math.Max(5, run.Config.Cycle - 5); Apply(run); Rebuild(); };
-                var repeats = new ToggleSwitch { Checked = c.Repeats };
-                repeats.CheckedChanged += (s, e) => { run.Config.Repeats = repeats.Checked; Apply(run); Rebuild(); };
-
                 var duration = new List<FormRow>
                 {
                     new FormRow(null, chips, RowLayout.Centered, 46),
-                    Row("Personalizado", new InlineGroup(minutes, new Caption("min"), seconds, new Caption("s"), stepper) { Height = 28 }),
-                    Row("Repetir al llegar a cero", repeats),
+                    Row("Personalizado", DurationInput(() => run.Config.Cycle, v => run.Config.Cycle = v, 5, 3600, 5, run)),
                 };
-                if (c.Repeats)
-                {
-                    var total = new NumberField { Maximum = 600, Value = c.Total / 60, Width = 48 };
-                    var totalStepper = new StepperArrows();
-                    total.ValueCommitted += (s, e) => { run.Config.Total = total.Value * 60; Apply(run); };
-                    totalStepper.Up += () => { run.Config.Total = Math.Min(600, run.Config.Total / 60 + 1) * 60; total.Value = run.Config.Total / 60; Apply(run); };
-                    totalStepper.Down += () => { run.Config.Total = Math.Max(0, run.Config.Total / 60 - 1) * 60; total.Value = run.Config.Total / 60; Apply(run); };
-                    duration.Add(Row("Duración total", new InlineGroup(total, new Caption("min"), totalStepper) { Height = 28 }));
-                }
+                duration.AddRange(RepeatRows(run));
 
                 FormRow warningRow = null, beepsRow = null;
                 warningRow = Row($"Alerta en los últimos {c.Warning} s", Stepper(
-                    () => { run.Config.Warning = Math.Min(run.Config.Cycle, run.Config.Warning + 1); },
+                    () => { run.Config.Warning = Math.Min(LongestCycle(run.Config), run.Config.Warning + 1); },
                     () => { run.Config.Warning = Math.Max(0, run.Config.Warning - 1); },
                     () => $"Alerta en los últimos {run.Config.Warning} s", run, r => warningRow.Text = r));
                 beepsRow = Row($"Beeps en los últimos {c.BeepSeconds} s", Stepper(
@@ -344,12 +363,15 @@ namespace AlfaHub
                 var cycleBeep = new ToggleSwitch { Checked = c.CycleBeep };
                 cycleBeep.CheckedChanged += (s, e) => { run.Config.CycleBeep = cycleBeep.Checked; Apply(run); };
 
-                items.Add(new SectionHeader("Duración"));
-                items.Add(new SectionCard(duration.ToArray()));
+                if (!c.IsCompound)
+                {
+                    items.Add(new SectionHeader("Duración"));
+                    items.Add(new SectionCard(duration.ToArray()));
+                }
                 items.Add(new SectionHeader("Avisos"));
                 items.Add(new SectionCard(warningRow, beepsRow, Row("Sonido de aviso al empezar cada ciclo", cycleBeep)));
                 items.Add(new NoteLabel(c.Repeats && c.Total == 0
-                    ? "Duración total en 0: se repite hasta que lo pares."
+                    ? "Tiempo total en 0: el loop sigue hasta que lo pares."
                     : "Al terminar suena el sonido de aviso."));
             }
             else
@@ -395,6 +417,40 @@ namespace AlfaHub
                 items.Add(new SectionCard(new FormRow(null, delete, RowLayout.Leading)) { Margin = new Padding(0, 16, 0, 0) });
             }
             return Page(items.ToArray());
+        }
+
+        /// Un solo uso o loop, y el tiempo total del loop.
+        List<FormRow> RepeatRows(TimerRun run)
+        {
+            var mode = new SegmentedControl("Un solo uso", "Loop") { Width = 220, Height = 30 };
+            mode.SetSelected(run.Config.Repeats ? 1 : 0);
+            mode.SelectedIndexChanged += i => { run.Config.Repeats = i == 1; Apply(run); Rebuild(); };
+            var rows = new List<FormRow> { Row("Al llegar a cero", mode) };
+            if (run.Config.Repeats)
+                rows.Add(Row("Tiempo total", DurationInput(() => run.Config.Total, v => run.Config.Total = v, 0, 36000, 60, run)));
+            return rows;
+        }
+
+        /// El ciclo más largo: hasta ahí puede llegar "Alerta en los últimos N s".
+        static int LongestCycle(TimerConfig c) => c.IsCompound ? (c.Phases.Count > 0 ? c.Phases.Max(p => p.Cycle) : 0) : c.Cycle;
+
+        /// Minutos y segundos de una duración guardada en segundos, con flechas.
+        InlineGroup DurationInput(Func<int> get, Action<int> set, int min, int max, int step, TimerRun run)
+        {
+            var minutes = new NumberField { Maximum = max / 60, Value = get() / 60, Width = 48 };
+            var seconds = new NumberField { Maximum = 59, Value = get() % 60 };
+            var arrows = new StepperArrows();
+            void Put(int value)
+            {
+                set(Model.Clamp(value, min, max));
+                Apply(run);
+                Rebuild();
+            }
+            minutes.ValueCommitted += (s, e) => Put(minutes.Value * 60 + get() % 60);
+            seconds.ValueCommitted += (s, e) => Put(get() / 60 * 60 + seconds.Value);
+            arrows.Up += () => Put(get() + step);
+            arrows.Down += () => Put(get() - step);
+            return new InlineGroup(minutes, new Caption("min"), seconds, new Caption("s"), arrows) { Height = 28 };
         }
 
         /// Flechas que cambian un valor del timer y actualizan el texto de su fila.
@@ -882,6 +938,8 @@ namespace AlfaHub
         public event Action<HubPage> Navigate;
         /// Personaje que se dibuja al pie (el del char que va en el ícono de Alfa Hub).
         public Func<Image> Character = () => Resources.Character;
+        /// Nombre del char del ícono (null = sin nombre): va encima del personaje, como en Tibia.
+        public Func<string> CharacterName = () => null;
 
         public Sidebar()
         {
@@ -946,6 +1004,25 @@ namespace AlfaHub
             float w = (sprite?.Width ?? 37) * scale * k, h = (sprite?.Height ?? 35) * scale * k;
             var spriteRect = new RectangleF((Width - w) / 2, Height - 14 * k - h, w, h);
             Resources.DrawPixelArt(g, sprite, spriteRect);
+            if (CharacterName() is string name) DrawNameplate(g, name, spriteRect.Y - 2 * k, k);
+        }
+
+        static readonly Color TibiaGreen = Color.FromArgb(0, 192, 0);
+
+        /// Nombre y barra de vida sobre el personaje, al estilo de Tibia: verde con borde negro.
+        void DrawNameplate(Graphics g, string name, float bottom, float k)
+        {
+            var font = Fonts.Bold(9f);
+            var flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding;
+            var bar = new RectangleF((Width - 30 * k) / 2, bottom - 5 * k, 30 * k, 5 * k);
+            using (var brush = new SolidBrush(Color.Black)) g.FillRectangle(brush, bar);
+            using (var brush = new SolidBrush(TibiaGreen)) g.FillRectangle(brush, RectangleF.Inflate(bar, -k, -k));
+            var text = new Rectangle((int)(8 * k), (int)(bar.Y - 4 * k - font.Height), (int)(Width - 16 * k), font.Height);
+            // El borde negro: el texto repetido un píxel alrededor.
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    if (dx != 0 || dy != 0) TextRenderer.DrawText(g, name, font, new Rectangle(text.X + dx, text.Y + dy, text.Width, text.Height), Color.Black, flags);
+            TextRenderer.DrawText(g, name, font, text, TibiaGreen, flags);
         }
     }
 
@@ -1074,9 +1151,11 @@ namespace AlfaHub
         readonly Model model;
         readonly TimerRun run;
         readonly RoundButton toggle, reset, edit, more;
+        readonly ToggleSwitch enabled;
         string lastState;
 
         public event Action ToggleClicked, ResetClicked, EditClicked, DuplicateClicked, DeleteClicked, Selected;
+        public event Action<bool> EnabledChanged;
 
         public TimerRow(Model model, TimerRun run)
         {
@@ -1088,6 +1167,8 @@ namespace AlfaHub
             edit = new RoundButton { Caption = "✎  Editar", Text = "Editar " + run.Config.Name, Height = 28, FillColor = Theme.ControlFill, BackColor = Theme.Row };
             edit.FitText(11);
             more = new RoundButton { Caption = "⋮", Text = "Más opciones " + run.Config.Name, Pill = true, Size = new Size(30, 30), FillColor = Theme.Row, BackColor = Theme.Row };
+            enabled = new ToggleSwitch { Checked = run.Config.Enabled, Text = "Habilitado " + run.Config.Name, BackColor = Theme.Row };
+            enabled.CheckedChanged += (s, e) => EnabledChanged?.Invoke(enabled.Checked);
             toggle.Click += (s, e) => ToggleClicked?.Invoke();
             reset.Click += (s, e) => ResetClicked?.Invoke();
             edit.Click += (s, e) => EditClicked?.Invoke();
@@ -1098,7 +1179,7 @@ namespace AlfaHub
                 if (model.Runs.Count > 1) menu.Items.Add("Eliminar", null, (a, b) => DeleteClicked?.Invoke());
                 menu.Show(more, new Point(0, more.Height + 2));
             };
-            Controls.AddRange(new Control[] { toggle, reset, edit, more });
+            Controls.AddRange(new Control[] { enabled, toggle, reset, edit, more });
             Cursor = Cursors.Hand;
             UpdateState();
         }
@@ -1126,11 +1207,11 @@ namespace AlfaHub
             base.OnLayout(e);
             float k = K;
             int x = Width - (int)(10 * k);
-            foreach (var c in new Control[] { more, edit, reset, toggle })
+            foreach (var c in new Control[] { more, edit, reset, toggle, enabled })
             {
                 x -= c.Width;
                 c.Location = new Point(x, (Height - c.Height) / 2);
-                x -= (int)((c == edit ? 12 : 6) * k);
+                x -= (int)((c == edit || c == toggle ? 12 : 6) * k);
             }
         }
 
@@ -1141,7 +1222,7 @@ namespace AlfaHub
             var d = run.Display;
             var card = new RectangleF(0.5f, 0.5f, Width - 1, Height - 1);
             Fill(g, card, 10 * k, Theme.Row);
-            Stroke(g, card, 10 * k, model.SelectedId == run.Id ? Color.FromArgb(130, Theme.Blue) : Color.FromArgb(48, 48, 52));
+            Stroke(g, card, 10 * k, Color.FromArgb(48, 48, 52));
 
             Color state = d.Finished ? run.Config.Overlay.Alert : !run.Started ? Color.FromArgb(70, 70, 75)
                 : !run.Running ? Theme.Amber : d.Critical ? run.Config.Overlay.Alert : Theme.Green;
@@ -1155,9 +1236,10 @@ namespace AlfaHub
                     Theme.Muted, TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
 
             // Contador y barra a la izquierda de los botones.
-            float right = toggle.Left - 16 * k;
+            float right = enabled.Left - 16 * k;
             Color accent = d.Critical || d.Finished ? run.Config.Overlay.Alert : Theme.Accent;
-            int alpha = (int)(255 * CounterRenderer.Pulse(d.Critical && run.Running));
+            // Deshabilitado, el contador se ve apagado.
+            int alpha = (int)(255 * CounterRenderer.Pulse(d.Critical && run.Running) * (run.Config.Enabled ? 1 : 0.45));
             using (var font = new Font("Consolas", 22f * k, FontStyle.Bold, GraphicsUnit.Pixel))
             using (var brush = new SolidBrush(Color.FromArgb(alpha, accent)))
             using (var format = new StringFormat { Alignment = StringAlignment.Far })

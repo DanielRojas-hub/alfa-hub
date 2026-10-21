@@ -659,24 +659,21 @@ namespace AlfaHub
             var box = new RectangleF(S(2), S(8), S(70), S(70));
             Avatar.Draw(g, outfit, c.Outfit, box, K);
             bool hover = Hovered(box);
-            var strip = new RectangleF(box.X, box.Bottom - S(17), box.Width, S(17));
-            using (var path = CounterRenderer.RoundedRect(box, S(9)))
-            {
-                var clip = g.Clip;
-                g.SetClip(path, System.Drawing.Drawing2D.CombineMode.Intersect);
-                using (var brush = new SolidBrush(Color.FromArgb(hover ? 190 : 130, 0, 0, 0))) g.FillRectangle(brush, strip);
-                g.Clip = clip;
-            }
-            CenterText(g, hover ? "✎ Editar outfit" : "✎ Outfit", Fonts.Bold(7f), Color.White, strip);
             if (hover) Stroke(g, box, S(9), Theme.Blue, S(2));
             Hot(box, EditOutfit, "Editar el outfit de este char");
+            // Pincel en la esquina de abajo (sin tapar el personaje): también abre el editor.
+            var brushBadge = new RectangleF(box.Right - S(13), box.Bottom - S(13), S(22), S(22));
+            using (var brush = new SolidBrush(Theme.Back)) g.FillEllipse(brush, RectangleF.Inflate(brushBadge, S(2), S(2)));
+            using (var brush = new SolidBrush(hover || Hovered(brushBadge) ? Theme.Blue : Color.FromArgb(46, 46, 50))) g.FillEllipse(brush, brushBadge);
+            using (var icons = new Font("Segoe MDL2 Assets", 8f)) CenterText(g, "\uE771", icons, Color.White, brushBadge);
+            Hot(brushBadge, EditOutfit, "Editar el outfit de este char");
             var badge = new RectangleF(box.Right - S(13), box.Y - S(9), S(22), S(22));
             using (var brush = new SolidBrush(Theme.Back)) g.FillEllipse(brush, RectangleF.Inflate(badge, S(2), S(2)));
             using (var brush = new SolidBrush(isIcon ? Theme.Blue : Color.FromArgb(46, 46, 50))) g.FillEllipse(brush, badge);
             using (var icons = new Font("Segoe MDL2 Assets", 8f)) CenterText(g, isIcon ? "" : "", icons, Color.White, badge);
             Hot(badge, () => { store.IconChar = isIcon ? null : c.Id; Invalidate(); },
-                isIcon ? "Sale en el ícono de Alfa Hub (ventana, bandeja y barra lateral). Clic para quitarlo."
-                       : "Mostrar este char en el ícono de Alfa Hub (ventana, bandeja y barra lateral)");
+                isIcon ? "Sale en el ícono de Alfa Hub (ventana, bandeja y barra lateral, con su nombre). Clic para quitarlo."
+                       : "Mostrar este char en el ícono de Alfa Hub (ventana, bandeja y barra lateral, con su nombre)");
 
             float x = S(86);
             // Dónde empiezan los recuadros de la derecha (el texto no debe pasar de ahí).

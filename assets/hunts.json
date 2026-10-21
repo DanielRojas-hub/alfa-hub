@@ -1,0 +1,3893 @@
+{
+ "source": "https://hakaimarket.com/calculators?tool=charmOptimizer (huntingPlaces.json)",
+ "hunts": [
+  {
+   "name": "Ab'Dendriel Elves Cave",
+   "city": "Ab'Dendriel",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Elf",
+     "perHour": 16
+    },
+    {
+     "name": "Snake",
+     "perHour": 7
+    },
+    {
+     "name": "Elf Scout",
+     "perHour": 4
+    },
+    {
+     "name": "Seagull",
+     "perHour": 2
+    },
+    {
+     "name": "Elf Arcanist",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Ab'Dendriel Trolls Mine",
+   "city": "Ab'Dendriel",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Troll",
+     "perHour": 135
+    },
+    {
+     "name": "Troll Champion",
+     "perHour": 44
+    }
+   ]
+  },
+  {
+   "name": "Inner crypt (Solo hunt)",
+   "city": "Ab'Dendriel",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Roaming Dread",
+     "perHour": 214
+    },
+    {
+     "name": "Cyclursus",
+     "perHour": 152
+    },
+    {
+     "name": "Crypt Mage",
+     "perHour": 76
+    }
+   ]
+  },
+  {
+   "name": "Outer crypt",
+   "city": "Ab'Dendriel",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Walking Dread",
+     "perHour": 575
+    },
+    {
+     "name": "Crypt Construct",
+     "perHour": 153
+    },
+    {
+     "name": "Haunted Hunter",
+     "perHour": 255
+    }
+   ]
+  },
+  {
+   "name": "Unhallowed Crypt",
+   "city": "Ab'Dendriel",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crypt Fiend",
+     "perHour": 874
+    },
+    {
+     "name": "Crypt Construct",
+     "perHour": 532
+    },
+    {
+     "name": "Creepy Crawler",
+     "perHour": 512
+    }
+   ]
+  },
+  {
+   "name": "Cobra bastion",
+   "city": "Ankrahmun",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Cobra Assassin",
+     "perHour": 334
+    },
+    {
+     "name": "Cobra Scout",
+     "perHour": 199
+    },
+    {
+     "name": "Cobra Vizier",
+     "perHour": 116
+    }
+   ]
+  },
+  {
+   "name": "Carlin Coryms Cave",
+   "city": "Carlin",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Corym Charlatan",
+     "perHour": 142
+    },
+    {
+     "name": "Corym Skirmisher",
+     "perHour": 57
+    },
+    {
+     "name": "Corym Vanguard",
+     "perHour": 45
+    }
+   ]
+  },
+  {
+   "name": "Femor Hills",
+   "city": "Carlin",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Goblin",
+     "perHour": 107
+    },
+    {
+     "name": "Goblin Scavenger",
+     "perHour": 14
+    },
+    {
+     "name": "Goblin Assassin",
+     "perHour": 14
+    },
+    {
+     "name": "Rotworm",
+     "perHour": 13
+    },
+    {
+     "name": "Wolf",
+     "perHour": 10
+    },
+    {
+     "name": "Pig",
+     "perHour": 8
+    },
+    {
+     "name": "Cyclops",
+     "perHour": 7
+    },
+    {
+     "name": "Bat",
+     "perHour": 7
+    },
+    {
+     "name": "Rabbit",
+     "perHour": 7
+    },
+    {
+     "name": "Sheep",
+     "perHour": 6
+    },
+    {
+     "name": "Spider",
+     "perHour": 3
+    },
+    {
+     "name": "Skeleton",
+     "perHour": 2
+    },
+    {
+     "name": "Snake",
+     "perHour": 2
+    },
+    {
+     "name": "Bear",
+     "perHour": 2
+    },
+    {
+     "name": "Bug",
+     "perHour": 2
+    },
+    {
+     "name": "Poison Spider",
+     "perHour": 1
+    },
+    {
+     "name": "Goblin Leader",
+     "perHour": 1
+    },
+    {
+     "name": "Hunter",
+     "perHour": 1
+    },
+    {
+     "name": "Black Sheep",
+     "perHour": 1
+    },
+    {
+     "name": "Demon Skeleton",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "FoG Amazon Camp",
+   "city": "Carlin",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Amazon",
+     "perHour": 14
+    },
+    {
+     "name": "Valkyrie",
+     "perHour": 6
+    },
+    {
+     "name": "Rabbit",
+     "perHour": 3
+    },
+    {
+     "name": "White Deer",
+     "perHour": 1
+    },
+    {
+     "name": "Bear",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Ghostlands",
+   "city": "Carlin",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Ghoul",
+     "perHour": 84
+    },
+    {
+     "name": "Scorpion",
+     "perHour": 73
+    },
+    {
+     "name": "Demon Skeleton",
+     "perHour": 71
+    },
+    {
+     "name": "Ghost",
+     "perHour": 60
+    },
+    {
+     "name": "Poison Spider",
+     "perHour": 45
+    },
+    {
+     "name": "Cave Rat",
+     "perHour": 41
+    },
+    {
+     "name": "Skeleton Warrior",
+     "perHour": 39
+    },
+    {
+     "name": "Stalker",
+     "perHour": 37
+    },
+    {
+     "name": "Skeleton",
+     "perHour": 33
+    },
+    {
+     "name": "Banshee",
+     "perHour": 27
+    },
+    {
+     "name": "Rat",
+     "perHour": 13
+    },
+    {
+     "name": "Mummy",
+     "perHour": 11
+    },
+    {
+     "name": "Bat",
+     "perHour": 9
+    },
+    {
+     "name": "Slime",
+     "perHour": 8
+    },
+    {
+     "name": "Giant Spider",
+     "perHour": 5
+    },
+    {
+     "name": "Rabbit",
+     "perHour": 5
+    },
+    {
+     "name": "Fire Devil",
+     "perHour": 4
+    },
+    {
+     "name": "Bonelord",
+     "perHour": 2
+    },
+    {
+     "name": "Dragon Lord",
+     "perHour": 2
+    },
+    {
+     "name": "Vampire",
+     "perHour": 1
+    },
+    {
+     "name": "Rotworm",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Northport Village",
+   "city": "Carlin",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Chicken",
+     "perHour": 12
+    },
+    {
+     "name": "Wolf",
+     "perHour": 9
+    },
+    {
+     "name": "Spider",
+     "perHour": 5
+    },
+    {
+     "name": "Deer",
+     "perHour": 4
+    },
+    {
+     "name": "Seagull",
+     "perHour": 3
+    },
+    {
+     "name": "White Deer",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "Northport Pirates Cave",
+   "city": "Carlin",
+   "minLevel": 35,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Smuggler",
+     "perHour": 25
+    },
+    {
+     "name": "Bandit",
+     "perHour": 25
+    },
+    {
+     "name": "Pirate Marauder",
+     "perHour": 22
+    },
+    {
+     "name": "Ghoul",
+     "perHour": 14
+    },
+    {
+     "name": "Pirate Skeleton",
+     "perHour": 9
+    },
+    {
+     "name": "Pirate Cutthroat",
+     "perHour": 6
+    },
+    {
+     "name": "Pirate Buccaneer",
+     "perHour": 3
+    },
+    {
+     "name": "Pirate Ghost",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Demona",
+   "city": "Carlin",
+   "minLevel": 60,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Warlock",
+     "perHour": 23
+    },
+    {
+     "name": "Elf Arcanist",
+     "perHour": 12
+    },
+    {
+     "name": "Stone Golem",
+     "perHour": 7
+    },
+    {
+     "name": "Dragon",
+     "perHour": 6
+    },
+    {
+     "name": "Infernalist",
+     "perHour": 2
+    },
+    {
+     "name": "Minotaur Guard",
+     "perHour": 2
+    },
+    {
+     "name": "Dwarf Guard",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "Carlin Dragon Lair",
+   "city": "Carlin",
+   "minLevel": 100,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Dragon",
+     "perHour": 47
+    },
+    {
+     "name": "Dragon Lord",
+     "perHour": 7
+    },
+    {
+     "name": "Dragon Hatchling",
+     "perHour": 3
+    }
+   ]
+  },
+  {
+   "name": "Zathroth Library Cursed Section",
+   "city": "Carlin",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Cursed Book",
+     "perHour": 19
+    },
+    {
+     "name": "Icecold Book",
+     "perHour": 12
+    },
+    {
+     "name": "Ink Blob",
+     "perHour": 9
+    },
+    {
+     "name": "Squid Warden",
+     "perHour": 8
+    },
+    {
+     "name": "Biting Book",
+     "perHour": 5
+    },
+    {
+     "name": "Burning Book",
+     "perHour": 4
+    },
+    {
+     "name": "Rage Squid",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "Zathroth Library Energy Section",
+   "city": "Carlin",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Energetic Book",
+     "perHour": 68
+    },
+    {
+     "name": "Energuardian of Tales",
+     "perHour": 44
+    },
+    {
+     "name": "Knowledge Elemental",
+     "perHour": 43
+    },
+    {
+     "name": "Brain Squid",
+     "perHour": 37
+    },
+    {
+     "name": "Biting Book",
+     "perHour": 10
+    },
+    {
+     "name": "Flying Book",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "Zathroth Library Fire Section",
+   "city": "Carlin",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Burning Book",
+     "perHour": 83
+    },
+    {
+     "name": "Rage Squid",
+     "perHour": 73
+    },
+    {
+     "name": "Guardian of Tales",
+     "perHour": 21
+    },
+    {
+     "name": "Ink Blob",
+     "perHour": 12
+    },
+    {
+     "name": "Biting Book",
+     "perHour": 5
+    },
+    {
+     "name": "Flying Book",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Zathroth Library Ice Section",
+   "city": "Carlin",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Squid Warden",
+     "perHour": 91
+    },
+    {
+     "name": "Icecold Book",
+     "perHour": 90
+    },
+    {
+     "name": "Animated Feather",
+     "perHour": 57
+    },
+    {
+     "name": "Ink Blob",
+     "perHour": 11
+    },
+    {
+     "name": "Biting Book",
+     "perHour": 4
+    },
+    {
+     "name": "Burning Book",
+     "perHour": 2
+    },
+    {
+     "name": "Rage Squid",
+     "perHour": 1
+    },
+    {
+     "name": "Flying Book",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Dark Pyramid",
+   "city": "Darashia",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Minotaur",
+     "perHour": 33
+    },
+    {
+     "name": "Minotaur Guard",
+     "perHour": 23
+    },
+    {
+     "name": "Minotaur Archer",
+     "perHour": 14
+    },
+    {
+     "name": "Minotaur Mage",
+     "perHour": 13
+    },
+    {
+     "name": "Mummy",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Devourer Rotwoms Caves",
+   "city": "Darashia",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Rotworm",
+     "perHour": 290
+    },
+    {
+     "name": "Carrion Worm",
+     "perHour": 44
+    }
+   ]
+  },
+  {
+   "name": "Darashia Dragon Lair",
+   "city": "Darashia",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dragon",
+     "perHour": 46
+    },
+    {
+     "name": "Dragon Lord",
+     "perHour": 18
+    },
+    {
+     "name": "Dragon Hatchling",
+     "perHour": 7
+    }
+   ]
+  },
+  {
+   "name": "Haunted Nexus Tomb",
+   "city": "Darashia",
+   "minLevel": 200,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Burster Spectre",
+     "perHour": 43
+    }
+   ]
+  },
+  {
+   "name": "Werelions -1",
+   "city": "Darashia",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Werelioness",
+     "perHour": 327
+    },
+    {
+     "name": "White Lion",
+     "perHour": 104
+    },
+    {
+     "name": "Werelion",
+     "perHour": 304
+    }
+   ]
+  },
+  {
+   "name": "Werelions -2",
+   "city": "Darashia",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Werelioness",
+     "perHour": 313
+    },
+    {
+     "name": "White Lion",
+     "perHour": 96
+    },
+    {
+     "name": "Werelion",
+     "perHour": 267
+    }
+   ]
+  },
+  {
+   "name": "Nightmare Isles",
+   "city": "Darashia",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Retching Horror",
+     "perHour": 267
+    },
+    {
+     "name": "Choking Fear",
+     "perHour": 202
+    }
+   ]
+  },
+  {
+   "name": "Feru Plague Seal",
+   "city": "Darashia",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Grimeleech",
+     "perHour": 377
+    },
+    {
+     "name": "Hellflayer",
+     "perHour": 135
+    },
+    {
+     "name": "Vexclaw",
+     "perHour": 27
+    },
+    {
+     "name": "Defiler",
+     "perHour": 29
+    },
+    {
+     "name": "Demon",
+     "perHour": 32
+    },
+    {
+     "name": "Plaguesmith",
+     "perHour": 290
+    }
+   ]
+  },
+  {
+   "name": "Feru Pumin Seal",
+   "city": "Darashia",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Grimeleech",
+     "perHour": 680
+    },
+    {
+     "name": "Hellflayer",
+     "perHour": 310
+    },
+    {
+     "name": "Spectre",
+     "perHour": 770
+    },
+    {
+     "name": "Vexclaw",
+     "perHour": 100
+    },
+    {
+     "name": "Hand of Cursed Fate",
+     "perHour": 370
+    }
+   ]
+  },
+  {
+   "name": "Feru way",
+   "city": "Darashia",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Demon",
+     "perHour": 327
+    },
+    {
+     "name": "Grimeleech",
+     "perHour": 267
+    },
+    {
+     "name": "Vexclaw",
+     "perHour": 309
+    },
+    {
+     "name": "Hellflayer",
+     "perHour": 62
+    }
+   ]
+  },
+  {
+   "name": "Grounds of Despair",
+   "city": "Darashia",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Spectre",
+     "perHour": 87
+    },
+    {
+     "name": "Grimeleech",
+     "perHour": 80
+    },
+    {
+     "name": "Hand of Cursed Fate",
+     "perHour": 36
+    },
+    {
+     "name": "Hellflayer",
+     "perHour": 33
+    },
+    {
+     "name": "Vexclaw",
+     "perHour": 6
+    }
+   ]
+  },
+  {
+   "name": "Ferumbras DT Seal",
+   "city": "Darashia",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dark Torturer",
+     "perHour": 586
+    },
+    {
+     "name": "Vexclaw",
+     "perHour": 427
+    },
+    {
+     "name": "Grimeleech",
+     "perHour": 73
+    }
+   ]
+  },
+  {
+   "name": "Jaded Roots",
+   "city": "Darashia",
+   "minLevel": 900,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Oozing Corpus",
+     "perHour": 338
+    },
+    {
+     "name": "Mycobiontic Beetle",
+     "perHour": 262
+    },
+    {
+     "name": "Bloated Man-Maggot",
+     "perHour": 201
+    },
+    {
+     "name": "Sopping Corpus",
+     "perHour": 167
+    }
+   ]
+  },
+  {
+   "name": "Putrefactory",
+   "city": "Darashia",
+   "minLevel": 900,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Oozing Carcass",
+     "perHour": 344
+    },
+    {
+     "name": "Meandering Mushroom",
+     "perHour": 283
+    },
+    {
+     "name": "Rotten Man-Maggot",
+     "perHour": 375
+    },
+    {
+     "name": "Sopping Carcass",
+     "perHour": 280
+    }
+   ]
+  },
+  {
+   "name": "Darklight Core",
+   "city": "Darashia",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Darklight Matter",
+     "perHour": 970
+    },
+    {
+     "name": "Darklight Striker",
+     "perHour": 1116
+    },
+    {
+     "name": "Walking Pillar",
+     "perHour": 816
+    },
+    {
+     "name": "Darklight Source",
+     "perHour": 580
+    }
+   ]
+  },
+  {
+   "name": "Gloom Pillars",
+   "city": "Darashia",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Darklight Emitter",
+     "perHour": 589
+    },
+    {
+     "name": "Converter",
+     "perHour": 487
+    },
+    {
+     "name": "Wandering Pillar",
+     "perHour": 389
+    },
+    {
+     "name": "Darklight Construct",
+     "perHour": 327
+    }
+   ]
+  },
+  {
+   "name": "Edron Hero Fortress",
+   "city": "Edron",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Vicious Squire",
+     "perHour": 82
+    },
+    {
+     "name": "Hero",
+     "perHour": 54
+    },
+    {
+     "name": "Renegade Knight",
+     "perHour": 27
+    },
+    {
+     "name": "Bonebeast",
+     "perHour": 25
+    },
+    {
+     "name": "Undead Gladiator",
+     "perHour": 16
+    },
+    {
+     "name": "Vile Grandmaster",
+     "perHour": 16
+    },
+    {
+     "name": "Blood Priest",
+     "perHour": 7
+    },
+    {
+     "name": "Necromancer",
+     "perHour": 5
+    },
+    {
+     "name": "Lich",
+     "perHour": 3
+    },
+    {
+     "name": "Wyvern",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "The Inquisition - Crystal Cave",
+   "city": "Edron",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Spectre",
+     "perHour": 33
+    },
+    {
+     "name": "Crystal Spider",
+     "perHour": 19
+    },
+    {
+     "name": "Ice Golem",
+     "perHour": 16
+    },
+    {
+     "name": "Hand of Cursed Fate",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "The Inquisition - Dark Path",
+   "city": "Edron",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Hellfire Fighter",
+     "perHour": 17
+    },
+    {
+     "name": "Massive Fire Elemental",
+     "perHour": 10
+    },
+    {
+     "name": "Fire Elemental",
+     "perHour": 7
+    },
+    {
+     "name": "Fire Devil",
+     "perHour": 5
+    }
+   ]
+  },
+  {
+   "name": "The Inquisition - Sunken Cave",
+   "city": "Edron",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Quara Predator",
+     "perHour": 20
+    },
+    {
+     "name": "Massive Water Elemental",
+     "perHour": 19
+    },
+    {
+     "name": "Quara Hydromancer",
+     "perHour": 12
+    },
+    {
+     "name": "Quara Pincher",
+     "perHour": 10
+    }
+   ]
+  },
+  {
+   "name": "Book world chapter 1",
+   "city": "Edron",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Bramble Wyrmling",
+     "perHour": 95
+    },
+    {
+     "name": "Hawk Hopper",
+     "perHour": 102
+    }
+   ]
+  },
+  {
+   "name": "Book world chapter 3",
+   "city": "Edron",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Bluebeak",
+     "perHour": 230
+    },
+    {
+     "name": "Lion Hydra",
+     "perHour": 294
+    }
+   ]
+  },
+  {
+   "name": "Book world chapter 4",
+   "city": "Edron",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crusader",
+     "perHour": 385
+    },
+    {
+     "name": "Headwalker",
+     "perHour": 367
+    }
+   ]
+  },
+  {
+   "name": "The Inquisition - Battlefield",
+   "city": "Edron",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Fury",
+     "perHour": 16
+    },
+    {
+     "name": "Destroyer",
+     "perHour": 15
+    },
+    {
+     "name": "Hellfire Fighter",
+     "perHour": 5
+    },
+    {
+     "name": "Nightmare",
+     "perHour": 4
+    },
+    {
+     "name": "Blightwalker",
+     "perHour": 3
+    },
+    {
+     "name": "Dark Torturer",
+     "perHour": 3
+    },
+    {
+     "name": "Hand of Cursed Fate",
+     "perHour": 2
+    },
+    {
+     "name": "Juggernaut",
+     "perHour": 1
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "The Inquisition - Blood Halls",
+   "city": "Edron",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dark Torturer",
+     "perHour": 39
+    },
+    {
+     "name": "Betrayed Wraith",
+     "perHour": 22
+    },
+    {
+     "name": "Lost Soul",
+     "perHour": 18
+    },
+    {
+     "name": "Hand of Cursed Fate",
+     "perHour": 15
+    }
+   ]
+  },
+  {
+   "name": "The Inquisition - Vats",
+   "city": "Edron",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Defiler",
+     "perHour": 28
+    },
+    {
+     "name": "Blightwalker",
+     "perHour": 24
+    },
+    {
+     "name": "Son of Verminor",
+     "perHour": 15
+    },
+    {
+     "name": "Plaguesmith",
+     "perHour": 13
+    }
+   ]
+  },
+  {
+   "name": "Dream Labyrinth",
+   "city": "Edron",
+   "minLevel": 450,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crazed Winter Vanguard",
+     "perHour": 89
+    },
+    {
+     "name": "Crazed Summer Rearguard",
+     "perHour": 55
+    },
+    {
+     "name": "Crazed Summer Vanguard",
+     "perHour": 53
+    },
+    {
+     "name": "Crazed Winter Rearguard",
+     "perHour": 50
+    },
+    {
+     "name": "Arachnophobica",
+     "perHour": 42
+    },
+    {
+     "name": "Thanatursus",
+     "perHour": 25
+    },
+    {
+     "name": "Insane Siren",
+     "perHour": 20
+    },
+    {
+     "name": "Soul-Broken Harbinger",
+     "perHour": 8
+    },
+    {
+     "name": "Lacewing Moth",
+     "perHour": 5
+    },
+    {
+     "name": "Hibernal Moth",
+     "perHour": 5
+    }
+   ]
+  },
+  {
+   "name": "Summer Dream Court",
+   "city": "Edron",
+   "minLevel": 450,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crazed Summer Rearguard",
+     "perHour": 27
+    },
+    {
+     "name": "Crazed Summer Vanguard",
+     "perHour": 24
+    },
+    {
+     "name": "Insane Siren",
+     "perHour": 14
+    },
+    {
+     "name": "Arachnophobica",
+     "perHour": 6
+    },
+    {
+     "name": "Thanatursus",
+     "perHour": 3
+    },
+    {
+     "name": "Lacewing Moth",
+     "perHour": 3
+    }
+   ]
+  },
+  {
+   "name": "Winter Dream Court",
+   "city": "Edron",
+   "minLevel": 450,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crazed Winter Vanguard",
+     "perHour": 22
+    },
+    {
+     "name": "Crazed Winter Rearguard",
+     "perHour": 20
+    },
+    {
+     "name": "Soul-Broken Harbinger",
+     "perHour": 19
+    },
+    {
+     "name": "Thanatursus",
+     "perHour": 10
+    },
+    {
+     "name": "Arachnophobica",
+     "perHour": 8
+    },
+    {
+     "name": "Hibernal Moth",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "Azzilon Castle",
+   "city": "Edron",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Gorger Inferniarch",
+     "perHour": 204
+    },
+    {
+     "name": "Sineater Inferniarch",
+     "perHour": 194
+    },
+    {
+     "name": "Broodrider Inferniarch",
+     "perHour": 184
+    }
+   ]
+  },
+  {
+   "name": "Carnisylvans",
+   "city": "Edron",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Hulking Carnisylvan",
+     "perHour": 142
+    },
+    {
+     "name": "Dark Carnisylvan",
+     "perHour": 109
+    },
+    {
+     "name": "Poisonous Carnisylvan",
+     "perHour": 98
+    }
+   ]
+  },
+  {
+   "name": "Crypt warrior",
+   "city": "Edron",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crypt Warrior",
+     "perHour": 800
+    }
+   ]
+  },
+  {
+   "name": "Moonspawn",
+   "city": "Edron",
+   "minLevel": 550,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Moonspawn Blightspitter",
+     "perHour": 20
+    },
+    {
+     "name": "Moonspawn Oozecrown",
+     "perHour": 20
+    },
+    {
+     "name": "Moonstone Excavator",
+     "perHour": 20
+    },
+    {
+     "name": "Moonstone Overseer",
+     "perHour": 20
+    }
+   ]
+  },
+  {
+   "name": "Zao Stampor's Cave",
+   "city": "Farmine",
+   "minLevel": 70,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Stampor",
+     "perHour": 32
+    }
+   ]
+  },
+  {
+   "name": "Temple of Equilibrium",
+   "city": "Farmine",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Lizard Chosen",
+     "perHour": 48
+    },
+    {
+     "name": "Lizard Zaogun",
+     "perHour": 11
+    },
+    {
+     "name": "Lizard Legionnaire",
+     "perHour": 6
+    },
+    {
+     "name": "Lizard Dragon Priest",
+     "perHour": 5
+    },
+    {
+     "name": "Lizard High Guard",
+     "perHour": 3
+    }
+   ]
+  },
+  {
+   "name": "Zao Yielothax Cave",
+   "city": "Farmine",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Yielothax",
+     "perHour": 75
+    }
+   ]
+  },
+  {
+   "name": "Zao Corruption Hole",
+   "city": "Farmine",
+   "minLevel": 150,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Lizard Chosen",
+     "perHour": 53
+    },
+    {
+     "name": "Lizard High Guard",
+     "perHour": 15
+    },
+    {
+     "name": "Lizard Legionnaire",
+     "perHour": 14
+    },
+    {
+     "name": "Lizard Dragon Priest",
+     "perHour": 8
+    },
+    {
+     "name": "Ghastly Dragon",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "Draken's Walls",
+   "city": "Farmine",
+   "minLevel": 200,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Draken Warmaster",
+     "perHour": 212
+    },
+    {
+     "name": "Lizard Zaogun",
+     "perHour": 152
+    },
+    {
+     "name": "Draken Spellweaver",
+     "perHour": 128
+    },
+    {
+     "name": "Lizard High Guard",
+     "perHour": 48
+    }
+   ]
+  },
+  {
+   "name": "Razachai Ghastly Dragon Lair",
+   "city": "Farmine",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Ghastly Dragon",
+     "perHour": 12
+    }
+   ]
+  },
+  {
+   "name": "Zao Palace Ghastly Dragons",
+   "city": "Farmine",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Ghastly Dragon",
+     "perHour": 14
+    },
+    {
+     "name": "Draken Spellweaver",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Falcon Bastion",
+   "city": "Farmine",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Falcon Knight",
+     "perHour": 110
+    },
+    {
+     "name": "Falcon Paladin",
+     "perHour": 96
+    }
+   ]
+  },
+  {
+   "name": "Nimmersatt's Breeding Ground (Wardragons)",
+   "city": "Farmine",
+   "minLevel": 800,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dragolisk",
+     "perHour": 343
+    },
+    {
+     "name": "Wardragon",
+     "perHour": 294
+    },
+    {
+     "name": "Mega Dragon",
+     "perHour": 112
+    }
+   ]
+  },
+  {
+   "name": "Gnomprona (Crystal Enigma)",
+   "city": "Gnomprona",
+   "minLevel": 800,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Mantosaurus",
+     "perHour": 383
+    },
+    {
+     "name": "Headpecker",
+     "perHour": 372
+    },
+    {
+     "name": "Noxious Ripptor",
+     "perHour": 349
+    },
+    {
+     "name": "Shrieking Cry-Stal",
+     "perHour": 139
+    },
+    {
+     "name": "Mercurial Menace",
+     "perHour": 115
+    }
+   ]
+  },
+  {
+   "name": "Gnomprona (Sparkling pools)",
+   "city": "Gnomprona",
+   "minLevel": 800,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Emerald Tortoise",
+     "perHour": 234
+    },
+    {
+     "name": "Gore Horn",
+     "perHour": 234
+    },
+    {
+     "name": "Gorerilla",
+     "perHour": 250
+    },
+    {
+     "name": "Hulking Prehemoth",
+     "perHour": 227
+    }
+   ]
+  },
+  {
+   "name": "Gnomprona (Monster Graveyard)",
+   "city": "Gnomprona",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Nighthunter",
+     "perHour": 1016
+    },
+    {
+     "name": "Stalking Stalk",
+     "perHour": 510
+    },
+    {
+     "name": "Sulphider",
+     "perHour": 993
+    },
+    {
+     "name": "Sulphur Spouter",
+     "perHour": 496
+    },
+    {
+     "name": "Undertaker",
+     "perHour": 983
+    }
+   ]
+  },
+  {
+   "name": "Fiehonja Deathlings",
+   "city": "Gray Beach",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Deathling Scout",
+     "perHour": 93
+    },
+    {
+     "name": "Deathling Spellsinger",
+     "perHour": 54
+    }
+   ]
+  },
+  {
+   "name": "Ingol -1",
+   "city": "Ingol",
+   "minLevel": 650,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Liodile",
+     "perHour": 34
+    },
+    {
+     "name": "Boar Man",
+     "perHour": 61
+    },
+    {
+     "name": "Carnivostrich",
+     "perHour": 30
+    },
+    {
+     "name": "Crape Man",
+     "perHour": 411
+    },
+    {
+     "name": "Harpy",
+     "perHour": 266
+    },
+    {
+     "name": "Rhindeer",
+     "perHour": 392
+    }
+   ]
+  },
+  {
+   "name": "Ingol -2",
+   "city": "Ingol",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Liodile",
+     "perHour": 40
+    },
+    {
+     "name": "Boar Man",
+     "perHour": 50
+    },
+    {
+     "name": "Carnivostrich",
+     "perHour": 29
+    },
+    {
+     "name": "Crape Man",
+     "perHour": 444
+    },
+    {
+     "name": "Harpy",
+     "perHour": 246
+    },
+    {
+     "name": "Rhindeer",
+     "perHour": 401
+    }
+   ]
+  },
+  {
+   "name": "Ingol -3",
+   "city": "Ingol",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Liodile",
+     "perHour": 430
+    },
+    {
+     "name": "Boar Man",
+     "perHour": 461
+    },
+    {
+     "name": "Carnivostrich",
+     "perHour": 308
+    },
+    {
+     "name": "Crape Man",
+     "perHour": 55
+    },
+    {
+     "name": "Harpy",
+     "perHour": 38
+    },
+    {
+     "name": "Rhindeer",
+     "perHour": 55
+    }
+   ]
+  },
+  {
+   "name": "Ingol -4",
+   "city": "Ingol",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Liodile",
+     "perHour": 166
+    },
+    {
+     "name": "Boar Man",
+     "perHour": 184
+    },
+    {
+     "name": "Carnivostrich",
+     "perHour": 123
+    },
+    {
+     "name": "Crape Man",
+     "perHour": 22
+    },
+    {
+     "name": "Harpy",
+     "perHour": 11
+    },
+    {
+     "name": "Rhindeer",
+     "perHour": 13
+    }
+   ]
+  },
+  {
+   "name": "Ingol surface",
+   "city": "Ingol",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Crape Man",
+     "perHour": 471
+    },
+    {
+     "name": "Rhindeer",
+     "perHour": 471
+    },
+    {
+     "name": "Harpy",
+     "perHour": 309
+    }
+   ]
+  },
+  {
+   "name": "Raubritters",
+   "city": "Isle of Ada",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Raubritter Skirmisher",
+     "perHour": 177
+    },
+    {
+     "name": "Raubritter Marksman",
+     "perHour": 142
+    },
+    {
+     "name": "Raubritter Chastener",
+     "perHour": 80
+    }
+   ]
+  },
+  {
+   "name": "Goannas surface east",
+   "city": "Issavi",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Adult Goanna",
+     "perHour": 660
+    },
+    {
+     "name": "Young Goanna",
+     "perHour": 510
+    },
+    {
+     "name": "Feral Sphinx",
+     "perHour": 430
+    },
+    {
+     "name": "Manticore",
+     "perHour": 530
+    }
+   ]
+  },
+  {
+   "name": "Bashmu",
+   "city": "Issavi",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Juvenile Bashmu",
+     "perHour": 558
+    },
+    {
+     "name": "Bashmu",
+     "perHour": 351
+    }
+   ]
+  },
+  {
+   "name": "Issavi crypts",
+   "city": "Issavi",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Sphinx",
+     "perHour": 205
+    },
+    {
+     "name": "Crypt Warden",
+     "perHour": 186
+    }
+   ]
+  },
+  {
+   "name": "Issavo sewers",
+   "city": "Issavi",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Burning Gladiator",
+     "perHour": 166
+    },
+    {
+     "name": "Black Sphinx Acolyte",
+     "perHour": 51
+    }
+   ]
+  },
+  {
+   "name": "Girtablilu (Ruins of Nuur)",
+   "city": "Issavi",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Girtablilu Warrior",
+     "perHour": 278
+    },
+    {
+     "name": "Venerable Girtablilu",
+     "perHour": 108
+    }
+   ]
+  },
+  {
+   "name": "Goannas surface west",
+   "city": "Issavi",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Adult Goanna",
+     "perHour": 1349
+    },
+    {
+     "name": "Young Goanna",
+     "perHour": 1740
+    },
+    {
+     "name": "Feral Sphinx",
+     "perHour": 1051
+    },
+    {
+     "name": "Manticore",
+     "perHour": 812
+    },
+    {
+     "name": "Lamassu",
+     "perHour": 178
+    },
+    {
+     "name": "Ogre Rowdy",
+     "perHour": 392
+    },
+    {
+     "name": "Ogre Sage",
+     "perHour": 196
+    },
+    {
+     "name": "Ogre Ruffian",
+     "perHour": 243
+    },
+    {
+     "name": "Sphinx",
+     "perHour": 256
+    }
+   ]
+  },
+  {
+   "name": "Kazordoon Drillworm Caves",
+   "city": "Kazordoon",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Drillworm",
+     "perHour": 45
+    },
+    {
+     "name": "Wyvern",
+     "perHour": 18
+    },
+    {
+     "name": "Stone Golem",
+     "perHour": 11
+    },
+    {
+     "name": "Giant Spider",
+     "perHour": 10
+    },
+    {
+     "name": "Earth Elemental",
+     "perHour": 9
+    },
+    {
+     "name": "Carrion Worm",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "Warzone I",
+   "city": "Kazordoon",
+   "minLevel": 150,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Humongous Fungus",
+     "perHour": 92
+    },
+    {
+     "name": "Hideous Fungus",
+     "perHour": 73
+    },
+    {
+     "name": "Armadile",
+     "perHour": 34
+    },
+    {
+     "name": "Stone Devourer",
+     "perHour": 28
+    }
+   ]
+  },
+  {
+   "name": "Warzone II",
+   "city": "Kazordoon",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Magma Crawler",
+     "perHour": 48
+    },
+    {
+     "name": "Lost Berserker",
+     "perHour": 44
+    },
+    {
+     "name": "Weeper",
+     "perHour": 42
+    },
+    {
+     "name": "Lava Golem",
+     "perHour": 30
+    },
+    {
+     "name": "Infected Weeper",
+     "perHour": 5
+    }
+   ]
+  },
+  {
+   "name": "Warzone III",
+   "city": "Kazordoon",
+   "minLevel": 350,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Ironblight",
+     "perHour": 400
+    },
+    {
+     "name": "Orewalker",
+     "perHour": 365
+    },
+    {
+     "name": "Lost Berserker",
+     "perHour": 318
+    },
+    {
+     "name": "Cliff Strider",
+     "perHour": 186
+    }
+   ]
+  },
+  {
+   "name": "Gnome Deep Hub - Gnomes",
+   "city": "Kazordoon",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Ravenous Lava Lurker",
+     "perHour": 46
+    }
+   ]
+  },
+  {
+   "name": "Warzone IV",
+   "city": "Kazordoon",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Chasm Spawn",
+     "perHour": 65
+    },
+    {
+     "name": "Drillworm",
+     "perHour": 42
+    },
+    {
+     "name": "Elder Wyrm",
+     "perHour": 25
+    },
+    {
+     "name": "Mole",
+     "perHour": 4
+    },
+    {
+     "name": "Lava Lurker",
+     "perHour": 3
+    }
+   ]
+  },
+  {
+   "name": "Warzone V",
+   "city": "Kazordoon",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Tunnel Tyrant",
+     "perHour": 44
+    },
+    {
+     "name": "Cave Devourer",
+     "perHour": 41
+    },
+    {
+     "name": "High Voltage Elemental",
+     "perHour": 39
+    }
+   ]
+  },
+  {
+   "name": "Warzone VI",
+   "city": "Kazordoon",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Diremaw",
+     "perHour": 115
+    },
+    {
+     "name": "Deepworm",
+     "perHour": 84
+    },
+    {
+     "name": "Spit Nettle",
+     "perHour": 11
+    },
+    {
+     "name": "Humongous Fungus",
+     "perHour": 8
+    },
+    {
+     "name": "Mole",
+     "perHour": 3
+    }
+   ]
+  },
+  {
+   "name": "Warzone VII",
+   "city": "Kazordoon",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Blemished Spawn",
+     "perHour": 371
+    },
+    {
+     "name": "Eyeless Devourer",
+     "perHour": 204
+    },
+    {
+     "name": "Afflicted Strider",
+     "perHour": 142
+    }
+   ]
+  },
+  {
+   "name": "Warzone VIII",
+   "city": "Kazordoon",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Lavafungus",
+     "perHour": 420
+    },
+    {
+     "name": "Lavaworm",
+     "perHour": 600
+    },
+    {
+     "name": "Streaked Devourer",
+     "perHour": 510
+    }
+   ]
+  },
+  {
+   "name": "Warzone IX",
+   "city": "Kazordoon",
+   "minLevel": 800,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Cave Chimera",
+     "perHour": 640
+    },
+    {
+     "name": "Tremendous Tyrant",
+     "perHour": 440
+    },
+    {
+     "name": "Varnished Diremaw",
+     "perHour": 410
+    }
+   ]
+  },
+  {
+   "name": "Furious Crater",
+   "city": "Kilmaresh",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Cloak of Terror",
+     "perHour": 1200
+    },
+    {
+     "name": "Courage Leech",
+     "perHour": 600
+    },
+    {
+     "name": "Vibrant Phantom",
+     "perHour": 530
+    }
+   ]
+  },
+  {
+   "name": "Rotten Wastelands",
+   "city": "Kilmaresh",
+   "minLevel": 900,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Branchy Crawler",
+     "perHour": 450
+    },
+    {
+     "name": "Rotten Golem",
+     "perHour": 290
+    },
+    {
+     "name": "Mould Phantom",
+     "perHour": 300
+    }
+   ]
+  },
+  {
+   "name": "Liberty Bay Bonelord Cave",
+   "city": "Liberty Bay",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Bonelord",
+     "perHour": 51
+    },
+    {
+     "name": "Gazer",
+     "perHour": 22
+    },
+    {
+     "name": "Elder Bonelord",
+     "perHour": 11
+    },
+    {
+     "name": "Braindeath",
+     "perHour": 8
+    }
+   ]
+  },
+  {
+   "name": "Liberty Bay Wyrm Cave",
+   "city": "Liberty Bay",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Wyrm",
+     "perHour": 32
+    },
+    {
+     "name": "Elder Wyrm",
+     "perHour": 15
+    }
+   ]
+  },
+  {
+   "name": "Nagas",
+   "city": "Marapur",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Naga Warrior",
+     "perHour": 208
+    },
+    {
+     "name": "Makara",
+     "perHour": 166
+    },
+    {
+     "name": "Naga Archer",
+     "perHour": 102
+    }
+   ]
+  },
+  {
+   "name": "Werecrocodiles -1",
+   "city": "Oskayyaat",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Werepanther",
+     "perHour": 980
+    },
+    {
+     "name": "Werecrocodile",
+     "perHour": 570
+    },
+    {
+     "name": "Feral Werecrocodile",
+     "perHour": 270
+    }
+   ]
+  },
+  {
+   "name": "Weretigers -2",
+   "city": "Oskayyaat",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Cunning Werepanther",
+     "perHour": 950
+    },
+    {
+     "name": "Weretiger",
+     "perHour": 470
+    },
+    {
+     "name": "White Weretiger",
+     "perHour": 310
+    }
+   ]
+  },
+  {
+   "name": "Rootthings",
+   "city": "Podzilla",
+   "minLevel": 800,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Rootthing Nutshell",
+     "perHour": 1534
+    },
+    {
+     "name": "Rootthing Bug Tracker",
+     "perHour": 842
+    },
+    {
+     "name": "Rootthing Amber Shaper",
+     "perHour": 407
+    }
+   ]
+  },
+  {
+   "name": "Podzilla underwater (Quaras)",
+   "city": "Podzilla",
+   "minLevel": 900,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Quara Raider",
+     "perHour": 487
+    },
+    {
+     "name": "Quara Looter",
+     "perHour": 345
+    },
+    {
+     "name": "Quara Plunderer",
+     "perHour": 240
+    }
+   ]
+  },
+  {
+   "name": "Forbidden Lands - Giant Spider",
+   "city": "Port Hope",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Tarantula",
+     "perHour": 28
+    },
+    {
+     "name": "Giant Spider",
+     "perHour": 20
+    }
+   ]
+  },
+  {
+   "name": "Trapwood Water Elementals Cave",
+   "city": "Port Hope",
+   "minLevel": 50,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Water Elemental",
+     "perHour": 31
+    },
+    {
+     "name": "Quara Mantassin Scout",
+     "perHour": 11
+    }
+   ]
+  },
+  {
+   "name": "Forbidden Lands Hydras Cave",
+   "city": "Port Hope",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Hydra",
+     "perHour": 22
+    }
+   ]
+  },
+  {
+   "name": "Deep Banuta",
+   "city": "Port Hope",
+   "minLevel": 150,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Hydra",
+     "perHour": 90
+    },
+    {
+     "name": "Serpent Spawn",
+     "perHour": 82
+    },
+    {
+     "name": "Eternal Guardian",
+     "perHour": 72
+    },
+    {
+     "name": "Medusa",
+     "perHour": 68
+    },
+    {
+     "name": "Souleater",
+     "perHour": 49
+    },
+    {
+     "name": "Bonebeast",
+     "perHour": 38
+    },
+    {
+     "name": "Acid Blob",
+     "perHour": 10
+    },
+    {
+     "name": "Giant Spider",
+     "perHour": 9
+    },
+    {
+     "name": "Ice Golem",
+     "perHour": 7
+    },
+    {
+     "name": "Centipede",
+     "perHour": 6
+    },
+    {
+     "name": "Earth Elemental",
+     "perHour": 6
+    },
+    {
+     "name": "Fire Elemental",
+     "perHour": 6
+    },
+    {
+     "name": "Frost Dragon",
+     "perHour": 4
+    },
+    {
+     "name": "Behemoth",
+     "perHour": 3
+    },
+    {
+     "name": "Hellspawn",
+     "perHour": 2
+    },
+    {
+     "name": "Nightmare",
+     "perHour": 2
+    },
+    {
+     "name": "Massive Fire Elemental",
+     "perHour": 2
+    },
+    {
+     "name": "Water Elemental",
+     "perHour": 2
+    },
+    {
+     "name": "Ghastly Dragon",
+     "perHour": 1
+    },
+    {
+     "name": "Phantasm",
+     "perHour": 1
+    },
+    {
+     "name": "Elder Bonelord",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Forbidden Lands Behemoths Cave",
+   "city": "Port Hope",
+   "minLevel": 200,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Behemoth",
+     "perHour": 24
+    }
+   ]
+  },
+  {
+   "name": "Carnivora's Rocks",
+   "city": "Port Hope",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Lumbering Carnivor",
+     "perHour": 53
+    },
+    {
+     "name": "Spiky Carnivor",
+     "perHour": 52
+    },
+    {
+     "name": "Menacing Carnivor",
+     "perHour": 38
+    }
+   ]
+  },
+  {
+   "name": "Haunted Nexus Temple",
+   "city": "Port Hope",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Gazer Spectre",
+     "perHour": 30
+    },
+    {
+     "name": "Thanatursus",
+     "perHour": 5
+    }
+   ]
+  },
+  {
+   "name": "Asura Palace",
+   "city": "Port Hope",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Midnight Asura",
+     "perHour": 20
+    },
+    {
+     "name": "Dawnfire Asura",
+     "perHour": 19
+    },
+    {
+     "name": "Hellspawn",
+     "perHour": 18
+    },
+    {
+     "name": "Frost Flower Asura",
+     "perHour": 11
+    },
+    {
+     "name": "Hydra",
+     "perHour": 2
+    },
+    {
+     "name": "Massive Fire Elemental",
+     "perHour": 2
+    },
+    {
+     "name": "Massive Energy Elemental",
+     "perHour": 2
+    },
+    {
+     "name": "Destroyer",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "True Asura Palace",
+   "city": "Port Hope",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "True Dawnfire Asura",
+     "perHour": 66
+    },
+    {
+     "name": "True Midnight Asura",
+     "perHour": 63
+    },
+    {
+     "name": "True Frost Flower Asura",
+     "perHour": 18
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 16
+    },
+    {
+     "name": "Hellspawn",
+     "perHour": 3
+    },
+    {
+     "name": "Dawnfire Asura",
+     "perHour": 2
+    }
+   ]
+  },
+  {
+   "name": "Flimsy Port Hope",
+   "city": "Port Hope",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Flimsy Lost Soul",
+     "perHour": 617
+    },
+    {
+     "name": "Mean Lost Soul",
+     "perHour": 656
+    },
+    {
+     "name": "Freakish Lost Soul",
+     "perHour": 222
+    }
+   ]
+  },
+  {
+   "name": "Iksupan (Last stand)",
+   "city": "Port Hope",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Iks Yapunac",
+     "perHour": 502
+    },
+    {
+     "name": "Mitmah Scout",
+     "perHour": 239
+    },
+    {
+     "name": "Mitmah Seer",
+     "perHour": 84
+    }
+   ]
+  },
+  {
+   "name": "Iksupan Occupied Sanctuary",
+   "city": "Port Hope",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Iks Yapunac",
+     "perHour": 73
+    },
+    {
+     "name": "Mitmah Scout",
+     "perHour": 120
+    },
+    {
+     "name": "Mitmah Seer",
+     "perHour": 449
+    }
+   ]
+  },
+  {
+   "name": "Oramond Furies Area",
+   "city": "Rathleton",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Fury",
+     "perHour": 31
+    },
+    {
+     "name": "Worm Priestess",
+     "perHour": 21
+    },
+    {
+     "name": "Nightmare",
+     "perHour": 16
+    },
+    {
+     "name": "Spectre",
+     "perHour": 15
+    },
+    {
+     "name": "Minotaur Amazon",
+     "perHour": 13
+    },
+    {
+     "name": "Execowtioner",
+     "perHour": 12
+    },
+    {
+     "name": "Moohtant",
+     "perHour": 11
+    },
+    {
+     "name": "Undead Dragon",
+     "perHour": 10
+    },
+    {
+     "name": "Betrayed Wraith",
+     "perHour": 8
+    },
+    {
+     "name": "Lost Soul",
+     "perHour": 8
+    },
+    {
+     "name": "Dark Torturer",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "Oramond Dungeon",
+   "city": "Rathleton",
+   "minLevel": 350,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Minotaur Amazon",
+     "perHour": 1
+    },
+    {
+     "name": "Execowtioner",
+     "perHour": 1
+    },
+    {
+     "name": "Moohtant",
+     "perHour": 1
+    },
+    {
+     "name": "Worker Golem",
+     "perHour": 1
+    },
+    {
+     "name": "Glooth Golem",
+     "perHour": 1
+    },
+    {
+     "name": "Rustheap Golem",
+     "perHour": 1
+    },
+    {
+     "name": "War Golem",
+     "perHour": 1
+    },
+    {
+     "name": "Hellspawn",
+     "perHour": 1
+    },
+    {
+     "name": "Destroyer",
+     "perHour": 1
+    },
+    {
+     "name": "Dark Torturer",
+     "perHour": 1
+    },
+    {
+     "name": "Demon",
+     "perHour": 1
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 1
+    },
+    {
+     "name": "Grim Reaper",
+     "perHour": 1
+    },
+    {
+     "name": "Juggernaut",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Oramond Catacombs",
+   "city": "Rathleton",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dark Torturer",
+     "perHour": 850
+    },
+    {
+     "name": "Demon",
+     "perHour": 30
+    },
+    {
+     "name": "Destroyer",
+     "perHour": 840
+    },
+    {
+     "name": "Grim Reaper",
+     "perHour": 910
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 30
+    },
+    {
+     "name": "Hellspawn",
+     "perHour": 1380
+    }
+   ]
+  },
+  {
+   "name": "Lower Roshamuul",
+   "city": "Roshamuul",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Frazzlemaw",
+     "perHour": 391
+    },
+    {
+     "name": "Silencer",
+     "perHour": 220
+    },
+    {
+     "name": "Shock Head",
+     "perHour": 71
+    }
+   ]
+  },
+  {
+   "name": "Prison -1",
+   "city": "Roshamuul",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Demon Outcast",
+     "perHour": 1000
+    },
+    {
+     "name": "Blightwalker",
+     "perHour": 130
+    },
+    {
+     "name": "Dark Torturer",
+     "perHour": 300
+    },
+    {
+     "name": "Lost Soul",
+     "perHour": 130
+    },
+    {
+     "name": "Nightmare",
+     "perHour": 230
+    },
+    {
+     "name": "Plaguesmith",
+     "perHour": 180
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 30
+    }
+   ]
+  },
+  {
+   "name": "Prison -2",
+   "city": "Roshamuul",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Betrayed Wraith",
+     "perHour": 220
+    },
+    {
+     "name": "Juggernaut",
+     "perHour": 20
+    },
+    {
+     "name": "Plaguesmith",
+     "perHour": 470
+    },
+    {
+     "name": "Dark Torturer",
+     "perHour": 970
+    },
+    {
+     "name": "Demon Outcast",
+     "perHour": 1790
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 230
+    }
+   ]
+  },
+  {
+   "name": "Prison -3",
+   "city": "Roshamuul",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Demon Outcast",
+     "perHour": 547
+    },
+    {
+     "name": "Plaguesmith",
+     "perHour": 230
+    },
+    {
+     "name": "Juggernaut",
+     "perHour": 36
+    },
+    {
+     "name": "Dark Torturer",
+     "perHour": 203
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 52
+    },
+    {
+     "name": "Blightwalker",
+     "perHour": 62
+    }
+   ]
+  },
+  {
+   "name": "Roshamuul depot",
+   "city": "Roshamuul",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Choking Fear",
+     "perHour": 155
+    },
+    {
+     "name": "Retching Horror",
+     "perHour": 121
+    },
+    {
+     "name": "Silencer",
+     "perHour": 96
+    }
+   ]
+  },
+  {
+   "name": "Dark Grounds",
+   "city": "Roshamuul",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Sight of Surrender",
+     "perHour": 6
+    }
+   ]
+  },
+  {
+   "name": "Roshamuul west",
+   "city": "Roshamuul",
+   "minLevel": 500,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Frazzlemaw",
+     "perHour": 207
+    },
+    {
+     "name": "Guzzlemaw",
+     "perHour": 95
+    },
+    {
+     "name": "Silencer",
+     "perHour": 164
+    }
+   ]
+  },
+  {
+   "name": "Dark Thais Solo (MS)",
+   "city": "Soulwar",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Many Faces",
+     "perHour": 453
+    },
+    {
+     "name": "Sorcerer's Apparition",
+     "perHour": 299
+    },
+    {
+     "name": "Distorted Phantom",
+     "perHour": 163
+    },
+    {
+     "name": "Monk's Apparition",
+     "perHour": 84
+    },
+    {
+     "name": "Druid's Apparition",
+     "perHour": 73
+    },
+    {
+     "name": "Knight's Apparition",
+     "perHour": 69
+    },
+    {
+     "name": "Paladin's Apparition",
+     "perHour": 62
+    }
+   ]
+  },
+  {
+   "name": "Okolnir",
+   "city": "Svargrond",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Frost Dragon",
+     "perHour": 100
+    },
+    {
+     "name": "Frost Dragon Hatchling",
+     "perHour": 66
+    },
+    {
+     "name": "Penguin",
+     "perHour": 8
+    }
+   ]
+  },
+  {
+   "name": "Chyllfroest",
+   "city": "Svargrond",
+   "minLevel": 200,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Frost Dragon",
+     "perHour": 52
+    },
+    {
+     "name": "Chakoya Toolshaper",
+     "perHour": 47
+    },
+    {
+     "name": "Chakoya Tribewarden",
+     "perHour": 40
+    },
+    {
+     "name": "Frost Dragon Hatchling",
+     "perHour": 33
+    },
+    {
+     "name": "Lancer Beetle",
+     "perHour": 33
+    },
+    {
+     "name": "Brimstone Bug",
+     "perHour": 28
+    },
+    {
+     "name": "Giant Spider",
+     "perHour": 26
+    },
+    {
+     "name": "Stampor",
+     "perHour": 23
+    },
+    {
+     "name": "Wyvern",
+     "perHour": 22
+    },
+    {
+     "name": "Wailing Widow",
+     "perHour": 21
+    },
+    {
+     "name": "Demon",
+     "perHour": 19
+    },
+    {
+     "name": "Hellspawn",
+     "perHour": 19
+    },
+    {
+     "name": "Penguin",
+     "perHour": 18
+    },
+    {
+     "name": "Behemoth",
+     "perHour": 15
+    },
+    {
+     "name": "Killer Caiman",
+     "perHour": 14
+    },
+    {
+     "name": "Ghastly Dragon",
+     "perHour": 13
+    },
+    {
+     "name": "Chakoya Windcaller",
+     "perHour": 12
+    },
+    {
+     "name": "Hellhound",
+     "perHour": 11
+    },
+    {
+     "name": "Frost Giant",
+     "perHour": 10
+    },
+    {
+     "name": "Polar Bear",
+     "perHour": 8
+    },
+    {
+     "name": "Ice Golem",
+     "perHour": 5
+    },
+    {
+     "name": "Frost Giantess",
+     "perHour": 4
+    },
+    {
+     "name": "Pirate Skeleton",
+     "perHour": 3
+    },
+    {
+     "name": "Crystal Spider",
+     "perHour": 2
+    },
+    {
+     "name": "Mammoth",
+     "perHour": 2
+    },
+    {
+     "name": "Undead Dragon",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Otherworld",
+   "city": "Svargrond",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Breach Brood",
+     "perHour": 203
+    },
+    {
+     "name": "Dread Intruder",
+     "perHour": 183
+    },
+    {
+     "name": "Reality Reaver",
+     "perHour": 185
+    },
+    {
+     "name": "Sparkion",
+     "perHour": 188
+    }
+   ]
+  },
+  {
+   "name": "Deeper Fibula Dragons",
+   "city": "Thais",
+   "minLevel": 50,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Dragon",
+     "perHour": 16
+    },
+    {
+     "name": "Dragon Lord",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "Deeper Fibula Minos",
+   "city": "Thais",
+   "minLevel": 50,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Minotaur",
+     "perHour": 19
+    },
+    {
+     "name": "Minotaur Archer",
+     "perHour": 13
+    },
+    {
+     "name": "Minotaur Mage",
+     "perHour": 10
+    },
+    {
+     "name": "Minotaur Guard",
+     "perHour": 8
+    }
+   ]
+  },
+  {
+   "name": "radiant cloud castle",
+   "city": "Unknown",
+   "minLevel": 1000,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Radiant Acolyte",
+     "perHour": 20
+    },
+    {
+     "name": "Radiant Inquisitor",
+     "perHour": 20
+    },
+    {
+     "name": "Radiant Paragon",
+     "perHour": 20
+    },
+    {
+     "name": "Radiant Templar",
+     "perHour": 20
+    },
+    {
+     "name": "Radiant Warden",
+     "perHour": 20
+    },
+    {
+     "name": "Radiant Zealot",
+     "perHour": 20
+    }
+   ]
+  },
+  {
+   "name": "Norcferatu East",
+   "city": "Vengoth",
+   "minLevel": 550,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dworc Shadowstalker",
+     "perHour": 389
+    },
+    {
+     "name": "Orclops Bloodbreaker",
+     "perHour": 358
+    },
+    {
+     "name": "Gloom Maw",
+     "perHour": 355
+    },
+    {
+     "name": "Norcferatu Heartless",
+     "perHour": 138
+    },
+    {
+     "name": "Norcferatu Nightweaver",
+     "perHour": 83
+    },
+    {
+     "name": "Varg",
+     "perHour": 69
+    }
+   ]
+  },
+  {
+   "name": "Norcferatu West",
+   "city": "Vengoth",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Norcferatu Heartless",
+     "perHour": 408
+    },
+    {
+     "name": "Norcferatu Nightweaver",
+     "perHour": 345
+    },
+    {
+     "name": "Orclops Bloodbreaker",
+     "perHour": 301
+    },
+    {
+     "name": "Gloom Maw",
+     "perHour": 289
+    },
+    {
+     "name": "Dworc Shadowstalker",
+     "perHour": 232
+    },
+    {
+     "name": "Varg",
+     "perHour": 231
+    }
+   ]
+  },
+  {
+   "name": "Azzilon catacombs -2",
+   "city": "Vengoth",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Spellreaper Inferniarch",
+     "perHour": 800
+    },
+    {
+     "name": "Hellhunter Inferniarch",
+     "perHour": 370
+    },
+    {
+     "name": "Brinebrute Inferniarch",
+     "perHour": 15
+    }
+   ]
+  },
+  {
+   "name": "Azzilon catacombs -3",
+   "city": "Vengoth",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Hellhunter Inferniarch",
+     "perHour": 800
+    },
+    {
+     "name": "Spellreaper Inferniarch",
+     "perHour": 500
+    },
+    {
+     "name": "Brinebrute Inferniarch",
+     "perHour": 15
+    }
+   ]
+  },
+  {
+   "name": "Azzilon catacombs -4",
+   "city": "Vengoth",
+   "minLevel": 700,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Hellhunter Inferniarch",
+     "perHour": 900
+    },
+    {
+     "name": "Spellreaper Inferniarch",
+     "perHour": 800
+    },
+    {
+     "name": "Brinebrute Inferniarch",
+     "perHour": 20
+    }
+   ]
+  },
+  {
+   "name": "Dark Cathedral",
+   "city": "Venore",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Bat",
+     "perHour": 1
+    },
+    {
+     "name": "Poison Spider",
+     "perHour": 1
+    },
+    {
+     "name": "Centipede",
+     "perHour": 1
+    },
+    {
+     "name": "Scorpion",
+     "perHour": 1
+    },
+    {
+     "name": "Cave Rat",
+     "perHour": 1
+    },
+    {
+     "name": "Slime",
+     "perHour": 1
+    },
+    {
+     "name": "Rotworm",
+     "perHour": 1
+    },
+    {
+     "name": "Skeleton",
+     "perHour": 1
+    },
+    {
+     "name": "Ghost",
+     "perHour": 1
+    },
+    {
+     "name": "Smuggler",
+     "perHour": 1
+    },
+    {
+     "name": "Wild Warrior",
+     "perHour": 1
+    },
+    {
+     "name": "Bandit",
+     "perHour": 1
+    },
+    {
+     "name": "Assassin",
+     "perHour": 1
+    },
+    {
+     "name": "Dark Monk",
+     "perHour": 1
+    },
+    {
+     "name": "Bonelord",
+     "perHour": 1
+    },
+    {
+     "name": "Ghoul",
+     "perHour": 1
+    },
+    {
+     "name": "Tarantula",
+     "perHour": 1
+    },
+    {
+     "name": "Demon Skeleton",
+     "perHour": 1
+    },
+    {
+     "name": "Witch",
+     "perHour": 1
+    },
+    {
+     "name": "Mummy",
+     "perHour": 1
+    },
+    {
+     "name": "Stone Golem",
+     "perHour": 1
+    },
+    {
+     "name": "Dark Magician",
+     "perHour": 1
+    },
+    {
+     "name": "Dark Apprentice",
+     "perHour": 1
+    },
+    {
+     "name": "Hunter",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "Orcs Fortress",
+   "city": "Venore",
+   "minLevel": 8,
+   "premium": false,
+   "creatures": [
+    {
+     "name": "Orc Berserker",
+     "perHour": 146
+    },
+    {
+     "name": "Orc Spearman",
+     "perHour": 118
+    },
+    {
+     "name": "Orc Warrior",
+     "perHour": 113
+    },
+    {
+     "name": "Rorc",
+     "perHour": 72
+    },
+    {
+     "name": "Orc Shaman",
+     "perHour": 71
+    },
+    {
+     "name": "Orc Leader",
+     "perHour": 48
+    },
+    {
+     "name": "Pig",
+     "perHour": 37
+    },
+    {
+     "name": "Orc",
+     "perHour": 29
+    },
+    {
+     "name": "Wolf",
+     "perHour": 25
+    },
+    {
+     "name": "War Wolf",
+     "perHour": 22
+    },
+    {
+     "name": "Orc Rider",
+     "perHour": 17
+    },
+    {
+     "name": "Deer",
+     "perHour": 15
+    },
+    {
+     "name": "Orc Warlord",
+     "perHour": 15
+    },
+    {
+     "name": "Wasp",
+     "perHour": 11
+    },
+    {
+     "name": "Wyvern",
+     "perHour": 9
+    },
+    {
+     "name": "Seagull",
+     "perHour": 8
+    },
+    {
+     "name": "Slime",
+     "perHour": 6
+    },
+    {
+     "name": "Bear",
+     "perHour": 6
+    },
+    {
+     "name": "Bug",
+     "perHour": 4
+    },
+    {
+     "name": "Snake",
+     "perHour": 4
+    },
+    {
+     "name": "Rabbit",
+     "perHour": 3
+    },
+    {
+     "name": "Poacher",
+     "perHour": 3
+    },
+    {
+     "name": "Chicken",
+     "perHour": 2
+    },
+    {
+     "name": "Dragon",
+     "perHour": 1
+    },
+    {
+     "name": "Bonelord",
+     "perHour": 1
+    },
+    {
+     "name": "Stone Golem",
+     "perHour": 1
+    },
+    {
+     "name": "Scorpion",
+     "perHour": 1
+    },
+    {
+     "name": "Elf",
+     "perHour": 1
+    },
+    {
+     "name": "Cyclops",
+     "perHour": 1
+    }
+   ]
+  },
+  {
+   "name": "PoI Dragon Lair",
+   "city": "Venore",
+   "minLevel": 30,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dragon Lord",
+     "perHour": 29
+    },
+    {
+     "name": "Dragon",
+     "perHour": 7
+    }
+   ]
+  },
+  {
+   "name": "Buried Cathedral",
+   "city": "Venore",
+   "minLevel": 250,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Gazer Spectre",
+     "perHour": 103
+    },
+    {
+     "name": "Burster Spectre",
+     "perHour": 87
+    },
+    {
+     "name": "Arachnophobica",
+     "perHour": 71
+    },
+    {
+     "name": "Ripper Spectre",
+     "perHour": 64
+    }
+   ]
+  },
+  {
+   "name": "Haunted Nexus Cellar",
+   "city": "Venore",
+   "minLevel": 400,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Ripper Spectre",
+     "perHour": 62
+    },
+    {
+     "name": "Arachnophobica",
+     "perHour": 43
+    }
+   ]
+  },
+  {
+   "name": "Flimsy Venore brain grounds",
+   "city": "Venore",
+   "minLevel": 550,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Flimsy Lost Soul",
+     "perHour": 430
+    },
+    {
+     "name": "Grim Reaper",
+     "perHour": 34
+    }
+   ]
+  },
+  {
+   "name": "Bulltaur lair",
+   "city": "Venore",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Bulltaur Brute",
+     "perHour": 504
+    },
+    {
+     "name": "Bulltaur Alchemist",
+     "perHour": 430
+    },
+    {
+     "name": "Bulltaur Forgepriest",
+     "perHour": 382
+    }
+   ]
+  },
+  {
+   "name": "Flimsy Venore grounds && -1",
+   "city": "Venore",
+   "minLevel": 600,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Flimsy Lost Soul",
+     "perHour": 1034
+    },
+    {
+     "name": "Mean Lost Soul",
+     "perHour": 515
+    },
+    {
+     "name": "Grim Reaper",
+     "perHour": 104
+    }
+   ]
+  },
+  {
+   "name": "Mistrock",
+   "city": "Yalahar",
+   "minLevel": 8,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Cyclops",
+     "perHour": 149
+    },
+    {
+     "name": "Cyclops Drone",
+     "perHour": 91
+    },
+    {
+     "name": "Cyclops Smith",
+     "perHour": 46
+    }
+   ]
+  },
+  {
+   "name": "Fenrock Dragon Lair",
+   "city": "Yalahar",
+   "minLevel": 100,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Dragon Lord",
+     "perHour": 25
+    },
+    {
+     "name": "Dragon Lord Hatchling",
+     "perHour": 13
+    },
+    {
+     "name": "Dragon",
+     "perHour": 7
+    },
+    {
+     "name": "Dragon Hatchling",
+     "perHour": 4
+    }
+   ]
+  },
+  {
+   "name": "Yalahar Sunken Quarter",
+   "city": "Yalahar",
+   "minLevel": 150,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Quara Predator",
+     "perHour": 23
+    },
+    {
+     "name": "Quara Pincher",
+     "perHour": 22
+    },
+    {
+     "name": "Quara Constrictor",
+     "perHour": 21
+    },
+    {
+     "name": "Quara Mantassin",
+     "perHour": 17
+    },
+    {
+     "name": "Quara Hydromancer",
+     "perHour": 11
+    }
+   ]
+  },
+  {
+   "name": "Yalahar Demons East",
+   "city": "Yalahar",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Demon",
+     "perHour": 5
+    }
+   ]
+  },
+  {
+   "name": "Yalahar Demons West",
+   "city": "Yalahar",
+   "minLevel": 300,
+   "premium": true,
+   "creatures": [
+    {
+     "name": "Demon",
+     "perHour": 5
+    }
+   ]
+  }
+ ]
+}

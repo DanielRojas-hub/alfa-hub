@@ -286,8 +286,8 @@ func compactNumber(_ value: Int64) -> String {
     Double(value).formatted(.number.notation(.compactName).precision(.fractionLength(0...1)))
 }
 
-/// El outfit del char: clic para editarlo (franja "Outfit" abajo, más visible al pasar el ratón) y, en
-/// la esquina, el botón para mostrarlo en el ícono de Alfa Hub.
+/// El outfit del char: clic para editarlo (pincel en la esquina de abajo, sin tapar el personaje) y, en
+/// la esquina de arriba, el botón para mostrarlo en el ícono de Alfa Hub.
 struct OutfitButton: View {
     @ObservedObject var outfit: OutfitManager
     let config: OutfitConfig?
@@ -299,13 +299,6 @@ struct OutfitButton: View {
     var body: some View {
         Button(action: edit) {
             CharAvatar(outfit: outfit, config: config, side: 68)
-                .overlay(alignment: .bottom) {
-                    Label(hover ? "Editar outfit" : "Outfit", systemImage: "paintbrush.pointed.fill")
-                        .font(.system(size: 9, weight: .bold))
-                        .frame(maxWidth: .infinity).padding(.vertical, 3)
-                        .background(Color.black.opacity(hover ? 0.75 : 0.5))
-                        .foregroundStyle(.white)
-                }
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(hover ? Color.accentBlue : Color.white.opacity(0.1), lineWidth: hover ? 2 : 1))
                 .contentShape(Rectangle())
@@ -313,6 +306,21 @@ struct OutfitButton: View {
         .buttonStyle(.plain)
         .onHover { hover = $0 }
         .help("Editar el outfit de este char")
+        .overlay(alignment: .bottomTrailing) {
+            Button(action: edit) {
+                Image(systemName: "paintbrush.pointed.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(hover ? Color.accentBlue : Color(white: 0.18)))
+                    .overlay(Circle().stroke(Color.windowBackground, lineWidth: 2))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.plain)
+            .onHover { hover = $0 }
+            .offset(x: 7, y: 7)
+            .help("Editar el outfit de este char")
+            .accessibilityLabel("Editar outfit")
+        }
         .overlay(alignment: .topTrailing) {
             Button(action: toggleIcon) {
                 Image(systemName: isIcon ? "app.badge.checkmark.fill" : "app.badge")
@@ -324,8 +332,8 @@ struct OutfitButton: View {
             }
             .buttonStyle(.plain)
             .offset(x: 7, y: -7)
-            .help(isIcon ? "Sale en el ícono de Alfa Hub (Dock, barra de menús y barra lateral). Clic para quitarlo."
-                         : "Mostrar este char en el ícono de Alfa Hub (Dock, barra de menús y barra lateral)")
+            .help(isIcon ? "Sale en el ícono de Alfa Hub (Dock, barra de menús y barra lateral, con su nombre). Clic para quitarlo."
+                         : "Mostrar este char en el ícono de Alfa Hub (Dock, barra de menús y barra lateral, con su nombre)")
         }
     }
 }

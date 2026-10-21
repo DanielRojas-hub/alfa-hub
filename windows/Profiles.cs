@@ -441,6 +441,7 @@ namespace AlfaHub
         [DataContract] sealed class CreatureFile { [DataMember(Name = "creatures")] public List<BestiaryCreature> Creatures; }
         [DataContract] sealed class ItemFile { [DataMember(Name = "items")] public List<ItemInfo> Items; }
         [DataContract] sealed class CharmFile { [DataMember(Name = "charms")] public List<CharmInfo> Charms; }
+        [DataContract] sealed class HuntFile { [DataMember(Name = "hunts")] public List<HuntPreset> Hunts; }
 
         static readonly DataContractJsonSerializerSettings Settings = new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true };
 
@@ -453,6 +454,7 @@ namespace AlfaHub
         public static List<BestiaryCreature> LoadCreatures() => Resource<CreatureFile>("bestiary.json")?.Creatures ?? new List<BestiaryCreature>();
         public static List<ItemInfo> LoadItems() => Resource<ItemFile>("items.json")?.Items ?? new List<ItemInfo>();
         public static List<CharmInfo> LoadCharms() => Resource<CharmFile>("charms.json")?.Charms ?? new List<CharmInfo>();
+        public static List<HuntPreset> LoadHunts() => Resource<HuntFile>("hunts.json")?.Hunts ?? new List<HuntPreset>();
     }
 
     static class BestiaryCatalog
@@ -494,6 +496,23 @@ namespace AlfaHub
             if (charm.Name == "Overflux") return (int)Math.Min(Vocations.Mana(vocation, level) * 0.025, cap);
             return 0;
         }
+    }
+
+    /// Una hunt conocida (preset del Charm Optimizer de hakaimarket.com): dónde, desde qué nivel y cuántas
+    /// criaturas de cada tipo se matan por hora. Vienen en hunts.json (assets/make_hunts.py).
+    [DataContract]
+    sealed class HuntPreset
+    {
+        [DataMember(Name = "name")] public string Name;
+        [DataMember(Name = "city")] public string City;
+        [DataMember(Name = "minLevel")] public int MinLevel;
+        [DataMember(Name = "premium")] public bool Premium;
+        [DataMember(Name = "creatures")] public List<HuntCreature> Creatures;
+    }
+
+    static class HuntCatalog
+    {
+        public static readonly List<HuntPreset> Presets = Catalogs.LoadHunts();
     }
 
     // ---------- tibia.com (TibiaData) ----------

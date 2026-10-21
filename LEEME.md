@@ -6,9 +6,12 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
   (con la hora local), cuándo termina la rotación del **Tibiadrome** y la **criatura y el boss
   boosteados** del día. Rashid, el server save y el Tibiadrome se calculan sin conexión; los
   boosteados vienen de la [API de TibiaData](https://tibiadata.com) y se guardan para verlos sin conexión.
-- **Timers**: varios a la vez, con presets **Pez** (cada 2:00), **Bakragore** (mecánica cada 1:30
-  durante 25 min), **Pilar** (rotación de los Totens cada 6 s) o personalizados. Cada uno tiene su
-  duración, avisos, sonido (14 incluidos o un .wav/.mp3 propio), atajo de iniciar/pausar y su propio
+- **Timers**: varios a la vez, con presets **Pescaditos** (cada 2:00), **Bakragore** (mecánica cada 1:30
+  durante 25 min), **Pilar** (rotación de los Totens cada 6 s), **Compuesto** (25 s y luego cada 5 s
+  durante 20 s) o personalizados. Cada uno se habilita o deshabilita con su switch en la lista
+  (deshabilitado no sale sobre Tibia ni suena), es de un solo uso o en loop (con tiempo total opcional)
+  y, si es compuesto, encadena fases (cada una una cuenta atrás que va una vez o se repite durante un
+  tiempo). Tiene su duración, avisos, sonido (14 incluidos o un .wav/.mp3 propio), atajo de iniciar/pausar y su propio
   contador sobre Tibia (tamaño, opacidad, colores y sitio), que se edita en el editor del timer.
 - **Tibia Audio**: pones la tecla con la que usas una habilidad en Tibia y su cooldown; al pulsarla en
   el juego empieza la cuenta y suena un aviso cuando la habilidad vuelve a estar lista. La tecla sigue
@@ -40,9 +43,9 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
     de cada criatura (etapas, kills, debilidades y dónde vive); y recomendaciones **Single** (criaturas que
     convienen solo según el nivel) y **Group** (zonas donde terminar varias a la vez);
   - **Charms**, como el [Charm Optimizer de hakaimarket](https://hakaimarket.com/calculators?tool=charmOptimizer):
-    primero el optimizador, que con los charms que tiene, las criaturas de la hunt (una a una o toda una
-    zona) y cuántas mata por hora reparte los charms de daño (elementales, Overpower y Overflux) con las
-    fórmulas de TibiaWiki; y en *Mis charms*, los charm points del Bestiary y gastados y el nivel de cada
+    primero el optimizador, que con los charms que tiene, las criaturas de la hunt (una a una o con un
+    preset de hunt de hakaimarket) y cuántas mata por hora reparte los charms de daño (elementales, Overpower
+    y Overflux) con las fórmulas de TibiaWiki y recomienda el charm menor (Void's Call / Vampiric Embrace); y en *Mis charms*, los charm points del Bestiary y gastados y el nivel de cada
     charm;
   - **Inventario** en cuadrículas como en Tibia: el equipo en sus huecos y un contenedor por sitio
     (mochila, depot, casa, stash, otro char u otro sitio, agrupado por ciudad o detalle), con la imagen de
@@ -66,7 +69,7 @@ Descarga `AlfaHub.exe` desde la última **Release** del repositorio. No necesita
 3. Al cerrar el hub, Alfa Hub sigue en la bandeja del sistema (junto al reloj);
    desde ahí se vuelve a abrir o se sale.
 
-Atajos por defecto: **Ctrl+Alt+P** iniciar/pausar el timer Pez, **Ctrl+Alt+R** reiniciar el último
+Atajos por defecto: **Ctrl+Alt+P** iniciar/pausar el timer Pescaditos, **Ctrl+Alt+R** reiniciar el último
 timer usado, **Ctrl+Alt+O** mostrar/ocultar overlay. Cada timer puede tener su propio atajo.
 Los ajustes se guardan en `%APPDATA%\AlfaHub\ajustes.ini`; los timers en `timers.json`, los espejos
 en `espejos.json` y Tibia Audio en `audio.json`.
@@ -111,7 +114,7 @@ ni la cambia. Alfa Hub solo la usa con Tibia Audio activado y Tibia al frente, y
 pulsación con las teclas de tu lista. Los atajos de Alfa Hub (⌃⌥P…) no sirven para esto porque se
 quedan con la tecla y Tibia no la recibiría.
 
-Atajos por defecto: **⌃⌥P** (timer Pez), **⌃⌥R** (reiniciar el último timer usado), **⌃⌥O** (overlay).
+Atajos por defecto: **⌃⌥P** (timer Pescaditos), **⌃⌥R** (reiniciar el último timer usado), **⌃⌥O** (overlay).
 
 ## Ícono y personaje
 

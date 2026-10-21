@@ -10,7 +10,7 @@ verifica con el workflow *Capturas Windows* (GitHub Actions), que sube sus captu
 | Captura | Qué muestra |
 | --- | --- |
 | [01-timers.png](capturas/01-timers.png) | Página **Timers**: lista de timers en pausa |
-| [02-editor-cuenta-atras.png](capturas/02-editor-cuenta-atras.png) | Editor de un timer de **cuenta atrás** (Pez) |
+| [02-editor-cuenta-atras.png](capturas/02-editor-cuenta-atras.png) | Editor de un timer de **cuenta atrás** (Pescaditos) |
 | [03-editor-rotacion.png](capturas/03-editor-rotacion.png) | Editor de un timer de **rotación** (Pilar) |
 | [04-editor-overlay.png](capturas/04-editor-overlay.png) | Sección **Overlay** del editor de un timer: vista previa, tamaño, opacidad y colores |
 | [05-atajos.png](capturas/05-atajos.png) | Página **Atajos**: uno por timer y los globales |
@@ -41,7 +41,8 @@ Ventana de ~900 × 640 pt (mínimo 820 × 600).
    - Sección **AJUSTES**: *Atajos* y *Sonido* (el outfit es de cada char de Perfiles).
    - Elemento elegido: fondo gris suave y marca azul vertical a la izquierda.
    - Al pie: el personaje a 2× (caminando si se eligió **Animar caminata**): el del char que tiene
-     **Mostrar en el ícono de Alfa Hub**.
+     **Mostrar en el ícono de Alfa Hub**, con su nombre encima en verde con borde negro y una barra de
+     vida, como en Tibia (si el char tiene nombre).
 3. **Página** (márgenes de 28 pt): título grande + subtítulo gris, y el contenido.
 
 ### Página Hoy
@@ -67,8 +68,8 @@ cierran al hacer clic fuera. En los charms, clic cambia el nivel y clic derecho 
   COMPARTIDO si se importó), **Importar** (pegar código o abrir archivo `.alfahub`) y **＋ Nuevo perfil**.
 - Un perfil: nombre editable, **Compartir** (copiar código / guardar archivo), **＋ Añadir char** y una
   tarjeta por char (outfit, vocación · nivel · mundo, items y progreso del Bestiary).
-- Un char: "‹ Volver a <perfil>" y una cabecera en una línea: outfit 68 pt con la franja "✎ Outfit" abajo
-  ("Editar outfit" y borde azul al pasar el ratón; clic abre el editor) y, en su esquina, un botón redondo
+- Un char: "‹ Volver a <perfil>" y una cabecera en una línea: outfit 68 pt sin nada encima (borde azul al pasar el
+  ratón; clic abre el editor), en la esquina de abajo un botón redondo con un pincel (también abre el editor) y, en la de arriba, otro
   para **mostrarlo en el ícono de Alfa Hub** (azul cuando lo está; chip ÍCONO junto al nombre), nombre grande editable y debajo
   "Elder Druid · Xymera · Inferno ✓ tibia.com hace 2 minutos" (clic para volver a sincronizar); a la
   derecha, tres recuadros: NIVEL (verde), BESTIARY (ámbar) y CHARM POINTS (morado). Al dejar de escribir
@@ -110,10 +111,14 @@ cierran al hacer clic fuera. En los charms, clic cambia el nivel y clic derecho 
   - Charms: **Optimizador** / **Mis charms** (cápsulas; ⓘ explica las fórmulas).
     - Optimizador (como hakaimarket): tarjeta de configuración con *Personaje* (nivel, vocación, HP y
       maná), *Tus charms* (los 9 de daño: imagen, nombre y nivel; clic cambia No → I → II → III) y *Tu hunt*
-      (buscador que añade criaturas al pulsarlas o con Enter, **Toda una zona**, **Vaciar** y una tarjeta
+      (buscador que añade criaturas al pulsarlas o con Enter, **Presets de hunt** — las hunts del Charm Optimizer de
+      hakaimarket por ciudad, con nivel mínimo y Free/Premium; elegir una pone sus criaturas con sus kills por
+      hora —, **Vaciar** y una tarjeta
       por criatura: GIF, nombre, ⚠ si su Bestiary no está completo, HP y a qué es débil, y − kills/hora +).
       Debajo, **Mejor combinación** (borde ámbar, chip BEST): una tarjeta por charm con charm → criatura,
-      el daño por activación en grande y la probabilidad; "Ver el daño de cada charm en cada criatura"
+      el daño por activación en grande y la probabilidad; **Charm menor recomendado** (Void's Call y Vampiric
+      Embrace en las criaturas más atacadas; Vampiric Embrace primero para knights, con el leech de su nivel o
+      "sin desbloquear"); "Ver el daño de cada charm en cada criatura"
       despliega la tabla.
     - Mis charms: recuadros de charm points (del Bestiary, gastados en mayores y en menores) y la
       cuadrícula de charms mayores y menores con su imagen de TibiaWiki y tres rayas del nivel (clic:
@@ -128,10 +133,11 @@ cierran al hacer clic fuera. En los charms, clic cambia el nivel y clic derecho 
 
 ### Página Timers
 
-- Cabecera con el botón azul **＋ Añadir timer** (menú: Pez, Bakragore, Pilar, Personalizado).
+- Cabecera con el botón azul **＋ Añadir timer**: crea un timer "Timer" de 1:00 y abre su editor (los presets
+  Pescaditos, Bakragore, Pilar, Compuesto y Personalizado están en **Cargar preset** del editor).
 - Línea "3 timers · 1 en marcha" y botones **Desbloquear para moverlos** (contadores del overlay),
   **Pausar todos** / **Reiniciar todos**. Sin límite de timers.
-- Una **fila por timer** (tarjeta redondeada): barra de estado de 4 pt a la izquierda
+- Una **fila por timer** (tarjeta redondeada, todas con el mismo borde tenue: la elegida no se resalta): barra de estado de 4 pt a la izquierda
   (gris parado, verde en marcha, ámbar en pausa, rojo en alerta o terminado), nombre en negrita y
   resumen gris ("Cada 02:00 · F7 · Beep"), contador monoespaciado con barra de progreso, botones
   redondos ▶/❚❚ (azul/ámbar) y ↺, botón **Editar** y menú ⋮ (Duplicar, Eliminar).

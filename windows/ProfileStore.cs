@@ -22,6 +22,8 @@ namespace AlfaHub
         public event Action Changed;
         /// Cambió el outfit del ícono (otro char, o el mismo con otro outfit); null = el original.
         public event Action<SharedOutfit> IconOutfitChanged;
+        /// Otro char en el ícono (o ninguno), o algún cambio que pueda tocar su nombre: la barra lateral lo redibuja.
+        public event Action IconCharChanged;
 
         readonly System.Windows.Forms.Timer saveTimer = new System.Windows.Forms.Timer { Interval = 500 };
         readonly System.Windows.Forms.Timer syncTimer = new System.Windows.Forms.Timer { Interval = 30 * 60 * 1000 };
@@ -54,6 +56,7 @@ namespace AlfaHub
             saveTimer.Stop();
             saveTimer.Start();
             IconCheck();
+            IconCharChanged?.Invoke();   // por si cambió su nombre
         }
 
         public void Save()
@@ -130,6 +133,17 @@ namespace AlfaHub
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
                 IconCheck();
+                IconCharChanged?.Invoke();
+            }
+        }
+
+        /// El nombre del char del ícono (null si no hay o no tiene nombre), para la barra lateral.
+        public string IconCharName
+        {
+            get
+            {
+                string name = iconChar == null ? null : Profiles.SelectMany(p => p.Chars).FirstOrDefault(c => c.Id == iconChar)?.Name?.Trim();
+                return string.IsNullOrEmpty(name) ? null : name;
             }
         }
 

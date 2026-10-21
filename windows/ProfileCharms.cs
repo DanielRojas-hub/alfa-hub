@@ -8,7 +8,7 @@ namespace AlfaHub
 {
     /// Pestaña Charms, como el Charm Optimizer de hakaimarket.com: primero el optimizador (con los charms
     /// de daño que tiene el char, las criaturas de su hunt y cuántas mata por hora, qué charm poner en cada
-    /// una) y, en "Mis charms", los charm points del Bestiary y gastados y el nivel de cada charm.
+    /// una, a mano o con un preset de hunt, y qué charm menor) y, en "Mis charms", los charm points del Bestiary y gastados y el nivel de cada charm.
     sealed class CharmsCanvas : HitCanvas
     {
         readonly GameChar c;
@@ -129,6 +129,7 @@ namespace AlfaHub
             var picks = Assignment();
             float h = S(16) + S(28) + ((picks.Count + Columns(width - S(32), 160) - 1) / Columns(width - S(32), 160)) * (S(ResultCard) + S(10));
             if (picks.Count < Hunt().Count) h += S(20);
+            h += MinorHeight(width);
             h += S(30);
             if (showTable) h += S(40) + Hunt().Count * S(26) + S(8);
             return h + S(10);
@@ -156,7 +157,7 @@ namespace AlfaHub
             search.Visible = searchY >= 0;
             if (searchY >= 0)
             {
-                float zone = ButtonWidth("🗺  Toda una zona") + (c.Hunt.Count > 0 ? ButtonWidth("🗑  Vaciar") + S(8) : 0) + S(8);
+                float zone = ButtonWidth(PresetsButton) + (c.Hunt.Count > 0 ? ButtonWidth("🗑  Vaciar") + S(8) : 0) + S(8);
                 search.SetBounds((int)(S(16) + S(LabelW)), (int)searchY, (int)(Width - S(32) - S(LabelW) - zone), (int)S(28));
             }
         }
@@ -177,7 +178,7 @@ namespace AlfaHub
             {
                 var info = new RectangleF(Width - S(28), 0, S(28), S(26));
                 CenterText(g, "ⓘ", Fonts.Get(12f), Theme.Muted, info);
-                Hot(info, null, "Pon las criaturas de tu hunt y cuántas matas por hora: el optimizador reparte tus charms de daño\n(los elementales, Overpower y Overflux) para sacar el máximo daño extra. Los elementales hacen el 5 % de\nla vida de la criatura (como mucho el doble de tu nivel) por su debilidad a ese elemento; Overpower, el 5 %\nde tu vida, y Overflux, el 2,5 % de tu maná (los dos hasta el 8 % de la vida de la criatura). Se activan con\nun 5 / 10 / 11 % de probabilidad según el nivel del charm. Low Blow y Savage Blow dependen de los críticos\nde tu arma y no se calculan. En el juego solo se puede poner un charm en criaturas con el Bestiary completo.");
+                Hot(info, null, "Pon las criaturas de tu hunt y cuántas matas por hora (o elige un preset de hunt): el optimizador reparte tus charms de daño\n(los elementales, Overpower y Overflux) para sacar el máximo daño extra. Los elementales hacen el 5 % de\nla vida de la criatura (como mucho el doble de tu nivel) por su debilidad a ese elemento; Overpower, el 5 %\nde tu vida, y Overflux, el 2,5 % de tu maná (los dos hasta el 8 % de la vida de la criatura). Se activan con\nun 5 / 10 / 11 % de probabilidad según el nivel del charm. Low Blow y Savage Blow dependen de los críticos\nde tu arma y no se calculan. Además, cada criatura admite un charm menor: se recomiendan Void's Call (mana leech)\ny Vampiric Embrace (life leech) en las criaturas a las que más atacas. En el juego solo se puede poner un charm\nen criaturas con el Bestiary completo.");
                 float y = S(40);
                 DrawSetup(g, new RectangleF(0.5f, y, Width - 1, SetupHeight(Width)));
                 y += SetupHeight(Width) + S(14);
@@ -241,8 +242,8 @@ namespace AlfaHub
                 Button(g, "🗑  Vaciar", bx, y, () => { c.Hunt.Clear(); store.Touch(); Relayout(); });
                 bx -= S(8);
             }
-            bx -= ButtonWidth("🗺  Toda una zona");
-            Button(g, "🗺  Toda una zona", bx, y, OpenPlaces, tip: "Añade todas las criaturas de una zona (según TibiaWiki)");
+            bx -= ButtonWidth(PresetsButton);
+            Button(g, PresetsButton, bx, y, OpenPresets, tip: "Elige una hunt conocida y se ponen sus criaturas con las kills por hora (del Charm Optimizer de hakaimarket.com)");
             y += S(36);
             var matches = Matches();
             if (matches.Count > 0)
@@ -265,7 +266,7 @@ namespace AlfaHub
             var hunt = Hunt();
             if (hunt.Count == 0)
             {
-                TextAt(g, "Añade las criaturas que cazas (o toda una zona) y verás qué charm conviene en cada una.", Fonts.Get(9f), Theme.Muted, content, y + S(8));
+                TextAt(g, "Añade las criaturas que cazas (o elige un preset de hunt) y verás qué charm conviene en cada una.", Fonts.Get(9f), Theme.Muted, content, y + S(8));
                 return;
             }
             int cols = Columns(r.Width - S(32), 220);
@@ -321,26 +322,92 @@ namespace AlfaHub
             Relayout();
         }
 
-        void OpenPlaces()
+        const string PresetsButton = "🎯  Presets de hunt";
+
+        /// Buscador de presets de hunt: al elegir uno se ponen sus criaturas (en lugar de las que hubiera).
+        void OpenPresets()
         {
-            var counts = new Dictionary<string, int>();
-            foreach (var b in BestiaryCatalog.Creatures) foreach (var p in b.Places) counts[p] = counts.TryGetValue(p, out int n) ? n + 1 : 1;
-            var places = counts.Where(p => p.Value >= 2).OrderBy(p => p.Key, StringComparer.CurrentCultureIgnoreCase).ToList();
             Popover pop = null;
-            var picker = new PickerList("Buscar zona (Roshamuul, Edron…)", text => places
-                .Where(p => text.Length == 0 || p.Key.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
-                .Select(p => (p.Key, p.Value + " criaturas", (string)null)));
-            picker.Picked += place =>
+            var picker = new PickerList("Buscar hunt, ciudad o criatura…", text => HuntCatalog.Presets
+                .Where(p => text.Length == 0 || p.Name.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+                    || p.City.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+                    || p.Creatures.Any(h => h.Name.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0))
+                .Select(p => (p.Name, $"{p.City} · Nv {N(p.MinLevel)} · {(p.Premium ? "Premium" : "Free")}{(p.MinLevel > c.Level ? " · nivel alto" : "")}", p.Creatures[0].Name)));
+            picker.Picked += name =>
             {
-                foreach (var b in BestiaryCatalog.Creatures.Where(b => b.Places.Contains(place) && !b.Rare))
-                    if (!c.Hunt.Any(h => h.Name == b.Name)) c.Hunt.Add(new HuntCreature { Name = b.Name });
+                var preset = HuntCatalog.Presets.FirstOrDefault(p => p.Name == name);
+                if (preset == null) return;
+                c.Hunt.Clear();
+                c.Hunt.AddRange(preset.Creatures.Select(h => new HuntCreature { Name = h.Name, PerHour = h.PerHour }));
                 store.Touch();
                 pop?.Close();
                 Relayout();
             };
-            pop = Popover.Open(this, Cursor.Position, picker, new Size((int)S(320), (int)S(320)));
+            pop = Popover.Open(this, Cursor.Position, picker, new Size((int)S(360), (int)S(360)));
             picker.Padding = new Padding((int)S(10));
             picker.FocusSearch();
+        }
+
+        /// Charms menores recomendados: cada criatura admite uno además del mayor. Los de leech dan más
+        /// cuantos más ataques van a la criatura, así que van en las más atacadas (kills por hora × vida):
+        /// para knights primero Vampiric Embrace (life leech); para el resto, Void's Call (mana leech).
+        List<(BestiaryCreature Creature, CharmInfo Charm, int Tier)> MinorPicks()
+        {
+            var order = c.Vocation == "knight" ? new[] { "Vampiric Embrace", "Void's Call" } : new[] { "Void's Call", "Vampiric Embrace" };
+            var charms = order.Select(n => CharmCatalog.Minor.FirstOrDefault(ch => ch.Name == n)).Where(ch => ch != null).ToList();
+            var ranked = Hunt().OrderByDescending(p => (double)p.Entry.PerHour * p.Creature.Hp).ToList();
+            return ranked.Zip(charms, (p, ch) => (p.Creature, ch, c.CharmTier(ch.Name))).ToList();
+        }
+
+        /// El leech que añade cada charm menor de leech en cada nivel.
+        static readonly Dictionary<string, double[]> Leech = new Dictionary<string, double[]>
+        {
+            ["Void's Call"] = new[] { 0.8, 1.2, 1.6 }, ["Vampiric Embrace"] = new[] { 1.6, 2.4, 3.2 },
+        };
+
+        const float MinorCard = 64;
+        const string MinorNote = "Solo suman si llevas equipo con mana o life leech. Para las demás criaturas: Gut si vendes sus productos, Scavenge si se pueden despellejar o Bless donde más mueres.";
+
+        float MinorHeight(float width)
+        {
+            int picks = MinorPicks().Count;
+            if (picks == 0) return 0;
+            int cols = Columns(width - S(32), 240);
+            return S(28) + ((picks + cols - 1) / cols) * (S(MinorCard) + S(10)) + S(34);
+        }
+
+        float DrawMinor(Graphics g, float x, float y, float width)
+        {
+            var picks = MinorPicks();
+            if (picks.Count == 0) return y;
+            TextAt(g, "⬡  Charm menor recomendado", Fonts.Bold(10f), Color.White, x, y);
+            TextAt(g, "uno por criatura, además del mayor", Fonts.Get(8.5f), Theme.Muted, x + Measure("⬡  Charm menor recomendado", Fonts.Bold(10f)).Width + S(8), y + S(2));
+            y += S(28);
+            int cols = Columns(width, 240);
+            float cw = (width - (cols - 1) * S(10)) / cols;
+            for (int i = 0; i < picks.Count; i++)
+            {
+                var (b, charm, tier) = picks[i];
+                var card = new RectangleF(x + (i % cols) * (cw + S(10)), y + (i / cols) * (S(MinorCard) + S(10)), cw, S(MinorCard));
+                Fill(g, card, S(10), Color.FromArgb(20, Palette.Purple));
+                Stroke(g, card, S(10), Color.FromArgb(80, Palette.Purple));
+                Sprite(g, WikiImages.Get(charm.Image), new RectangleF(card.X + S(10), card.Y + S(14), S(36), S(36)), 2);
+                CenterText(g, "→", Fonts.Bold(10f), Theme.Muted, new RectangleF(card.X + S(48), card.Y + S(20), S(20), S(22)));
+                Sprite(g, WikiImages.Get(b.Name), new RectangleF(card.X + S(70), card.Y + S(14), S(36), S(36)));
+                float tx = card.X + S(116);
+                var values = Leech.TryGetValue(charm.Name, out var v) ? v : new double[0];
+                string kind = charm.Name == "Void's Call" ? "mana leech" : "life leech";
+                bool owned = tier > 0 && tier <= values.Length;
+                string detail = owned ? $"+{values[tier - 1]:0.#} % {kind} · nivel {new[] { "I", "II", "III" }[tier - 1]}"
+                                      : $"+{string.Join(" / ", values.Select(d => d.ToString("0.#")))} % {kind} · sin desbloquear";
+                Write(g, charm.Name, Fonts.Bold(9.5f), Color.White, new RectangleF(tx, card.Y + S(8), card.Right - tx - S(8), S(18)), TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                Write(g, b.Name, Fonts.Get(8.5f), Theme.Muted, new RectangleF(tx, card.Y + S(26), card.Right - tx - S(8), S(16)), TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                Write(g, detail, owned ? Fonts.Semi(7.75f) : Fonts.Get(7.75f), owned ? Theme.Green : Theme.Amber, new RectangleF(tx, card.Y + S(43), card.Right - tx - S(8), S(16)), TextFormatFlags.SingleLine | TextFormatFlags.EndEllipsis);
+                Hot(card, null, charm.Effect);
+            }
+            y += ((picks.Count + cols - 1) / cols) * (S(MinorCard) + S(10));
+            Write(g, MinorNote, Fonts.Get(8.5f), Theme.Muted, new RectangleF(x, y, width, S(30)), TextFormatFlags.WordBreak);
+            return y + S(34);
         }
 
         void DrawResults(Graphics g, RectangleF r)
@@ -380,6 +447,7 @@ namespace AlfaHub
                 TextAt(g, "Hay más criaturas que charms de daño: las que quedan sin charm son en las que menos aporta.", Fonts.Get(8.5f), Theme.Muted, x, y);
                 y += S(20);
             }
+            y = DrawMinor(g, x, y, r.Width - S(32));
             string toggle = showTable ? "⌃  Ocultar el daño de cada charm" : "▦  Ver el daño de cada charm en cada criatura";
             var link = new RectangleF(x, y + S(4), Measure(toggle, Fonts.Semi(9f)).Width + 4, S(20));
             TextAt(g, toggle, Fonts.Semi(9f), Theme.Blue, link.X, link.Y);

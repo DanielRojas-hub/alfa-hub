@@ -164,9 +164,44 @@ enum TimerKind: String, Codable, CaseIterable, Identifiable {
     case cycle
     /// Rotación de direcciones cada pocos segundos (Pilar del Rotten Blood).
     case rotation
+    /// Varias fases seguidas, cada una con su cuenta atrás (p. ej. 25 s y luego cada 5 s durante 20 s).
+    case compound
     var id: String { rawValue }
-    var title: String { self == .cycle ? "Cuenta atrás" : "Rotación" }
+    var title: String {
+        switch self {
+        case .cycle: "Cuenta atrás"
+        case .rotation: "Rotación"
+        case .compound: "Compuesto"
+        }
+    }
 }
+
+/// Una fase de un timer compuesto: cuenta atrás de `cycle` s que se repite durante `duration` s
+/// (0 = una sola vez).
+struct TimerPhase: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var cycle = 5
+    var duration = 0
+    /// Segundos que dura la fase.
+    var length: Int { max(1, max(cycle, duration)) }
+    var loops: Bool { duration > cycle }
+
+    init(cycle: Int, duration: Int = 0) {
+        self.cycle = cycle
+        self.duration = duration
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        func get<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T { (try? c.decodeIfPresent(T.self, forKey: key)) ?? fallback }
+        id = get(.id, id)
+        cycle = get(.cycle, cycle)
+        duration = get(.duration, duration)
+    }
+}
+
+/// "25 s", "2 min" o "01:30".
+func durationText(_ s: Int) -> String { s < 60 ? "\(s) s" : s % 60 == 0 ? "\(s / 60) min" : mmss(s) }
 
 /// Direcciones de la rotación de los Totens: Norte → Derecha → Sur → Izquierda.
 let directions = [("↑", "Norte"), ("→", "Derecha"), ("↓", "Sur"), ("←", "Izquierda")]
@@ -174,17 +209,20 @@ let directions = [("↑", "Norte"), ("→", "Derecha"), ("↓", "Sur"), ("←", 
 struct TimerConfig: Codable, Identifiable, Equatable {
     var id = UUID()
     var name: String
+    var enabled = true       // deshabilitado: ni contador sobre Tibia ni sonido
     var kind: TimerKind = .cycle
-    // Cuenta atrás
+    // Cuenta atrás (y compuesto)
     var cycle = 120          // segundos de cada ciclo
-    var repeats = true       // al llegar a 0 vuelve a empezar
-    var total = 0            // duración total en segundos (0 = sin límite)
+    var repeats = true       // loop: al llegar a 0 (o al acabar las fases) vuelve a empezar
+    var total = 0            // duración total del loop en segundos (0 = sin límite)
     var warning = 25         // rojo en los últimos N s
     var cycleBeep = true     // sonido de aviso al empezar cada ciclo
     // Rotación
     var step = 6             // segundos por dirección
     var startDirection = 0
-    // Ambos
+    // Compuesto
+    var phases: [TimerPhase] = []
+    // Todos
     var beepSeconds = 5      // beeps en los últimos N s
     var sound: String?       // sonido incluido (BuiltInSound; nil = beep)
     var soundPath: String?   // sonido de aviso propio (tiene prioridad sobre el incluido)
@@ -199,6 +237,7 @@ extension TimerConfig {
         func get<T: Decodable>(_ key: CodingKeys, _ fallback: T) -> T { (try? c.decodeIfPresent(T.self, forKey: key)) ?? fallback }
         self.init(name: get(.name, "Timer"))
         id = get(.id, id)
+        enabled = get(.enabled, enabled)
         kind = get(.kind, kind)
         cycle = get(.cycle, cycle)
         repeats = get(.repeats, repeats)
@@ -207,6 +246,7 @@ extension TimerConfig {
         cycleBeep = get(.cycleBeep, cycleBeep)
         step = get(.step, step)
         startDirection = get(.startDirection, startDirection)
+        phases = get(.phases, phases)
         beepSeconds = get(.beepSeconds, beepSeconds)
         sound = get(.sound, sound)
         soundPath = get(.soundPath, soundPath)
@@ -249,13 +289,14 @@ struct OverlayStyle: Codable, Equatable {
 }
 
 enum TimerPreset: String, CaseIterable, Identifiable {
-    case pez, bakragore, pilar, custom
+    case pez, bakragore, pilar, compound, custom
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .pez: "Pez"
+        case .pez: "Pescaditos"
         case .bakragore: "Bakragore"
         case .pilar: "Pilar"
+        case .compound: "Compuesto"
         case .custom: "Personalizado"
         }
     }
@@ -264,17 +305,21 @@ enum TimerPreset: String, CaseIterable, Identifiable {
         case .pez: "Cada 2:00, alerta en los últimos 25 s"
         case .bakragore: "Mecánica cada 1:30 durante 25 min"
         case .pilar: "Rotación de los Totens cada 6 s"
+        case .compound: "25 s y luego cada 5 s durante 20 s"
         case .custom: "Cuenta atrás de 1:00 que no se repite"
         }
     }
     var config: TimerConfig {
         switch self {
         case .pez:
-            return TimerConfig(name: "Pez", cycle: 120, repeats: true, total: 0, warning: 25, cycleBeep: true, beepSeconds: 5)
+            return TimerConfig(name: "Pescaditos", cycle: 120, repeats: true, total: 0, warning: 25, cycleBeep: true, beepSeconds: 5)
         case .bakragore:
             return TimerConfig(name: "Bakragore", cycle: 90, repeats: true, total: 25 * 60, warning: 10, cycleBeep: false, beepSeconds: 5)
         case .pilar:
             return TimerConfig(name: "Pilar", kind: .rotation, step: 6, startDirection: 0, beepSeconds: 2)
+        case .compound:
+            return TimerConfig(name: "Compuesto", kind: .compound, repeats: false, warning: 3, cycleBeep: true,
+                               phases: [TimerPhase(cycle: 25), TimerPhase(cycle: 5, duration: 20)], beepSeconds: 3)
         case .custom:
             return TimerConfig(name: "Timer", cycle: 60, repeats: false, total: 0, warning: 10, cycleBeep: true, beepSeconds: 3)
         }
@@ -337,24 +382,38 @@ final class TimerRun: ObservableObject, Identifiable {
     }
 
     private func refresh(sound: Bool) {
-        let next = config.kind == .cycle ? cycleDisplay(sound: sound) : rotationDisplay(sound: sound)
+        let next = config.kind == .rotation ? rotationDisplay(sound: sound) : countdownDisplay(sound: sound)
         if next != display { display = next }
     }
 
-    private func cycleDisplay(sound: Bool) -> TimerDisplay {
-        let cycle = max(5, config.cycle)
-        let limit = config.repeats ? (config.total > 0 ? config.total : Int.max) : cycle
+    /// Fases que recorre la cuenta atrás: una sola (un ciclo) en el tipo cuenta atrás.
+    private var phases: [TimerPhase] {
+        let phases = config.kind == .compound ? config.phases.filter { $0.cycle > 0 } : []
+        return phases.isEmpty ? [TimerPhase(cycle: max(5, config.cycle))] : phases
+    }
+
+    private func countdownDisplay(sound: Bool) -> TimerDisplay {
+        let phases = phases
+        let sequence = phases.reduce(0) { $0 + $1.length }
+        let limit = config.repeats ? (config.total > 0 ? config.total : Int.max) : sequence
         let e = min(Int(watch.elapsed), limit)
         let finished = e >= limit
-        let remaining = finished ? 0 : cycle - e % cycle
+        // Dónde va dentro de las fases: la fase, el segundo dentro de ella y el ciclo en curso.
+        let at = min(e, limit - 1)
+        var p = at % sequence, index = 0
+        while p >= phases[index].length { p -= phases[index].length; index += 1 }
+        let phase = phases[index]
+        let cycleStart = p - p % phase.cycle
+        let cycleLength = min(phase.cycle, phase.length - cycleStart)
+        let remaining = finished ? 0 : cycleLength - (p - cycleStart)
 
         if sound && e != lastSecond {
             lastSecond = e
             if finished {
                 watch.pause()
-                playAlert(long: true)
-            } else {
-                if config.cycleBeep && e > 0 && e % cycle == 0 { playAlert() }
+                if config.enabled { playAlert(long: true) }
+            } else if config.enabled {
+                if config.cycleBeep && e > 0 && p == cycleStart { playAlert() }
                 if config.beepSeconds > 0 && (1...config.beepSeconds).contains(remaining) { Beeper.shared.beep(1200, 0.15) }
             }
         }
@@ -363,17 +422,28 @@ final class TimerRun: ObservableObject, Identifiable {
         d.text = mmss(remaining)
         d.finished = finished
         d.critical = !finished && remaining <= config.warning
-        d.progress = finished ? 1 : Double(e % cycle) / Double(cycle)
-        let cycleNumber = min(e, limit - 1) / cycle + 1
+        d.progress = finished ? 1 : Double(p - cycleStart) / Double(cycleLength)
+        let cycleNumber = (config.kind == .compound ? p : at) / phase.cycle + 1
+        var parts: [String] = []
         if finished {
-            d.detail = "Terminado · \(mmss(e))"
-        } else if !config.repeats {
-            d.detail = "Cuenta atrás · \(mmss(cycle))"
-        } else if config.total > 0 {
-            d.detail = "Ciclo \(cycleNumber) · Quedan \(mmss(limit - e))"
+            parts.append("Terminado · \(mmss(e))")
         } else {
-            d.detail = "Ciclo \(cycleNumber) · Total \(mmss(e))"
+            if config.kind == .compound {
+                parts.append("Fase \(index + 1)/\(phases.count)")
+                if phase.loops { parts.append("Ciclo \(cycleNumber)") }
+                if config.repeats && at >= sequence { parts.append("Vuelta \(at / sequence + 1)") }
+            } else if !config.repeats {
+                parts.append("Cuenta atrás · \(mmss(phase.cycle))")
+            } else {
+                parts.append("Ciclo \(cycleNumber)")
+            }
+            if limit == Int.max {
+                parts.append("Total \(mmss(e))")
+            } else if config.repeats || config.kind == .compound {
+                parts.append("Quedan \(mmss(limit - e))")
+            }
         }
+        d.detail = parts.joined(separator: " · ")
         return d
     }
 
@@ -387,10 +457,10 @@ final class TimerRun: ObservableObject, Identifiable {
         if sound && running {
             if slot != lastSlot {
                 lastSlot = slot; lastCount = count
-                playAlert()
+                if config.enabled { playAlert() }
             } else if count != lastCount {
                 lastCount = count
-                if config.beepSeconds > 0 && (1...config.beepSeconds).contains(count) { Beeper.shared.beep(1200, 0.15) }
+                if config.enabled && config.beepSeconds > 0 && (1...config.beepSeconds).contains(count) { Beeper.shared.beep(1200, 0.15) }
             }
         }
 
@@ -496,6 +566,7 @@ final class HubModel: ObservableObject {
                 : legacy["toggle"]
             configs = [pez, TimerPreset.bakragore.config, TimerPreset.pilar.config]
         }
+        for i in configs.indices where configs[i].name == "Pez" { configs[i].name = "Pescaditos" }
         // Versión 1.3: un solo aspecto de overlay para todos. Pasa a cada timer, y su sitio a la
         // esquina desde la que se apilan los contadores.
         if defaults.object(forKey: "overlayPerTimer") == nil {
@@ -592,9 +663,10 @@ final class HubModel: ObservableObject {
     /// Timers que se ven en el overlay: los que están en marcha o a medias; si no hay, el elegido.
     /// Desbloqueado se ven todos, para poder colocar cada uno. Nunca los que tienen el overlay apagado.
     var overlayRuns: [TimerRun] {
-        if overlayUnlocked { return runs.filter(\.config.overlay.show) }
+        let shown = { (run: TimerRun) in run.config.enabled && run.config.overlay.show }
+        if overlayUnlocked { return runs.filter(shown) }
         let started = runs.filter(\.started)
-        return (started.isEmpty ? [selected] : started).filter(\.config.overlay.show)
+        return (started.isEmpty ? [selected] : started).filter(shown)
     }
 
     func add(_ preset: TimerPreset) {
@@ -893,14 +965,55 @@ extension Color {
     static let rowBackground = Color.white.opacity(0.05)
 }
 
-/// El personaje guardado (caminando si se eligió), al pie de la barra lateral.
+/// El personaje guardado (caminando si se eligió), al pie de la barra lateral. Si es un char con nombre,
+/// encima lleva su nombre y su barra de vida, como en Tibia.
 struct Mascot: View {
     @ObservedObject var outfit: OutfitManager
+    @ObservedObject var profiles: ProfileStore
 
     var body: some View {
-        // Grande como el original (×2); los sprites con montura se reducen para caber.
-        CharacterView(sprite: outfit.isOriginal ? nil : outfit.current, maxScale: 2, maxSide: 170)
-            .frame(maxWidth: .infinity)
+        VStack(spacing: 2) {
+            if let name = profiles.iconCharName {
+                TibiaNameplate(name: name)
+            }
+            // Grande como el original (×2); los sprites con montura se reducen para caber.
+            CharacterView(sprite: outfit.isOriginal ? nil : outfit.current, maxScale: 2, maxSide: 170)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// Nombre y barra de vida sobre un personaje, al estilo de Tibia: verde con borde negro.
+struct TibiaNameplate: View {
+    let name: String
+    private static let green = Color(red: 0, green: 0.75, blue: 0)
+    private static let outline = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+        .map { CGSize(width: $0.0, height: $0.1) }
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(name)
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(Self.green)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .background {
+                    // El borde negro: el texto repetido un píxel alrededor.
+                    ZStack {
+                        ForEach(Self.outline.indices, id: \.self) { i in
+                            Text(name).font(.system(size: 12, weight: .bold, design: .rounded))
+                                .lineLimit(1).minimumScaleFactor(0.7)
+                                .foregroundStyle(.black).offset(Self.outline[i])
+                        }
+                    }
+                }
+            Rectangle().fill(Self.green)
+                .frame(width: 28, height: 3)
+                .padding(1)
+                .background(Color.black)
+        }
+        .padding(.horizontal, 8)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(name)
     }
 }
 
@@ -975,6 +1088,7 @@ enum HubPage: String, CaseIterable, Identifiable {
 struct Sidebar: View {
     @ObservedObject var model: HubModel
     let outfit: OutfitManager
+    let profiles: ProfileStore
     @Binding var page: HubPage
     @Binding var editing: UUID?
 
@@ -990,7 +1104,7 @@ struct Sidebar: View {
             item(.shortcuts)
             item(.sound)
             Spacer()
-            Mascot(outfit: outfit).padding(.bottom, 14)
+            Mascot(outfit: outfit, profiles: profiles).padding(.bottom, 14)
         }
         .padding(.horizontal, 10)
         .padding(.top, 8)
@@ -1091,7 +1205,7 @@ struct HubView: View {
             TopBar(model: model)
             Divider().overlay(Color.white.opacity(0.06))
             HStack(spacing: 0) {
-                Sidebar(model: model, outfit: outfit, page: $page, editing: $editing)
+                Sidebar(model: model, outfit: outfit, profiles: profiles, page: $page, editing: $editing)
                     .onChange(of: page) { editingMirror = nil; editingAudio = nil }
                 Divider().overlay(Color.white.opacity(0.06))
                 content
@@ -1164,10 +1278,9 @@ struct TimersPage: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PageHeader(title: "Timers", subtitle: HubPage.timers.subtitle) {
-                Menu {
-                    ForEach(TimerPreset.allCases) { preset in
-                        Button("\(preset.title) — \(preset.detail)") { model.add(preset) }
-                    }
+                Button {
+                    model.add(.custom)
+                    edit(model.selected.id)
                 } label: {
                     Label("Añadir timer", systemImage: "plus")
                         .font(.system(size: 13, weight: .bold))
@@ -1175,10 +1288,7 @@ struct TimersPage: View {
                         .background(Capsule().fill(Color.accentBlue))
                         .foregroundStyle(.white)
                 }
-                .menuStyle(.button)
-                .menuIndicator(.hidden)
                 .buttonStyle(.plain)
-                .fixedSize()
             }
             HStack(spacing: 10) {
                 Text("\(model.runs.count) \(model.runs.count == 1 ? "timer" : "timers") · \(model.runningCount) en marcha")
@@ -1249,6 +1359,12 @@ struct TimerRow: View {
                 ProgressBar(value: run.started ? d.progress : 0, color: d.critical ? run.config.overlay.alert : Color.accent)
                     .frame(width: 90)
             }
+            .opacity(run.config.enabled ? 1 : 0.45)
+            Toggle("Habilitado", isOn: $run.config.enabled)
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .help(run.config.enabled ? "Habilitado: su contador se ve sobre Tibia y suena"
+                                         : "Deshabilitado: sin contador sobre Tibia y sin sonido")
             HStack(spacing: 6) {
                 CircleButton(icon: run.running ? "pause.fill" : "play.fill",
                              fill: run.running ? Color.amber : Color.accentBlue,
@@ -1274,7 +1390,7 @@ struct TimerRow: View {
         .padding(.trailing, 12)
         .background(
             RoundedRectangle(cornerRadius: 10).fill(Color.rowBackground)
-                .overlay(RoundedRectangle(cornerRadius: 10).stroke(model.selectedID == run.id ? Color.accentBlue.opacity(0.5) : Color.white.opacity(0.06)))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.white.opacity(0.06)))
         )
         .contentShape(Rectangle())
         .onTapGesture { model.selectedID = run.id }
@@ -1284,12 +1400,18 @@ struct TimerRow: View {
     private var summary: String {
         let c = run.config
         var parts: [String] = []
+        if !c.enabled { parts.append("Deshabilitado") }
         if c.kind == .rotation {
             parts.append("Rotación cada \(c.step) s")
+        } else if c.kind == .compound {
+            let steps = c.phases.map { $0.loops ? "cada \(durationText($0.cycle)) durante \(durationText($0.duration))" : durationText($0.cycle) }
+            var text = steps.isEmpty ? "Compuesto sin fases" : steps.joined(separator: " → ")
+            if c.repeats { text += c.total > 0 ? " · loop durante \(durationText(c.total))" : " · en loop" }
+            parts.append(text)
         } else if !c.repeats {
             parts.append("Cuenta atrás \(mmss(c.cycle))")
         } else if c.total > 0 {
-            parts.append("Cada \(mmss(c.cycle)) durante \(c.total / 60) min")
+            parts.append("Cada \(mmss(c.cycle)) durante \(durationText(c.total))")
         } else {
             parts.append("Cada \(mmss(c.cycle))")
         }
@@ -1546,16 +1668,24 @@ struct TimerSettings: View {
     var onDelete: () -> Void = {}
     private static let presets = [60, 90, 120, 150, 180]
 
-    private var minutes: Binding<Int> {
-        Binding(get: { run.config.cycle / 60 },
-                set: { run.config.cycle = max(5, max(0, $0) * 60 + run.config.cycle % 60) })
+    /// Al cambiar a compuesto sin fases, la primera es la cuenta atrás que tenía.
+    private var kind: Binding<TimerKind> {
+        Binding(get: { run.config.kind }, set: { kind in
+            if kind == .compound && run.config.phases.isEmpty { run.config.phases = [TimerPhase(cycle: run.config.cycle)] }
+            run.config.kind = kind
+        })
     }
-    private var secs: Binding<Int> {
-        Binding(get: { run.config.cycle % 60 },
-                set: { run.config.cycle = max(5, run.config.cycle / 60 * 60 + max(0, min(59, $0))) })
+
+    private func phase(_ id: UUID, _ key: WritableKeyPath<TimerPhase, Int>) -> Binding<Int> {
+        Binding(get: { run.config.phases.first { $0.id == id }?[keyPath: key] ?? 0 },
+                set: { value in
+                    if let i = run.config.phases.firstIndex(where: { $0.id == id }) { run.config.phases[i][keyPath: key] = value }
+                })
     }
-    private var totalMinutes: Binding<Int> {
-        Binding(get: { run.config.total / 60 }, set: { run.config.total = max(0, $0) * 60 })
+
+    /// El ciclo más largo: hasta ahí puede llegar "Alerta en los últimos N s".
+    private var longestCycle: Int {
+        run.config.kind == .compound ? run.config.phases.map(\.cycle).max() ?? 0 : run.config.cycle
     }
 
     var body: some View {
@@ -1564,7 +1694,8 @@ struct TimerSettings: View {
                 LabeledContent("Nombre") {
                     TextField("", text: $run.config.name).frame(width: 160).multilineTextAlignment(.trailing)
                 }
-                Picker("Tipo", selection: $run.config.kind) {
+                Toggle("Habilitado", isOn: $run.config.enabled)
+                Picker("Tipo", selection: kind) {
                     ForEach(TimerKind.allCases) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
@@ -1573,6 +1704,7 @@ struct TimerSettings: View {
                         Button("\(preset.title) — \(preset.detail)") {
                             var config = preset.config
                             config.id = run.config.id
+                            config.enabled = run.config.enabled
                             config.shortcut = run.config.shortcut
                             config.soundPath = run.config.soundPath
                             config.sound = run.config.sound
@@ -1583,6 +1715,9 @@ struct TimerSettings: View {
                 }
             } header: {
                 Text("Timer")
+            } footer: {
+                Text("Deshabilitado, su contador no aparece sobre Tibia y no suena.")
+                    .foregroundStyle(.secondary)
             }
 
             if run.config.kind == .cycle {
@@ -1599,34 +1734,61 @@ struct TimerSettings: View {
                     }
                     .frame(maxWidth: .infinity)
                     LabeledContent("Personalizado") {
-                        HStack(spacing: 4) {
-                            TextField("", value: minutes, format: .number).frame(width: 38).multilineTextAlignment(.trailing)
-                            Text("min")
-                            TextField("", value: secs, format: .number).frame(width: 38).multilineTextAlignment(.trailing)
-                            Text("s")
-                            Stepper("", value: $run.config.cycle, in: 5...3600, step: 5).labelsHidden()
-                        }
+                        DurationField(seconds: $run.config.cycle, range: 5...3600)
                     }
-                    Toggle("Repetir al llegar a cero", isOn: $run.config.repeats)
-                    if run.config.repeats {
-                        LabeledContent("Duración total") {
-                            HStack(spacing: 4) {
-                                TextField("", value: totalMinutes, format: .number).frame(width: 44).multilineTextAlignment(.trailing)
-                                Text("min")
-                                Stepper("", value: totalMinutes, in: 0...600).labelsHidden()
+                    repeatRows
+                }
+            } else if run.config.kind == .compound {
+                Section {
+                    ForEach(Array(run.config.phases.enumerated()), id: \.element.id) { i, item in
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Fase \(i + 1)").font(.system(size: 12, weight: .semibold))
+                                Text(item.loops ? "cada \(durationText(item.cycle)) durante \(durationText(item.duration))" : durationText(item.cycle))
+                                    .font(.system(size: 11)).foregroundStyle(Color.muted)
+                                Spacer()
+                                Button { run.config.phases.removeAll { $0.id == item.id } } label: {
+                                    Image(systemName: "trash").foregroundStyle(Color.muted)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(run.config.phases.count == 1)
+                                .help("Quitar fase")
+                            }
+                            LabeledContent("Cuenta atrás de") {
+                                DurationField(seconds: phase(item.id, \.cycle), range: 1...3600, step: 1)
+                            }
+                            LabeledContent("Repetirla durante") {
+                                DurationField(seconds: phase(item.id, \.duration), range: 0...36000)
                             }
                         }
+                        .padding(.vertical, 2)
                     }
+                    Button {
+                        run.config.phases.append(TimerPhase(cycle: run.config.phases.last?.cycle ?? 5))
+                    } label: {
+                        Label("Añadir fase", systemImage: "plus")
+                    }
+                } header: {
+                    Text("Fases")
+                } footer: {
+                    Text("Las fases van una detrás de otra. Con “Repetirla durante” en 0 la cuenta atrás de la fase va una sola vez; si no, se repite durante ese tiempo. Ejemplo: fase 1 de 25 s y fase 2 de 5 s repitiéndose durante 20 s.")
+                        .foregroundStyle(.secondary)
                 }
+                Section("Al terminar las fases") {
+                    repeatRows
+                }
+            }
+
+            if run.config.kind != .rotation {
                 Section {
-                    Stepper("Alerta en los últimos \(run.config.warning) s", value: $run.config.warning, in: 0...max(0, run.config.cycle))
+                    Stepper("Alerta en los últimos \(run.config.warning) s", value: $run.config.warning, in: 0...max(0, longestCycle))
                     Stepper("Beeps en los últimos \(run.config.beepSeconds) s", value: $run.config.beepSeconds, in: 0...30)
                     Toggle("Sonido de aviso al empezar cada ciclo", isOn: $run.config.cycleBeep)
                 } header: {
                     Text("Avisos")
                 } footer: {
                     Text(run.config.repeats && run.config.total == 0
-                         ? "Duración total en 0: se repite hasta que lo pares."
+                         ? "Tiempo total en 0: el loop sigue hasta que lo pares."
                          : "Al terminar suena el sonido de aviso.")
                         .foregroundStyle(.secondary)
                 }
@@ -1666,6 +1828,41 @@ struct TimerSettings: View {
         }
         // Sin foco inicial en "Nombre": así una tecla pulsada por error no lo sobrescribe.
         .onAppear { DispatchQueue.main.async { NSApp.keyWindow?.makeFirstResponder(nil) } }
+    }
+
+    /// Un solo uso o loop, y el tiempo total del loop.
+    @ViewBuilder private var repeatRows: some View {
+        Picker("Al llegar a cero", selection: $run.config.repeats) {
+            Text("Un solo uso").tag(false)
+            Text("Loop").tag(true)
+        }
+        .pickerStyle(.segmented)
+        if run.config.repeats {
+            LabeledContent("Tiempo total") {
+                DurationField(seconds: $run.config.total, range: 0...36000, step: 60)
+            }
+        }
+    }
+}
+
+/// Minutos y segundos de una duración guardada en segundos, con un stepper.
+struct DurationField: View {
+    @Binding var seconds: Int
+    var range: ClosedRange<Int> = 0...36000
+    var step = 5
+
+    private func clamped(_ value: Int) -> Int { min(range.upperBound, max(range.lowerBound, value)) }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField("", value: Binding(get: { seconds / 60 }, set: { seconds = clamped(max(0, $0) * 60 + seconds % 60) }), format: .number)
+                .frame(width: 44).multilineTextAlignment(.trailing)
+            Text("min")
+            TextField("", value: Binding(get: { seconds % 60 }, set: { seconds = clamped(seconds / 60 * 60 + max(0, min(59, $0))) }), format: .number)
+                .frame(width: 38).multilineTextAlignment(.trailing)
+            Text("s")
+            Stepper("", value: Binding(get: { seconds }, set: { seconds = clamped($0) }), in: range, step: step).labelsHidden()
+        }
     }
 }
 

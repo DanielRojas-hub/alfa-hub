@@ -26,7 +26,7 @@ de pantalla distinto de 100 %.
 - [ ] Se abre el hub con la barra de título oscura, la barra superior (sin logo) y la barra lateral.
 - [ ] Aparece el ícono del personaje en la bandeja del sistema (junto al reloj).
 - [ ] Abrir el `.exe` por segunda vez muestra "Alfa Hub ya está abierto" y no abre otra copia.
-- [ ] Si venías de una versión anterior, el timer **Pez** conserva tu duración y tu atajo, y aparecen también **Bakragore** y **Pilar**.
+- [ ] Si venías de una versión anterior, el timer **Pescaditos** (antes **Pez**) conserva tu duración y tu atajo, y aparecen también **Bakragore** y **Pilar**.
 
 ## 2. Aspecto del hub
 
@@ -37,12 +37,12 @@ de pantalla distinto de 100 %.
 
 ## 3. Timers
 
-- [ ] **＋ Añadir timer** ofrece Pez, Bakragore, Pilar y Personalizado, y abre el editor del nuevo (sin límite).
+- [ ] **＋ Añadir timer** crea directamente un timer "Timer" de 1:00 y abre su editor, sin menú de presets (sin límite). Los presets siguen en **Cargar preset** dentro del editor.
 - [ ] En la lista, ▶ inicia y ❚❚ pausa cada timer por separado; ↺ lo reinicia; la barra de color de cada fila cambia (verde, ámbar, rojo).
 - [ ] Varios timers pueden ir a la vez y "N en marcha" se actualiza.
 - [ ] **Pausar todos** y **Reiniciar todos** funcionan.
 - [ ] Menú ⋮: **Duplicar** crea una copia (sin atajo) y **Eliminar** la quita (no deja borrar el último).
-- [ ] **Pez**: cuenta atrás de 2:00 que se repite; rojo y parpadeo en los últimos 25 s; beeps en los últimos 5 s; sonido de aviso al empezar cada ciclo.
+- [ ] **Pescaditos**: cuenta atrás de 2:00 que se repite; rojo y parpadeo en los últimos 25 s; beeps en los últimos 5 s; sonido de aviso al empezar cada ciclo.
 - [ ] **Bakragore**: mecánica cada 1:30; el detalle dice "Quedan mm:ss" y a los 25 min se detiene con "Terminado".
 - [ ] **Pilar**: flecha y segundos (`↑ 6` → `→ 6` → `↓ 6` → `← 6`), sonido al cambiar de dirección y beeps en los últimos 2 s.
 - [ ] **Personalizado**: cuenta atrás de 1:00 que no se repite y termina con el sonido de aviso.
@@ -107,10 +107,11 @@ compartir/importar un código (también un código hecho en macOS, y al revés).
       aviso ámbar y **Reintentar**.
 - [ ] Pestañas **General**, **Experiencia** (el primer día, "Primer registro"), **Bestiary** (Todas,
       Single, Group, filtros y orden; clic en una criatura abre su ficha y cambiar las kills se guarda),
-      **Charms** (clic cambia el nivel; optimizador con **Toda una zona**) e **Inventario** (añadir con
+      **Charms** (clic cambia el nivel; optimizador con **Presets de hunt** y el **charm menor recomendado**) e **Inventario** (añadir con
       **＋**, mover a otro sitio, equipar, quitar, buscar en todos los chars).
-- [ ] Clic en el outfit del char → editor; **Mostrar en el ícono de Alfa Hub** cambia el ícono de la
-      ventana, la bandeja y el personaje de la barra lateral.
+- [ ] Clic en el outfit del char (o en el pincel de su esquina de abajo) → editor; **Mostrar en el ícono de
+      Alfa Hub** cambia el ícono de la ventana, la bandeja y el personaje de la barra lateral, con el nombre
+      del char encima en verde (estilo Tibia).
 - [ ] **Compartir → Copiar código** y **Importar → Pegar código** crean una copia "COMPARTIDO"; importar
       otra vez el mismo perfil la actualiza. **Guardar archivo .alfahub** y **Abrir archivo** también.
 - [ ] Un código copiado en la versión de macOS se importa aquí con sus chars, items, kills y charms.

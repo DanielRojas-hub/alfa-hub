@@ -375,6 +375,24 @@ enum CharmCatalog {
     }
 }
 
+/// Una hunt conocida (preset del Charm Optimizer de hakaimarket.com): dónde, desde qué nivel y cuántas
+/// criaturas de cada tipo se matan por hora. Vienen en Resources/hunts.json (assets/make_hunts.py).
+struct HuntPreset: Decodable, Identifiable, Hashable {
+    let name: String
+    let city: String
+    let minLevel: Int
+    let premium: Bool
+    let creatures: [HuntCreature]
+    var id: String { city + "/" + name }
+}
+
+enum HuntCatalog {
+    static let presets: [HuntPreset] = {
+        struct File: Decodable { let hunts: [HuntPreset] }
+        return resource("hunts").flatMap { try? JSONDecoder().decode(File.self, from: $0).hunts } ?? []
+    }()
+}
+
 struct ItemInfo: Decodable, Hashable {
     let name: String
     let slot: String
@@ -744,6 +762,14 @@ final class ProfileStore: ObservableObject {
         guard config != lastIconOutfit else { return }
         lastIconOutfit = config
         onIconOutfitChange(config)
+    }
+
+    /// El nombre del char del ícono (nil si no hay o no tiene nombre), para la barra lateral.
+    var iconCharName: String? {
+        guard let iconChar,
+              let name = profiles.lazy.flatMap(\.chars).first(where: { $0.id == iconChar })?.name
+                .trimmingCharacters(in: .whitespaces), !name.isEmpty else { return nil }
+        return name
     }
 
     /// El outfit del ícono: el del char elegido (el original si no hay o si se borró).

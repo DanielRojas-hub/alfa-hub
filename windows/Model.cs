@@ -29,15 +29,18 @@ namespace AlfaHub
     {
         [DataMember] public string Id = Guid.NewGuid().ToString();
         [DataMember] public string Name = "Timer";
-        /// "cycle": cuenta atrás repetible (Pez, Bakragore); "rotation": direcciones (Pilar).
+        [DataMember] public bool Enabled = true;      // deshabilitado: ni contador sobre Tibia ni sonido
+        /// "cycle": cuenta atrás repetible (Pez, Bakragore); "rotation": direcciones (Pilar);
+        /// "compound": varias fases seguidas (p. ej. 25 s y luego cada 5 s durante 20 s).
         [DataMember] public string Kind = "cycle";
         [DataMember] public int Cycle = 120;          // segundos de cada ciclo
-        [DataMember] public bool Repeats = true;      // al llegar a 0 vuelve a empezar
-        [DataMember] public int Total;                // duración total en segundos (0 = sin límite)
+        [DataMember] public bool Repeats = true;      // loop: al llegar a 0 (o al acabar las fases) vuelve a empezar
+        [DataMember] public int Total;                // duración total del loop en segundos (0 = sin límite)
         [DataMember] public int Warning = 25;         // rojo en los últimos N s
         [DataMember] public bool CycleBeep = true;    // sonido de aviso al empezar cada ciclo
         [DataMember] public int Step = 6;             // segundos por dirección
         [DataMember] public int StartDirection;
+        [DataMember] public List<TimerPhase> Phases = new List<TimerPhase>();
         [DataMember] public int BeepSeconds = 5;      // beeps en los últimos N s
         [DataMember] public string Sound;             // sonido incluido (Sounds.Ids; null = beep)
         [DataMember] public string SoundPath;         // sonido de aviso propio (tiene prioridad)
@@ -45,13 +48,41 @@ namespace AlfaHub
         [DataMember] public OverlayStyle Overlay = new OverlayStyle();
 
         public bool IsRotation => Kind == "rotation";
+        public bool IsCompound => Kind == "compound";
 
         public TimerConfig Clone()
         {
             var copy = (TimerConfig)MemberwiseClone();
             copy.Overlay = Overlay?.Clone();
+            copy.Phases = (Phases ?? new List<TimerPhase>()).Select(p => p.Clone()).ToList();
             return copy;
         }
+
+        // El lector JSON no ejecuta los inicializadores: los campos nuevos que falten quedarían en 0.
+        [OnDeserializing]
+        void Defaults(StreamingContext context)
+        {
+            Enabled = true;
+            Phases = new List<TimerPhase>();
+        }
+    }
+
+    /// Una fase de un timer compuesto: cuenta atrás de Cycle s que se repite durante Duration s
+    /// (0 = una sola vez).
+    [DataContract]
+    sealed class TimerPhase
+    {
+        [DataMember] public int Cycle = 5;
+        [DataMember] public int Duration;
+
+        /// Segundos que dura la fase.
+        public int Length => Math.Max(1, Math.Max(Cycle, Duration));
+        public bool Loops => Duration > Cycle;
+
+        public TimerPhase Clone() => (TimerPhase)MemberwiseClone();
+
+        /// "25 s" o "cada 5 s durante 20 s".
+        public string Describe() => Loops ? $"cada {Model.DurationText(Cycle)} durante {Model.DurationText(Duration)}" : Model.DurationText(Cycle);
     }
 
     /// Aspecto y sitio del contador de un timer sobre Tibia (cada timer tiene el suyo).
@@ -150,7 +181,7 @@ namespace AlfaHub
             $"{(Config.Key == 0 ? "Sin tecla" : Model.Describe((Keys)Config.Key))} · {Model.Seconds(Config.Cooldown)} s · {Model.SoundName(Config.Sound, Config.SoundPath)}";
     }
 
-    enum TimerPreset { Pez, Bakragore, Pilar, Custom }
+    enum TimerPreset { Pez, Bakragore, Pilar, Compound, Custom }
 
     /// Un espejo: una región de la ventana de Tibia mostrada en otra parte de la pantalla
     /// (se guarda en %APPDATA%\AlfaHub\espejos.json).
@@ -174,12 +205,14 @@ namespace AlfaHub
     static class Presets
     {
         public static string Title(TimerPreset p) =>
-            p == TimerPreset.Pez ? "Pez" : p == TimerPreset.Bakragore ? "Bakragore" : p == TimerPreset.Pilar ? "Pilar" : "Personalizado";
+            p == TimerPreset.Pez ? "Pescaditos" : p == TimerPreset.Bakragore ? "Bakragore" : p == TimerPreset.Pilar ? "Pilar"
+            : p == TimerPreset.Compound ? "Compuesto" : "Personalizado";
 
         public static string Detail(TimerPreset p) =>
             p == TimerPreset.Pez ? "Cada 2:00, alerta en los últimos 25 s"
             : p == TimerPreset.Bakragore ? "Mecánica cada 1:30 durante 25 min"
             : p == TimerPreset.Pilar ? "Rotación de los Totens cada 6 s"
+            : p == TimerPreset.Compound ? "25 s y luego cada 5 s durante 20 s"
             : "Cuenta atrás de 1:00 que no se repite";
 
         public static TimerConfig Config(TimerPreset p)
@@ -187,11 +220,17 @@ namespace AlfaHub
             switch (p)
             {
                 case TimerPreset.Pez:
-                    return new TimerConfig { Name = "Pez", Cycle = 120, Repeats = true, Warning = 25, CycleBeep = true, BeepSeconds = 5 };
+                    return new TimerConfig { Name = "Pescaditos", Cycle = 120, Repeats = true, Warning = 25, CycleBeep = true, BeepSeconds = 5 };
                 case TimerPreset.Bakragore:
                     return new TimerConfig { Name = "Bakragore", Cycle = 90, Repeats = true, Total = 25 * 60, Warning = 10, CycleBeep = false, BeepSeconds = 5 };
                 case TimerPreset.Pilar:
                     return new TimerConfig { Name = "Pilar", Kind = "rotation", Step = 6, BeepSeconds = 2 };
+                case TimerPreset.Compound:
+                    return new TimerConfig
+                    {
+                        Name = "Compuesto", Kind = "compound", Repeats = false, Warning = 3, CycleBeep = true, BeepSeconds = 3,
+                        Phases = new List<TimerPhase> { new TimerPhase { Cycle = 25 }, new TimerPhase { Cycle = 5, Duration = 20 } },
+                    };
                 default:
                     return new TimerConfig { Name = "Timer", Cycle = 60, Repeats = false, Warning = 10, CycleBeep = true, BeepSeconds = 3 };
             }
@@ -263,15 +302,30 @@ namespace AlfaHub
             else Beeper.Play(Config.Sound, model);
         }
 
-        void Refresh(bool sound) => Display = Config.IsRotation ? RotationDisplay(sound) : CycleDisplay(sound);
+        void Refresh(bool sound) => Display = Config.IsRotation ? RotationDisplay(sound) : CountdownDisplay(sound);
 
-        TimerDisplay CycleDisplay(bool sound)
+        /// Fases que recorre la cuenta atrás: una sola (un ciclo) en el tipo cuenta atrás.
+        List<TimerPhase> Phases()
         {
-            int cycle = Math.Max(5, Config.Cycle);
-            int limit = Config.Repeats ? (Config.Total > 0 ? Config.Total : int.MaxValue) : cycle;
+            var phases = Config.IsCompound && Config.Phases != null ? Config.Phases.Where(p => p.Cycle > 0).ToList() : new List<TimerPhase>();
+            return phases.Count > 0 ? phases : new List<TimerPhase> { new TimerPhase { Cycle = Math.Max(5, Config.Cycle) } };
+        }
+
+        TimerDisplay CountdownDisplay(bool sound)
+        {
+            var phases = Phases();
+            int sequence = phases.Sum(x => x.Length);
+            int limit = Config.Repeats ? (Config.Total > 0 ? Config.Total : int.MaxValue) : sequence;
             int e = (int)Math.Min(watch.Elapsed.TotalSeconds, limit);
             bool finished = e >= limit;
-            int remaining = finished ? 0 : cycle - e % cycle;
+            // Dónde va dentro de las fases: la fase, el segundo dentro de ella y el ciclo en curso.
+            int at = Math.Min(e, limit - 1);
+            int p = at % sequence, index = 0;
+            while (p >= phases[index].Length) { p -= phases[index].Length; index++; }
+            var phase = phases[index];
+            int cycleStart = p - p % phase.Cycle;
+            int cycleLength = Math.Min(phase.Cycle, phase.Length - cycleStart);
+            int remaining = finished ? 0 : cycleLength - (p - cycleStart);
 
             if (sound && e != lastSecond)
             {
@@ -279,27 +333,38 @@ namespace AlfaHub
                 if (finished)
                 {
                     watch.Stop();
-                    PlayAlert(true);
+                    if (Config.Enabled) PlayAlert(true);
                 }
-                else
+                else if (Config.Enabled)
                 {
-                    if (Config.CycleBeep && e > 0 && e % cycle == 0) PlayAlert();
+                    if (Config.CycleBeep && e > 0 && p == cycleStart) PlayAlert();
                     if (Config.BeepSeconds > 0 && remaining >= 1 && remaining <= Config.BeepSeconds) Beeper.Beep(1200, 0.15, model);
                 }
             }
 
-            int cycleNumber = Math.Min(e, limit - 1) / cycle + 1;
-            string detail = finished ? $"Terminado · {Model.Mmss(e)}"
-                : !Config.Repeats ? $"Cuenta atrás · {Model.Mmss(cycle)}"
-                : Config.Total > 0 ? $"Ciclo {cycleNumber} · Quedan {Model.Mmss(limit - e)}"
-                : $"Ciclo {cycleNumber} · Total {Model.Mmss(e)}";
+            int cycleNumber = (Config.IsCompound ? p : at) / phase.Cycle + 1;
+            var parts = new List<string>();
+            if (finished) parts.Add($"Terminado · {Model.Mmss(e)}");
+            else
+            {
+                if (Config.IsCompound)
+                {
+                    parts.Add($"Fase {index + 1}/{phases.Count}");
+                    if (phase.Loops) parts.Add($"Ciclo {cycleNumber}");
+                    if (Config.Repeats && at >= sequence) parts.Add($"Vuelta {at / sequence + 1}");
+                }
+                else if (!Config.Repeats) parts.Add($"Cuenta atrás · {Model.Mmss(phase.Cycle)}");
+                else parts.Add($"Ciclo {cycleNumber}");
+                if (limit == int.MaxValue) parts.Add($"Total {Model.Mmss(e)}");
+                else if (Config.Repeats || Config.IsCompound) parts.Add($"Quedan {Model.Mmss(limit - e)}");
+            }
             return new TimerDisplay
             {
                 Text = Model.Mmss(remaining),
-                Detail = detail,
+                Detail = string.Join(" · ", parts),
                 Finished = finished,
                 Critical = !finished && remaining <= Config.Warning,
-                Progress = finished ? 1 : (double)(e % cycle) / cycle,
+                Progress = finished ? 1 : (double)(p - cycleStart) / cycleLength,
             };
         }
 
@@ -316,12 +381,12 @@ namespace AlfaHub
                 if (slot != lastSlot)
                 {
                     lastSlot = slot; lastCount = count;
-                    PlayAlert();
+                    if (Config.Enabled) PlayAlert();
                 }
                 else if (count != lastCount)
                 {
                     lastCount = count;
-                    if (Config.BeepSeconds > 0 && count >= 1 && count <= Config.BeepSeconds) Beeper.Beep(1200, 0.15, model);
+                    if (Config.Enabled && Config.BeepSeconds > 0 && count >= 1 && count <= Config.BeepSeconds) Beeper.Beep(1200, 0.15, model);
                 }
             }
 
@@ -340,11 +405,18 @@ namespace AlfaHub
             get
             {
                 var c = Config;
-                string what = c.IsRotation ? $"Rotación cada {c.Step} s"
-                    : !c.Repeats ? $"Cuenta atrás {Model.Mmss(c.Cycle)}"
-                    : c.Total > 0 ? $"Cada {Model.Mmss(c.Cycle)} durante {c.Total / 60} min"
+                string what;
+                if (c.IsRotation) what = $"Rotación cada {c.Step} s";
+                else if (c.IsCompound)
+                {
+                    what = c.Phases.Count == 0 ? "Compuesto sin fases" : string.Join(" → ", c.Phases.Select(p => p.Describe()));
+                    if (c.Repeats) what += c.Total > 0 ? $" · loop durante {Model.DurationText(c.Total)}" : " · en loop";
+                }
+                else what = !c.Repeats ? $"Cuenta atrás {Model.Mmss(c.Cycle)}"
+                    : c.Total > 0 ? $"Cada {Model.Mmss(c.Cycle)} durante {Model.DurationText(c.Total)}"
                     : $"Cada {Model.Mmss(c.Cycle)}";
                 string summary = $"{what} · {Model.Describe((Keys)c.Shortcut)} · {Model.SoundName(c.Sound, c.SoundPath)}";
+                if (!c.Enabled) summary = "Deshabilitado · " + summary;
                 return c.Overlay.Show ? summary : summary + " · Sin overlay";
             }
         }
@@ -390,9 +462,10 @@ namespace AlfaHub
         {
             get
             {
-                if (OverlayUnlocked) return Runs.Where(r => r.Config.Overlay.Show).ToList();
+                Func<TimerRun, bool> shown = r => r.Config.Enabled && r.Config.Overlay.Show;
+                if (OverlayUnlocked) return Runs.Where(shown).ToList();
                 var started = Runs.Where(r => r.Started).ToList();
-                return (started.Count > 0 ? started : new List<TimerRun> { Selected }).Where(r => r.Config.Overlay.Show).ToList();
+                return (started.Count > 0 ? started : new List<TimerRun> { Selected }).Where(shown).ToList();
             }
         }
 
@@ -477,6 +550,7 @@ namespace AlfaHub
         {
             var config = Presets.Config(preset);
             config.Id = run.Config.Id;
+            config.Enabled = run.Config.Enabled;
             config.SoundPath = run.Config.SoundPath;
             config.Sound = run.Config.Sound;
             config.Shortcut = run.Config.Shortcut;
@@ -500,6 +574,8 @@ namespace AlfaHub
 
         public static int Clamp(int v, int min, int max) => v < min ? min : v > max ? max : v;
         public static string Mmss(int s) => $"{s / 60:00}:{s % 60:00}";
+        /// "25 s", "2 min" o "01:30".
+        public static string DurationText(int s) => s < 60 ? $"{s} s" : s % 60 == 0 ? $"{s / 60} min" : Mmss(s);
 
         /// "2", "1,5", "40".
         public static string Seconds(double value) =>
@@ -629,6 +705,7 @@ namespace AlfaHub
                 pez.Shortcut = legacy.TryGetValue("shortcut.Toggle", out v) && int.TryParse(v, out n) ? n : (int)(Keys.Control | Keys.Alt | Keys.P);
                 configs = new List<TimerConfig> { pez, Presets.Config(TimerPreset.Bakragore), Presets.Config(TimerPreset.Pilar) };
             }
+            foreach (var config in configs.Where(c => c.Name == "Pez")) config.Name = "Pescaditos";
             // Versión 1.3: un solo aspecto de overlay para todos (en ajustes.ini). Pasa a cada timer.
             foreach (var config in configs.Where(c => c.Overlay == null))
             {
