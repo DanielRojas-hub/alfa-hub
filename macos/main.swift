@@ -935,7 +935,7 @@ struct TopBar: View {
 }
 
 enum HubPage: String, CaseIterable, Identifiable {
-    case today, timers, audio, mirrors, outfit, shortcuts, sound
+    case today, timers, audio, mirrors, profiles, shortcuts, sound
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -943,7 +943,7 @@ enum HubPage: String, CaseIterable, Identifiable {
         case .timers: "Timers"
         case .audio: "Tibia Audio"
         case .mirrors: "Espejos"
-        case .outfit: "Outfit"
+        case .profiles: "Perfiles"
         case .shortcuts: "Atajos"
         case .sound: "Sonido"
         }
@@ -954,7 +954,7 @@ enum HubPage: String, CaseIterable, Identifiable {
         case .timers: "Cuentas atrás y rotaciones con aviso; cada uno con su contador sobre Tibia"
         case .audio: "Un aviso sonoro cuando una habilidad vuelve a estar lista"
         case .mirrors: "Copia las partes de Tibia que necesitas donde quieras"
-        case .outfit: "Tu personaje: ícono de la app, barra lateral y barra de menús"
+        case .profiles: "Tus chars, sus sets y su Bestiary; compártelos con quien quieras"
         case .shortcuts: "Controla los timers sin salir del juego"
         case .sound: "Volumen de los beeps y sonidos de aviso"
         }
@@ -965,7 +965,7 @@ enum HubPage: String, CaseIterable, Identifiable {
         case .timers: "timer"
         case .audio: "waveform"
         case .mirrors: "square.on.square.dashed"
-        case .outfit: "person.crop.square"
+        case .profiles: "person.2"
         case .shortcuts: "keyboard"
         case .sound: "speaker.wave.2"
         }
@@ -985,8 +985,8 @@ struct Sidebar: View {
             item(.timers, badge: model.runningCount)
             item(.audio)
             item(.mirrors)
+            item(.profiles)
             SectionLabel("Ajustes").padding(.top, 14)
-            item(.outfit)
             item(.shortcuts)
             item(.sound)
             Spacer()
@@ -1079,6 +1079,7 @@ struct HubView: View {
     @ObservedObject var model: HubModel
     let outfit: OutfitManager
     var today = TodayModel()
+    var profiles: ProfileStore
     var mirrorActions = MirrorActions()
     @AppStorage("hubPage") private var page: HubPage = .timers
     @State private var editing: UUID?
@@ -1127,8 +1128,8 @@ struct HubView: View {
             } else {
                 AudioPage(model: model) { editingAudio = $0 }
             }
-        case .outfit:
-            OutfitPage(outfit: outfit)
+        case .profiles:
+            ProfilesPage(store: profiles, outfit: outfit)
         case .shortcuts:
             PageContainer(page: .shortcuts) { ShortcutSettings(model: model) }
         case .sound:
@@ -1878,6 +1879,7 @@ enum HotKeys {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = HubModel()
     private let outfit = OutfitManager()
+    private let profiles = ProfileStore()
     private lazy var overlays = OverlayController(model: model)
     private lazy var keyListener = KeyListener(model: model)
     private var hub: NSWindow!
@@ -1988,7 +1990,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                     pickWindow: { [weak self] in self?.mirrorController.presentPicker() },
                                     reselect: { [weak self] id in self?.reselectMirror(id) })
         hub.contentViewController = NSHostingController(
-            rootView: HubView(model: model, outfit: outfit, mirrorActions: actions))
+            rootView: HubView(model: model, outfit: outfit, profiles: profiles, mirrorActions: actions))
         hub.setContentSize(NSSize(width: 900, height: min(640, (NSScreen.main?.visibleFrame.height ?? 800) - 60)))
         hub.contentMinSize = NSSize(width: 820, height: 600)
         if !hub.setFrameUsingName("AlfaHubWindow2") { hub.center() }
@@ -2001,6 +2003,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         OutfitIcons.apply(nil, statusItem: statusItem)
         outfit.onChange = { [weak self] sprite in OutfitIcons.apply(sprite, statusItem: self?.statusItem) }
         if !outfit.isOriginal { outfit.renderSaved() }  // por si terminó de dibujarse antes de conectar onChange
+        // El ícono lleva el outfit del char elegido en Perfiles ("Mostrar en el ícono de Alfa Hub").
+        profiles.onIconOutfitChange = { [weak self] config in self?.outfit.use(config) }
+        profiles.startAutoSync()
         let menu = NSMenu()
         menu.addItem(withTitle: "Abrir Alfa Hub", action: #selector(showHub), keyEquivalent: "").target = self
         menu.addItem(withTitle: "Iniciar / pausar el timer elegido", action: #selector(toggleTimer), keyEquivalent: "").target = self

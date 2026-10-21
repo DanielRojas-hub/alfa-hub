@@ -1,4 +1,5 @@
-// Página Outfit del hub y el personaje en uso (ícono de la app, barra lateral y barra de menús).
+// Editor del outfit de un char (Perfiles) y el personaje en uso (ícono de la app, barra lateral y barra
+// de menús): el del char que tiene "Mostrar en el ícono de Alfa Hub".
 
 import AppKit
 import SwiftUI
@@ -10,8 +11,8 @@ struct OutfitPreset: Codable, Identifiable, Hashable {
     var config: OutfitConfig
 }
 
-/// El personaje: lo que se edita en la página Outfit (borrador) y el que está en uso (guardado). El
-/// borrador solo pasa al ícono de la app, la barra lateral y la barra de menús con "Guardar cambios".
+/// El personaje: lo que se edita en el editor de outfit de un char (borrador) y el que está en uso en el
+/// ícono de la app, la barra lateral y la barra de menús (guardado).
 @MainActor
 final class OutfitManager: ObservableObject {
     @Published var draft: OutfitConfig {
@@ -58,6 +59,14 @@ final class OutfitManager: ObservableObject {
     }
 
     func discard() { draft = saved }
+
+    /// Pone un outfit en el ícono de la app, la barra lateral y la barra de menús.
+    func use(_ config: OutfitConfig) {
+        guard config != saved else { return }
+        saved = config
+        UserDefaults.standard.set(try? JSONEncoder().encode(saved), forKey: "outfit")
+        renderSaved()
+    }
 
     func addPreset(named name: String) {
         let title = name.trimmingCharacters(in: .whitespaces)
@@ -189,10 +198,13 @@ struct CharacterView: View {
     }
 }
 
-// MARK: - Página
+// MARK: - Editor del outfit de un char
 
-struct OutfitPage: View {
+struct OutfitEditor: View {
     @ObservedObject var outfit: OutfitManager
+    @ObservedObject var store: ProfileStore
+    @Binding var char: GameChar
+    let back: () -> Void
     @State private var outfitSearch = ""
     @State private var mountSearch = ""
     @State private var part = 0          // 0 cabeza, 1 primario, 2 secundario, 3 detalle
@@ -200,16 +212,19 @@ struct OutfitPage: View {
     @State private var presetName = ""
     private let catalog = OutfitCatalog.shared
 
+    private var charName: String { char.name.isEmpty ? "este char" : char.name }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PageHeader(title: HubPage.outfit.title, subtitle: HubPage.outfit.subtitle) {
-                HStack(spacing: 8) {
-                    if outfit.hasChanges {
-                        SmallButton(title: "Descartar", icon: "xmark") { outfit.discard() }
-                            .help("Volver al personaje guardado")
+            BackLink(title: "Volver a \(charName)", action: back)
+            PageHeader(title: "Outfit de \(charName)", subtitle: "Como en el Outfiter de TibiaWiki; los cambios se guardan solos") {
+                Toggle(isOn: Binding(get: { store.iconChar == char.id }, set: { store.iconChar = $0 ? char.id : nil })) {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text("Mostrar en el ícono de Alfa Hub").font(.system(size: 12, weight: .semibold))
+                        Text("Dock, barra de menús y barra lateral").font(.system(size: 10)).foregroundStyle(Color.muted)
                     }
-                    SaveButton(enabled: outfit.hasChanges) { outfit.save() }
                 }
+                .toggleStyle(.switch)
             }
             HStack(alignment: .top, spacing: 16) {
                 VStack(spacing: 10) {
@@ -226,7 +241,9 @@ struct OutfitPage: View {
             }
         }
         .padding(.horizontal, 28)
-        .padding(.top, 22)
+        .padding(.top, 18)
+        .onAppear { outfit.draft = char.outfit ?? .original }
+        .onChange(of: outfit.draft) { char.outfit = outfit.draft == .original ? nil : outfit.draft }
     }
 
     private func select(_ id: Int) {
@@ -335,7 +352,7 @@ struct OutfitPage: View {
 
             presetsCard
 
-            Text("Pulsa Guardar cambios para que tu personaje pase al ícono de Alfa Hub (en el Dock), a la barra lateral y a la barra de menús. Los sprites vienen del Outfiter de TibiaWiki: se descargan la primera vez que eliges cada outfit o montura y luego funcionan sin conexión. El ícono del Finder sigue siendo el original.")
+            Text("Con “Mostrar en el ícono de Alfa Hub” este personaje pasa al ícono de la app (en el Dock), a la barra lateral y a la barra de menús; solo un char a la vez. Los sprites vienen del Outfiter de TibiaWiki: se descargan la primera vez que eliges cada outfit o montura y luego funcionan sin conexión. El ícono del Finder sigue siendo el original.")
                 .font(.system(size: 11)).foregroundStyle(Color.muted)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -386,25 +403,6 @@ struct OutfitPage: View {
     private func addPreset() {
         outfit.addPreset(named: presetName)
         presetName = ""
-    }
-}
-
-/// Botón principal "Guardar cambios".
-struct SaveButton: View {
-    let enabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label("Guardar cambios", systemImage: "checkmark")
-                .font(.system(size: 13, weight: .bold))
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(Capsule().fill(enabled ? Color.accentBlue : Color.white.opacity(0.08)))
-                .foregroundStyle(enabled ? .white : Color.muted)
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
-        .help("Usa este personaje en el ícono de la app, la barra lateral y la barra de menús")
     }
 }
 

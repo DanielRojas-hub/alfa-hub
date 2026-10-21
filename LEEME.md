@@ -18,15 +18,48 @@ Timers para Tibia con overlay (basado en los timers de cueistoreservices.com.br/
 - **Overlay**: el contador de cada timer en marcha, encima de Tibia y únicamente mientras Tibia
   está al frente. Los clics lo atraviesan y llegan al juego. "Desbloquear para moverlos" (página
   Timers) los muestra todos para arrastrar cada uno a su sitio.
-- **Outfit**: eliges tu personaje como en el [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter)
+- **Outfit** (en Windows; en macOS se edita en cada char de **Perfiles**): eliges tu personaje como en el [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter)
   (outfit, hombre o mujer, addons, los cuatro colores del outfit y de la montura, orientación, montura
   y caminata animada). Con **Guardar cambios** pasa al ícono de la app (Dock o barra de tareas), a la
   barra lateral y a la barra de menús o bandeja; en **Mis outfits** guardas tus combinaciones para
   volver a ellas con un clic. Los sprites se descargan de la
   API de TibiaWiki la primera vez que eliges cada outfit o montura y quedan en caché. El ícono del
   archivo (.app / .exe) sigue siendo el original.
+- **Perfiles** (por ahora solo en macOS): cada perfil junta varios chars. Al escribir el nombre de un
+  char se **sincroniza con tibia.com** (TibiaData) y se vuelve a sincronizar al abrirlo si pasó una hora.
+  Cada char tiene:
+  - su **outfit**, que se edita como en el [Outfiter de TibiaWiki](https://tibia.fandom.com/wiki/Outfiter)
+    (outfit, hombre o mujer, addons, colores, montura, caminata y *Mis outfits*). Con **Mostrar en el
+    ícono de Alfa Hub** ese char pasa al ícono de la app (Dock o barra de tareas), a la barra lateral y a
+    la barra de menús o bandeja;
+  - **General**, al estilo de [guildstats.eu](https://guildstats.eu): nivel con el progreso al siguiente y
+    el puesto en su mundo (highscores), HP, maná, capacidad y rango de party (calculados), cuenta, gremio,
+    casas, muertes recientes y los otros chars de la cuenta (se añaden al perfil con un clic);
+  - **Experiencia**, también como guildstats: mejor día, media diaria, puesto, gráfico de experiencia o
+    nivel, experiencia ganada cada día, predicción de cuándo llegará a un nivel y la tabla por día. Alfa
+    Hub guarda el nivel y la experiencia de cada char sincronizado una vez por día de Tibia (después del
+    server save), aunque no lo abras; el historial empieza el día que se sincroniza por primera vez (los
+    días anteriores no se pueden traer);
+  - **Bestiary** completo (833 criaturas) en cuadrícula por clase, como el
+    [Bestiary Tracker de tibiaroute](https://tibiaroute.com/bestiary-tracker): resumen, filtros de clase,
+    dificultad y estado, orden por clase, nombre, charm points, progreso, HP o kills que faltan, y la ficha
+    de cada criatura (etapas, kills, debilidades y dónde vive); y recomendaciones **Single** (criaturas que
+    convienen solo según el nivel) y **Group** (zonas donde terminar varias a la vez);
+  - **Charms**, como el [Charm Optimizer de hakaimarket](https://hakaimarket.com/calculators?tool=charmOptimizer):
+    primero el optimizador, que con los charms que tiene, las criaturas de la hunt (una a una o toda una
+    zona) y cuántas mata por hora reparte los charms de daño (elementales, Overpower y Overflux) con las
+    fórmulas de TibiaWiki; y en *Mis charms*, los charm points del Bestiary y gastados y el nivel de cada
+    charm;
+  - **Inventario** en cuadrículas como en Tibia: el equipo en sus huecos y un contenedor por sitio
+    (mochila, depot, casa, stash, otro char u otro sitio, agrupado por ciudad o detalle), con la imagen de
+    TibiaWiki de cada item, cantidad y un buscador para saber en qué char y dónde está un item.
+  Un perfil se **comparte** con un código de texto (Copiar código → pegarlo en un chat) o un archivo
+  `.alfahub`; quien lo recibe lo abre en Perfiles → Importar, y si importa una versión nueva del mismo
+  perfil se actualiza su copia. Las listas de criaturas e items salen de TibiaWiki con
+  `assets/make_profiles_data.py` (`bestiary.json`, `items.json`, `charms.json`); vienen dentro de la app y
+  no se actualizan solas: hay que volver a ejecutar el script cuando TibiaWiki añade criaturas.
 - Sin límite de timers, habilidades ni espejos.
-- **Hub**: barra lateral con Hoy, Timers, Tibia Audio, Espejos, Outfit, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
+- **Hub**: barra lateral con Hoy, Timers, Tibia Audio, Espejos, Perfiles, Atajos y Sonido (ver [docs/DISENO-REFERENCIA.md](docs/DISENO-REFERENCIA.md)).
 
 ## Windows
 
